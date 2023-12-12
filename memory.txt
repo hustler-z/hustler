@@ -1,8 +1,14 @@
 +- - - - - - - - - - - - - - - - - - hustler@kwork -- - - - - - - - - - - - - - - - - -+
-Boot Time Memory Management
+
+
+
+
+
 
 
 ----------------------------------------------------------------------------------------
+- HUGE PAGES -
+
 To avoid spending precious processor cycles on the address translation, CPUs maintain a
 cache of such translations called Translation Lookaside Buffer (or TLB).
 
@@ -154,7 +160,7 @@ VMALLOC_SPACE
 + - - - - + - VMALLOC_END
 
 ----------------------------------------------------------------------------------------
-- PHYSICAL MEMORY ALLOCATORS -
+- BOOTTIME MEMORY MANAGEMENT -
 
 start_kernel() @init/main.c
       |
@@ -203,6 +209,9 @@ start_kernel() @init/main.c
                       |
                       +- dma_contiguous_reserve()
 
+----------------------------------------------------------------------------------------
+- BUDDY SYSTEM -
+
 (1) CONFIG_NUMA=y
 
 alloc_pages() 
@@ -243,7 +252,7 @@ struct free_area
                                       | MIGRATE_ISOLATE     |
                                       +---------------------+
 
-__alloc_pages()
+__alloc_pages() with struct alloc_context ac instantiated
        |
        +- prepare_alloc_pages()
        |           |
@@ -382,6 +391,106 @@ __alloc_pages()
 ----------------------------------------------------------------------------------------
 - Direct Reclaim -
 
+try_to_free_pages() with struct scan_control sc initialized
+        |
+        +- do_try_to_free_pages() as the main entry point to direct page reclaim
+                     |
+                     +- sc->proactive --------+
+                             |yes             |no
+                        shrink_zones()        +- vmpressure_prio()
+                             |
+                             +- shrink_node()
+                                      |
+                                      +- prepare_scan_count()
+                                      |
+                                      +- shrink_node_memcgs()
+                                                  |
+                                                  +- mem_cgroup_iter() iterate the memcgs
+                                                  |                                  |
+                                                  +- mem_cgroup_lruvec()             |
+                                                  |                                  |
+                                                  +- shrink_lruvec()                 |
+                                                  |                                  |
+                                                  +- shrink_slab()                   |
+                                                  |                                  |
+                                                  + sc->proactive                    |
+                                                         |no                         |
+                                                     vmpressure() ------------------>+
+
+@include/linux/mmzone.h
+
+typedef struct pglist_data {
+    ...
+    struct lruvec __lruvec; ---------+
+    ...                              |
+} pg_data_t;                         |
+                                      \
+                                       struct lruvec {
+                                            struct list_head lists[NR_LRU_LISTS];
+                                            ...                         |
+                                       };                               |
+                                                                        |
+                                                                       /
+                                                            +-------------------+
+                                                            | LRU_INACTIVE_ANON |
+                                                            +-------------------+
+                                                            | LRU_ACTIVE_ANON   |
+                                                            +-------------------+
+                                                            | LRU_INACTIVE_FILE |
+                                                            +-------------------+
+                                                            | LRU_ACTIVE_FILE   |
+                                                            +-------------------+
+                                                            | LRU_UNEVICTABLE   |
+                                                            +-------------------+
+
+mem_cgroup_lruvec() to get the LRU list vector for a memcg & node
+        |
+        +- a) (struct pglist_data) pgdat->__lruvec
+           b) (struct mem_cgroup_per_node) mz->lruvec
+
+shrink_lruvec()
+      |
+      +- shrink_list()
+               |
+               + is_active_lru() ----------------------------------------------------+
+                       |no                                                           |
+                       +- shrink_inactive_list()                   shrink_active_list()
+                             |
+                             +- Isolate page from the lruvec
+                             |  to fill in @dst list by
+                                nr_to_scan times via
+                                isolate_lru_folios()
+                                         |
+                                         +-
+
+                             |
+                             +- shrink_folio_list()
+                             |           |
+                                         +-
+
+                             |
+                             +- Move folios from private @list
+                             |  to appropriate LRU list via
+                                move_folios_to_lru()
+                                         |
+                                         +-
+shrink_slab()
+      |
+      +- shrink_slab_memcg()
+      |
+
+      |
+      +- go through shrinker in shrinker list
+         do_shrink_slab()
+
+----------------------------------------------------------------------------------------
+- Control Group -
+
+cgroup is a mechanism to organize proccesses hierarchically and distribute system resources
+along the hierarchy in a controlled and configurable manner.
+
+cgroups form a tree structure and every process in the system belongs to one and only one
+cgroup.
 
 
 ----------------------------------------------------------------------------------------
@@ -408,6 +517,64 @@ After Compaction:
 | | | | | | |x|x|x|x|x| 
 +---------------------+
 
+try_to_compact_pages() for high-order allocation
+        |
+        +- compact each zone in the zonelist
+                          |
+                          +- compact_zone_order() with struct compact_control cc initialized
+                                      |
+                                      +- compact_zone()
+                                               |
+                                               +- initialize two lists:
+                                                  a) cc->freepages
+                                                  b) cc->migratepages
+                                               +- compaction_suitable() check if should
+                                                  do compaction
+                                                           |
+                                                           +- __compaction_suitable()
+                                                           |    |
+                                                          [0]   +- check if watermarks for
+                                                                   high-order allocation
+                                                                   are met via
+                                                                   zone_watermark_ok()
+                                                                            |
+                                                                   Possible outcomes
+                                                                   a) COMPACT_CONTINUE
+                                                                   b) COMPACT_SKIPPED
+                                                                   c) COMPACT_SUCCESS
+                                                          [0]
+                                                           |
+                                                           +- fragmentation_index()
+                                                              | @mm/vmstat.c
+                                                              +- __fragmentation_index()
+                                                                           |
+        +<----------------------------------------------------+- Possible outcomes
+        |                                                        a) 0 => lack of memory
+        |                                                        b) 1 => fragmentation
+        |
+        +- setup for where to start the scanners
+        |
+        +- loop to do compaction
+                          |
+                          +- isolate_migratepages()
+                          |           |
+                         [1]          +- Briefly search the free lists for a migration
+                                         source that already has some free pages to
+                                         reduce the number of pages that need migration
+                                         before a pageblock is free.
+                                                   |
+                                         fast_find_migrateblock()
+
+                                      |
+                         [1]<---------+- a) ISOLATE_ABORT
+                          |
+                          +- putback_movable_pages() [cc->migratepages = 0]
+
+                                         b) ISOLATE_NONE
+                                         c) ISOLATE_SUCCESS
+                          |
+                          +- migrate_pages() @mm/migrate.c
+
 ----------------------------------------------------------------------------------------
 - Page Faults -
 
@@ -429,7 +596,7 @@ struct vm_area_struct {
 };                      +----> vm_fault_t (*fault)(struct vm_fault *vmf);
                         |
                         +----> vm_fault_t (*huge_fault)(struct vm_fault *vmf,
-                                                        enum page_entry_size pe_size);
+                                                enum page_entry_size pe_size);
 
 @arch/arm64/mm/fault.c
 
@@ -491,11 +658,22 @@ __do_fault()
 ----------------------------------------------------------------------------------------
 - PAGE MIGRATION -
 
+Migrate the pages specified in a list, to the free pages supplied as the target for the
+page migration.
 
+migrate_pages() @mm/migrate.c
 
 
 
 
 ----------------------------------------------------------------------------------------
+- SLAB -
+
+
+
+
+
+
+
 
 +- - - - - - - - - - - - - - - - - - hustler@kwork -- - - - - - - - - - - - - - - - - -+
