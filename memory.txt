@@ -1,0 +1,501 @@
++- - - - - - - - - - - - - - - - - - hustler@kwork -- - - - - - - - - - - - - - - - - -+
+Boot Time Memory Management
+
+
+----------------------------------------------------------------------------------------
+To avoid spending precious processor cycles on the address translation, CPUs maintain a
+cache of such translations called Translation Lookaside Buffer (or TLB).
+
+Huge Pages significantly reduces pressure on TLB, improves TLB hit-rate and thus improves
+overall system performance.
+
+1) HugeTLB filesystem (hugetlbfs), a pseudo filesystem that uses RAM as its backing store.
+2) Transparent HugePages (THP)
+
+----------------------------------------------------------------------------------------
+- VIRTUALLAY CONTIGUOUS MEMORY -
+
+struct vm_struct - kernel vmalloc area descriptor
+
+struct vmap_block -> va
+                      |
+             struct vmap_area
+             [va_start:va_end]
+
+vmap_area_list
+purge_vmap_area_list
+free_vmap_area_list
+
+vmap_area_root - 'busy' vmap area rb-tree root
+purge_vmap_area_root - purge vmap area rb-tree root
+free_vmap_area_root - 'free' vmap area rb-tree root 
+
+@mm/vmalloc.c
+
+vmalloc() - Allocate virtually contiguous memory with given size
+   |
+   |          +<<- [3]
+   |          |
+   +- __vmalloc_node()
+              |
+              +- __vmalloc_node_range()
+                            |
+                            +- __get_vm_area_node()
+                           [2]          |
+                                        |- ...
+                                        | 
+                                        +- alloc_vmap_area()
+                                       [1]         |
+                                           Allocate a region of KVA of the
+                                           specified size and alignment,
+                                           within [vstart, vend]
+                                                   |
+                        free_vmap_area_root/list ->+- __alloc_vmap_area()
+                                  |                          |
+                                  +------------------------>>+- find_vmap_lowest_match()
+                                                             |             |
+                                                            [5]            |
+                                                                Find the first free block
+                                                                (lowest start address) in
+                                                                the rb-tree.
+
+                                                            [5]
+                                                             |
+                                                             +- adjust_va_to_fit_type()
+                                                                         |
+                                                              Update the free vmap_area
+
+                                       [1]
+                                        |                   
+                  vmap_area_root/list ->+- insert_vmap_area()
+                          |                         |
+                          |                         |- find_va_links()
+                          |                         |
+                          +----------------------->>+- link_va()
+
+  [2]
+   |
+   +- __vmalloc_area_node() - Allocate physical pages and map them into vmalloc space.                        
+                |
+                +- (array_size > PAGE_SIZE) ->> [3]
+               [7]           |no 
+                             +- kmalloc_node() @include/linux/slab.h
+                                      |
+                                      +- __kmalloc_node()
+                                                 |
+                                                 +- __do_malloc_node()
+                                                    @mm/slab_common.c
+               [7]
+                |
+                +- vm_area_alloc_pages()
+               [4]          |
+                            +- When order=0, use bulk allocator
+                           [6] 1) alloc_pages_bulk_array_mempolicy() @mm/mempolicy.c
+                                                |
+                                                +- consider mempolicy
+                                                           |
+                                                           +- __alloc_pages_bulk()
+                                                              @mm/page_alloc.c
+                                                                     |
+                               2) alloc_pages_bulk_array_node()      |
+                                               |                     |
+                                               +- consider node id   |
+                                                          |          | 
+                                                          +----------+
+                           [6]
+                            |
+                            +- When order>0, or bulk allocator fails.
+                               1) alloc_pages()
+                               2) alloc_pages_node()
+                               then split_page()
+                                         |
+                                         +- Takes a non-compound higher-order page, 
+                                            and splits it into n (1 << order) sub-
+                                            pages: page[0..n].
+
+               [4]
+                |
+                +- map pages to a kernel virtual address
+                   vmap_pages_range() 
+                           |
+                           +- vmap_pages_range_noflush()
+                                         |
+                                         +- __vmap_pages_range_noflush()
+                                                        |
+                                                        +- vmap_range_noflush()
+                                                                   |
+                                                      To build page table [layout]
+                                                                   |
+            +-------------+-------------+------------+-------------+-------------+ 
+            |     PGD     |     P4D     |     PUD    |     PMD     |     PTE     |
+            +-------------+-------------+------------+-------------+-------------+
+                   |             |             |            |             |
+                   |             |             |            |             |
+                   +- - - - - - >|             |            |             |
+             vmap_p4d_range      |             |            |             |
+                                 +- - - - - - >|            |             |
+                           vmap_pud_range      |            |             |
+                                               +- - - - - ->|             |
+                                         vmap_pmd_range     |             |
+                                                            +- - - - - - >|
+                                                      vmap_pte_range      |            
+                                                                        [end]
+                                                                              
+VMALLOC_SPACE
+
++ - - - - + - VMALLOC_START
+|         |
+|         |
+.         .
+.         .
+
+|         |
+|         |
++ - - - - + - VMALLOC_END
+
+----------------------------------------------------------------------------------------
+- PHYSICAL MEMORY ALLOCATORS -
+
+start_kernel() @init/main.c
+      |
+      +- page_address_init() @mm/highmem.c
+      |
+      +- setup_arch() @arch/arm64/kernel/setup.c
+              |
+              +- paging_init() @arch/arm64/mm/mmu.c
+              |       |
+             [0]      +- map_kernel
+                      |
+                      +- map_mem
+
+             [0]
+              |
+              +- bootmem_init() @arch/arm64/mm/init.c
+                      |
+                      +- early_memtest()
+                      |
+                      +- arch_numa_init()
+                      |
+                      +- arm64_hugetlb_cma_reserve()
+                      |  Reserve CMA areas for the largest supported gigantic huge page
+                      |  when requested.
+                      |
+                      +- dma_pernuma_cma_reserve()
+                      |
+                      +- kvm_hyp_reserve()
+                      |
+                      +- sparse_init()
+                      |
+                      +- zone_sizes_init()
+                      |         |
+                     [1]        +- free_area_init() @mm/page_alloc.c
+                                          |
+                                          +- free_area_init_node()
+                                                [To each node]
+                                                      |
+                                                      +- free_area_init_core()
+                                                             |
+                                                             +- pgdat_init_internals()
+                                                             |
+                                                             +- zone_init_internals()
+                                                                   [To each zone]
+                     [1]              
+                      |
+                      +- dma_contiguous_reserve()
+
+(1) CONFIG_NUMA=y
+
+alloc_pages() 
+     |
+     +- 1) pol->mode == MPOL_INTERLEAVE
+     |                |
+     |     alloc_page_interleave()
+     |
+     +- 2) pol->mode == MPOL_PREFERRED_MANY
+     |                |
+     |     alloc_pages_preferred_many()
+     |
+     +- 3) __alloc_pages()
+
+(2) CONFIG_NUMA=n
+
+alloc_pages()
+     |
+     +- alloc_pages_node()
+                |
+                +- __alloc_pages_node()
+                             |
+                             +- __alloc_pages()
+
+$ cat /proc/pagetypeinfo
+
+struct free_area
+
++------------+                        +---------------------+
+| order = 0  | -> struct free_list -> | MIGRATE_UNMOVABLE   |
++------------+                        +---------------------+
+|            |                        | MIGRATE_MOVABLE     |
+:            :                        +---------------------+
+|            |                        | MIGRATE_RECLAIMABLE |
++------------+                        +---------------------+
+| order = 11 |                        | MIGRATE_HIGHATOMIC  |
++------------+                        +---------------------+
+                                      | MIGRATE_ISOLATE     |
+                                      +---------------------+
+
+__alloc_pages()
+       |
+       +- prepare_alloc_pages()
+       |           |
+      [2]          +- Initialize the alloc_context struture
+
+      [2]    
+       |
+       +- get_page_from_freelist()
+       |           |
+      [3]          +- 1) scan zonelist, looking for a zone with enough free
+                         a. Check the watermark via zone_watermark_fast()
+                            if false, try to reclaim via node_reclaim() when needed;
+                            if true, try to allocate from current zone;
+                         b. Allocate pages from given zone via rmqueue()
+                               |
+                           [x]-+- When order=0, allocate via rmqueue_pcplist()
+                                          |
+                                          +-
+
+                           [x]-+- When order>0, allocate via rmqueue_buddy()
+                                          |
+                                          +- Try __rmqueue_smallest() first
+                                          |           |
+                                         [4]          +- Go through the free lists for
+                                                         the given migratetype and remove
+                                                         the smallest available page from
+                                                         the freelist
+                                                         a) get_page_from_free_area()
+                                                         b) del_page_from_free_list()
+                                                         c) if current order doesn't meet,
+                                                         go to higher order, if available,
+                                                         split them into half, put a half
+                                                         back to lower order of free area,
+                                                         another half as requested.
+                                                         - expand()
+                                         [4]
+                                          |
+                                          +- if fails, do __rmqueue()
+                                                               |
+                                                               +- CONFIG_CMA=y
+                                                                  __rmqueue_cma_fallback()
+                                                               
+                                                               |
+                                                               +- Try __rmqueue_smallest()
+                                                                  again. If fails, then do
+                                                                  1) __rmqueue_cma_fallback()
+                                                                  2) __rmqueue_fallback()
+                                                                             |
+                             Try finding a free buddy page on the fallback list and put it
+                             on the free list of requested migratetype.
+                             a) find_suitable_fallback() to find largest/smallest available
+                                free page in other list.
+                             Note: fallback list can be (one for current, other two fallback)
+                             MIGRATE_UNMOVABLE, MIGRATE_MOVABLE, MIGRATE_RECLAIMABLE
+                             b) get_page_from_free_area()
+                             c) steal_suitable_fallback()
+                                           |
+                                           +- when whole_block=true, do move_freepages_block()
+                                                                                 |
+                                    Move the free pages in a range to the freelist tail of the
+                                    requested type via move_freepages()
+                                                              |
+                                            loop to move_to_free_list()
+                            
+                           [x]-+- Test on zone->flags - ZONE_BOOSTED_WATERMARK
+                                                                   |
+                                                                   +- wakeup_kswapd()
+
+
+      [3]
+       |
+       +- __alloc_pages_slowpath()
+                   |
+                   +- try get_page_from_freelist() <--------------+
+                   |  Since alloc_flags changed                   |
+                   |                                             [5]
+                   +- __alloc_pages_direct_compact()
+                   |  If costly order
+                   |
+             +---->+- alloc_flags & ALLOC_KSWAPD
+             |     |  Then wake_all_kswapds()
+            [6]    |              |
+                   |              +- wakeup_kswapd()
+                   |                 on each zone
+                   |
+                   +- try get_page_from_freelist()
+                   |  Since adjusted zonelist and alloc_flags
+                   |
+                   +- __alloc_pages_direct_reclaim()
+                   |               |
+                  [7]              +- __perform_reclaim()
+                                   |           |
+                                               +- try_to_free_pages() @mm/vmscan.c
+                                   |
+                                   +- get_page_from_freelist()
+                                   |
+                                   +- drain_all_pages()
+                                      When above fails, try to spill all the per-cpu
+                                      pages from all CPUs back into the buddy allocator
+                                             |
+                                             +- __drain_all_pages()
+                                                Optimized to only execute on CPUs where
+                                                pcplists are not empty, with these CPUs
+                                                |
+                                                +- drain_pages_zone()
+                                                           |
+                                                           +- free_pcppages_bulk()
+
+                  [7]
+                   |
+                   +- __alloc_pages_direct_compact()
+                   |                |
+                  [8]               +- try_to_compact_pages() @mm/compaction.c
+                                    +- get_page_from_freelist()
+                                    +- compaction_defer_reset()
+                                       Update defer tracking counters after successful
+                                       compaction of given order.
+            [6]   [8]
+             |     |
+             +<----+- should_reclaim_retry()                
+             |     |                                               
+             +<----+- should_compact_retry()                      
+                   |                                                
+                   +- check_retry_cpuset()                       [5]
+                      OR                                          |
+                      check_retry_zonelist() -------------------->+
+                   
+
+                   |
+                   +- __alloc_pages_may_oom()
+
+                   |
+                   +- When hit nopage
+                      __alloc_pages_cpuset_fallback()
+                      
+----------------------------------------------------------------------------------------
+- Direct Reclaim -
+
+
+
+----------------------------------------------------------------------------------------
+- Page Swap -
+
+
+
+----------------------------------------------------------------------------------------
+- MEMORY COMPACTION -
+
+As the system runs, tasks allocate and free the memory and it becomes fragmented. memory
+compaction addresses the fragmentation issues. This mechanism moves occupied pages from
+the lower part of a memory to free pages in the upper part of the zone.
+
+Before Compaction:
+
++---------------------+
+|x| | |x|x| | | |x|x| | 
++---------------------+
+
+After Compaction:
+
++---------------------+
+| | | | | | |x|x|x|x|x| 
++---------------------+
+
+----------------------------------------------------------------------------------------
+- Page Faults -
+
+@include/linux/mm.h
+
+vm_fault is filled by the pagefault handler and passed to the vma's fault callback function.
+
+A VM area is any part of the process virtual memory space that has a special rule for page-
+fault handlers.
+
+@include/linux/mm_types.h
+
+struct vm_area_struct {
+    ...
+    const struct vm_operations_struct *vm_ops;
+    ...                 |
+                        +----> ...
+                        |
+};                      +----> vm_fault_t (*fault)(struct vm_fault *vmf);
+                        |
+                        +----> vm_fault_t (*huge_fault)(struct vm_fault *vmf,
+                                                        enum page_entry_size pe_size);
+
+@arch/arm64/mm/fault.c
+
+static const struct fault_info fault_info[] = {
+    ...
+    { do_translation_fault, SIGSEGV, SEGV_MAPERR, "level 0 translation fault" },
+    ...                                               [0, 3]
+    { do_page_fault, SIGSEGV, SEGV_ACCERR, "level 1 access flag fault" },
+    ...                                        [1, 3]
+    { do_page_fault, SIGSEGV, SEGV_ACCERR, "level 1 permission fault" },
+    ...                                        [1, 3]
+};
+
+do_translation_fault() @arch/arm64/mm/fault.c
+       |
+       +- do_page_fault()
+                |
+                +- __do_page_fault()
+                           |
+                           +- handle_mm_fault()
+                                      |
+                                      +- is_vm_hugetlb_page() ------->+
+                                                  |                   |
+                                           hugetlb_fault()            |
+                                                             __handle_mm_fault()
+                                                             |
+                                                             :
+                                                             |
+                                                             +- handle_pte_fault()
+                               vmf->pte                           |     |
+    +-------------------------------------------------------------+     | no vmf->pte
+    |                                                                   |
+do_fault() @mm/memory.c                                         vma_is_anonymous()
+    |                                                           |yes            |          
+    +- When vma->vm_ops->fault                       do_anonymous_page()        |no
+                  |                                                             |
+       vmf->flags & FAULT_FLAG_WRITE --+                                 pte_present()
+                  |no                  |                                 |no        |
+            do_read_fault()            |yes                       do_swap_page()    |yes  
+                  |                    |                                            | 
+                 [a]        vma->vm_flags & VM_SHARED --+                    pte_protnone()
+                                       |no              |                    |yes        |
+                                 do_cow_fault()         |yes           do_numa_page()    |no           
+                                       |                |                                |
+                                      [b]       do_shared_fault()                        :
+                                                        |                                |
+                                                       [c]               update_mmu_cache()
+
+Above all follows:
+
+__do_fault()
+     |
+     +- When no vmf->prealloc_pte
+     |            |
+     |            +- pte_alloc_one(vma->vm_mm)
+     |
+     +- vma->vm_ops->fault()
+
+----------------------------------------------------------------------------------------
+- PAGE MIGRATION -
+
+
+
+
+
+
+----------------------------------------------------------------------------------------
+
++- - - - - - - - - - - - - - - - - - hustler@kwork -- - - - - - - - - - - - - - - - - -+
