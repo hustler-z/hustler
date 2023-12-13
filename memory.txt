@@ -1,10 +1,41 @@
 +- - - - - - - - - - - - - - - - - - hustler@kwork -- - - - - - - - - - - - - - - - - -+
 
+Memory Layout on AArch64 Linux
 
+    +----------------------------------------------------------------------------------+
+    | Start               End                      Size      Use                       |
+    | ---------------------------------------------------------------------------------+
+    | 0000000000000000    0000ffffffffffff         256TB     user                      |
+    | ffff000000000000    ffff7fffffffffff         128TB     kernel logical memory map |
+    |[ffff600000000000    ffff7fffffffffff]         32TB     [kasan shadow region]     |
+    | ffff800000000000    ffff800007ffffff         128MB     modules                   |
+    | ffff800008000000    fffffbffefffffff         124TB     vmalloc                   |
+    | fffffbfff0000000    fffffbfffdffffff         224MB     fixed mappings (top down) |
+    | fffffbfffe000000    fffffbfffe7fffff           8MB     [guard region]            |
+    | fffffbfffe800000    fffffbffff7fffff          16MB     PCI I/O space             |
+    | fffffbffff800000    fffffbffffffffff           8MB     [guard region]            |
+    | fffffc0000000000    fffffdffffffffff           2TB     vmemmap                   |
+    | fffffe0000000000    ffffffffffffffff           2TB     [guard region]            |
+    +----------------------------------------------------------------------------------+
 
+Translation table lookup with 4KB pages
 
+    +--------+--------+--------+--------+--------+--------+--------+--------+
+    |63    56|55    48|47    40|39    32|31    24|23    16|15     8|7      0|
+    +--------+--------+--------+--------+--------+--------+--------+--------+
+     |                 |         |         |         |         |
+     |                 |         |         |         |         v
+     |                 |         |         |         |   [11:0 ] in-page offset
+     |                 |         |         |         +-> [20:12] L3 index
+     |                 |         |         +-----------> [29:21] L2 index
+     |                 |         +---------------------> [38:30] L1 index
+     |                 +-------------------------------> [47:39] L0 index
+     +-------------------------------------------------> [63]    TTBR0/1
 
-
+ARMv8.5 based processors introduce the Memory Tagging Extension (MTE) feature. MTE is
+built on top of the ARMv8.0 virtual address tagging TBI (Top Byte Ignore) feature and
+allows software to access a 4-bit allocation tag for each 16-byte granule in the
+physical address space.
 
 ----------------------------------------------------------------------------------------
 - HUGE PAGES -
@@ -20,6 +51,14 @@ overall system performance.
 
 ----------------------------------------------------------------------------------------
 - VIRTUALLAY CONTIGUOUS MEMORY -
+
+Tips:
+
+@include/linux/mm.h
+
+0) page_to_virt()
+1) vmalloc_to_page()
+2) vmalloc_to_pfn()
 
 struct vm_struct - kernel vmalloc area descriptor
 
@@ -146,7 +185,7 @@ vmalloc() - Allocate virtually contiguous memory with given size
                                                             +- - - - - - >|
                                                       vmap_pte_range      |            
                                                                         [end]
-                                                                              
+
 VMALLOC_SPACE
 
 + - - - - + - VMALLOC_START
@@ -158,6 +197,36 @@ VMALLOC_SPACE
 |         |
 |         |
 + - - - - + - VMALLOC_END
+
+----------------------------------------------------------------------------------------
+- ADDRESS TRANSLATION -
+
+a) Address Space Identifiers (ASIDs)
+            |
+            +- Tagging translations with the owning process
+
+TLB entries for multiple processes are allowed to coexist in the cache, and the ASID
+determines which entry to use.
+
+b) Virtual Machine Identifiers (VMIDs)
+            |
+            +- Tagging translations with the owning VM
+
+VMIDs allow translations from different VMs to coexist in the cache.
+
+MMU - Memory Management Unit
+
+* The table walk unit - contains logic that reads the translation tables from memory.
+* Translation Lookaside Buffers (TLBs) - cache recently used translations.
+
+Translation Table Base Registers
+
+ttbr0_el1
+ttbr1_el1
+   |
+   +- Holds the base address of the translation table for the initial lookup for stage 1
+      of the translation of an address from the higher VA range in the EL1&0 stage 1
+      translation regime, and other information for this translation regime.
 
 ----------------------------------------------------------------------------------------
 - BOOTTIME MEMORY MANAGEMENT -
@@ -309,14 +378,14 @@ __alloc_pages() with struct alloc_context ac instantiated
                              MIGRATE_UNMOVABLE, MIGRATE_MOVABLE, MIGRATE_RECLAIMABLE
                              b) get_page_from_free_area()
                              c) steal_suitable_fallback()
-                                           |
-                                           +- when whole_block=true, do move_freepages_block()
+                                        |
+                                        +- when whole_block=true, do move_freepages_block()
                                                                                  |
-                                    Move the free pages in a range to the freelist tail of the
-                                    requested type via move_freepages()
-                                                              |
-                                            loop to move_to_free_list()
-                            
+                                       Move the free pages in a range to the freelist tail
+                                       of the requested type via move_freepages()
+                                                                     |
+                                                      loop to move_to_free_list()
+
                            [x]-+- Test on zone->flags - ZONE_BOOSTED_WATERMARK
                                                                    |
                                                                    +- wakeup_kswapd()
@@ -372,14 +441,14 @@ __alloc_pages() with struct alloc_context ac instantiated
                                        compaction of given order.
             [6]   [8]
              |     |
-             +<----+- should_reclaim_retry()                
+             +<----+- should_reclaim_retry()
              |     |                                               
-             +<----+- should_compact_retry()                      
+             +<----+- should_compact_retry()
                    |                                                
                    +- check_retry_cpuset()                       [5]
                       OR                                          |
                       check_retry_zonelist() -------------------->+
-                   
+ 
 
                    |
                    +- __alloc_pages_may_oom()
@@ -413,7 +482,7 @@ try_to_free_pages() with struct scan_control sc initialized
                                                   |                                  |
                                                   +- shrink_slab()                   |
                                                   |                                  |
-                                                  + sc->proactive                    |
+                                                  +- sc->proactive                   |
                                                          |no                         |
                                                      vmpressure() ------------------>+
 
@@ -424,13 +493,13 @@ typedef struct pglist_data {
     struct lruvec __lruvec; ---------+
     ...                              |
 } pg_data_t;                         |
-                                      \
+                                     \
                                        struct lruvec {
                                             struct list_head lists[NR_LRU_LISTS];
                                             ...                         |
                                        };                               |
                                                                         |
-                                                                       /
+                                                                        /
                                                             +-------------------+
                                                             | LRU_INACTIVE_ANON |
                                                             +-------------------+
@@ -452,9 +521,9 @@ shrink_lruvec()
       |
       +- shrink_list()
                |
-               + is_active_lru() ----------------------------------------------------+
+               +- is_active_lru() ---------------------------------------------------+
                        |no                                                           |
-                       +- shrink_inactive_list()                   shrink_active_list()
+                       +- shrink_inactive_list()                  shrink_active_list()
                              |
                              +- Isolate page from the lruvec
                              |  to fill in @dst list by
@@ -496,8 +565,52 @@ cgroup.
 ----------------------------------------------------------------------------------------
 - Page Swap -
 
+wakeup_kswapd()
+      |
+      +- Check if pgdat->kswapd_wait is active ---> [END]
+                         |
+                         |yes
+                         |
+                         +- a) When kswapd fails over MAX_RECLAIM_RETRIES  ---->+
+                            b) When have enough free memory available, but      |
+                               too fragmented for high-order allocations.  ---->+
+                                |                                               |
+                                +- pgdat_balanced()                             |
+                                                                                |
+                                                            Not __GFP_DIRECT_RECLAIM
+                                                                                |
+                                                                                v
+                                                                  wakeup_kcompactd()
 
+                         |
+                         +- wake_up_interruptible(&pgdat->kswapd_wait)
+                                                               |
+             +<------------------------------------------------+
+             |
+The Background Pageout Daemon
+             |
+             +- kswapd()
+                   |
+                   +- [Infinite Loop]
+                             |
+                             +- kswapd_try_to_sleep()
+                             |
+                             +- For kswapd, it will reclaim pages across a node
+                                from zones that are eligible for use by the caller
+                                until at least one zone is balanced.
+                                      |
+                                      v
+                                balance_pgdat() with struct scan_control sc initialized
+                                      |
+                    +---------------->+
+                    |                 |
+                    |                 +- pgdat_balanced()
+                    |                 |
+                    |                 +- kswapd_shrink_node()
+                    |  sc.priority>=1 |
+                    +<----------------+
 
+$ sar -B 1
 ----------------------------------------------------------------------------------------
 - MEMORY COMPACTION -
 
@@ -508,20 +621,20 @@ the lower part of a memory to free pages in the upper part of the zone.
 Before Compaction:
 
 +---------------------+
-|x| | |x|x| | | |x|x| | 
+|x| | |x|x| | | |x|x| |
 +---------------------+
 
 After Compaction:
 
 +---------------------+
-| | | | | | |x|x|x|x|x| 
+| | | | | | |x|x|x|x|x|
 +---------------------+
 
 try_to_compact_pages() for high-order allocation
         |
         +- compact each zone in the zonelist
-                          |
-                          +- compact_zone_order() with struct compact_control cc initialized
+                      |
+                      +- compact_zone_order() with struct compact_control cc initialized
                                       |
                                       +- compact_zone()
                                                |
@@ -533,9 +646,10 @@ try_to_compact_pages() for high-order allocation
                                                            |
                                                            +- __compaction_suitable()
                                                            |    |
-                                                          [0]   +- check if watermarks for
-                                                                   high-order allocation
-                                                                   are met via
+                                                          [0]   +- Check if watermarks
+                                                                   for high-order
+                                                                   allocation are met
+                                                                            |
                                                                    zone_watermark_ok()
                                                                             |
                                                                    Possible outcomes
@@ -578,9 +692,52 @@ try_to_compact_pages() for high-order allocation
 ----------------------------------------------------------------------------------------
 - Page Faults -
 
+@include/linux/sched.h
+
+struct task_struct {
+    struct thread_info thread_info;
+    ...
+    void *stack;
+    ...
+    struct mm_struct *mm;
+    struct mm_struct *active_mm;
+    ...
+    pid_t pid;
+    ...
+    struct signal_struct *signal;
+    struct signal_struct __rcu *sighand;
+    ...
+    struct thread_struct thread; - CPU-specific state of the task
+};
+                 |
+                 | @arch/arm64/include/asm/processor.h
+                 \
+                   struct thread_struct {
+                        struct cpu_context cpu_context; - CPU registers
+                        ...
+                        unsigned long fault_address;
+                        unsigned long fault_code;
+                        struct debug_info debug;
+                        ...
+                   };
+
+
 @include/linux/mm.h
 
 vm_fault is filled by the pagefault handler and passed to the vma's fault callback function.
+
+struct vm_fault {
+    const struct {
+        struct vm_area_struct *vma;
+        ...
+        unsigned long address;
+        unsigned long real_address;
+    };
+    ...
+    struct page *cow_page;
+    struct page *page;
+    ...
+};
 
 A VM area is any part of the process virtual memory space that has a special rule for page-
 fault handlers.
@@ -596,9 +753,105 @@ struct vm_area_struct {
 };                      +----> vm_fault_t (*fault)(struct vm_fault *vmf);
                         |
                         +----> vm_fault_t (*huge_fault)(struct vm_fault *vmf,
-                                                enum page_entry_size pe_size);
+                                               enum page_entry_size pe_size);
 
-@arch/arm64/mm/fault.c
+
+@arch/arm64/kernel/entry.S
+
+Exceptions are conditions or system events that require some action by privileged software
+(an exception handler) to ensure smooth functioning of the system.
+
+       Program Flow +
+                    |       +
+                    |     / |
+                    |    /  |
+                    |   /   |
+                    |  /    |
+                    | /     v
+   Exception occurs +       + ASM Exception Handler -> C Subroutine
+                    | \     |
+                    |  \    |
+                    |   \   |
+                    |    \  |
+                    |     \ v spsr_el[n]
+                    v       + elr_el[n] - Exception Link Register
+                                                     |
+                                          When taking an exception to EL1, holds the
+                                          address to return to.
+
+Causes to Exception:
+1) Aborts - a) Failed instruction fetches (Instruction Aborts)
+     |      b) Failed data accesses (Data Aborts)
+     |                  |
+     |                  +- Error response on a memory access (indicating perhaps that the
+     |                     specified address does not correspond to real memory in the
+     |                      system)
+     |
+     +- far_el[n] - Holds the faulting virtual address for all synchronous instruction
+                    abort exceptions, data abort exceptions, PC alignment fault
+                    exceptions and watchpoint exceptions that are taken to EL1.
+
+The virtual address of each table base is set by the Vector Base Address Registers:
+a) vbar_el3
+b) vbar_el2
+c) vbar_el1
+
+If an exception is taken, the PSTATE information is saved in the Saved Program Status
+Registers (spsr_el3, spsr_el2, spsr_el1).
+
+|31                                                         0|
++-+-+-+-+---------+--+--+-----------------+-+-+-+-+-+-+------+
+|N|Z|C|V|         |SS|IL|                 |D|A|I|F| |M|M[3:0]|
++-+-+-+-+---------+--+--+-----------------+-+-+-+-+-+-+------+
+                                           | | | |
+                                           | | | +- FIQ interrupt process state mask
+                                           | | +--- IRQ interrupt process state mask
+                                           | +----- SError interrupt process state mask
+                                           +------- Debug exception mask
+
+exception vectors
+   |
+vectors
+   |
+   +- ...
+   |
+   +- kernel_ventry 0, t, 64, sync --->+
+   |                                   |
+   +- ...                              |
+   |                                   |
+   +- kernel_ventry 1, h, 64, sync     |
+   |                                   |
+   +- ...                              +- entry_handler 0, t, 64, sync
+                                       |    (Early Exception Handler)
+@arch/arm64/kernel/entry-common.c      |
+                                       |
+   +------------------------+          |
+   |                        |          v
+   | el0t_64_sync_handler() <----------+
+   |    |                   |
+   | el0_da() ------------------------>+
+   |    |                   |          |
+   | el0_ia() ------------------------>+
+U  |                        |          |
+---+------------------------+          |
+K  |                        |          |
+   | el1h_64_sync_handler() |          |
+   |     |                  |          |
+   | el1_abort() --------------------->+
+   |                        |          |
+   +------------------------+          |
+                                       |
+@arch/arm64/mm/fault.c                 |
+                                       v
+do_mem_abort() <-----------------------+
+      |
+      +- (struct fault_info) inf->fn() callback
+                                   |
+                                   /
+                                  /
+                                 /
+                                /
+                               /
 
 static const struct fault_info fault_info[] = {
     ...
@@ -608,13 +861,22 @@ static const struct fault_info fault_info[] = {
     ...                                        [1, 3]
     { do_page_fault, SIGSEGV, SEGV_ACCERR, "level 1 permission fault" },
     ...                                        [1, 3]
-};
-
-do_translation_fault() @arch/arm64/mm/fault.c
-       |
-       +- do_page_fault()
+};         |
+           |                                        \
+           v                                        |
+do_translation_fault() @arch/arm64/mm/fault.c       |
+       |                                            |
+       +- do_page_fault()                           |
+                |                                   |
+                +- __do_page_fault()                |
+                |          |                        |
+                |         [0]                       |
+                |                                   |
+                +- esr_to_fault_info() ------------>+
                 |
-                +- __do_page_fault()
+                +- set_thread_esr()
+
+                          [0]
                            |
                            +- handle_mm_fault()
                                       |
@@ -626,26 +888,26 @@ do_translation_fault() @arch/arm64/mm/fault.c
                                                              :
                                                              |
                                                              +- handle_pte_fault()
-                               vmf->pte                           |     |
-    +-------------------------------------------------------------+     | no vmf->pte
+                               vmf->pte                         |       |
+    +<----------------------------------------------------------+       | no vmf->pte
     |                                                                   |
 do_fault() @mm/memory.c                                         vma_is_anonymous()
-    |                                                           |yes            |          
-    +- When vma->vm_ops->fault                       do_anonymous_page()        |no
-                  |                                                             |
-       vmf->flags & FAULT_FLAG_WRITE --+                                 pte_present()
-                  |no                  |                                 |no        |
-            do_read_fault()            |yes                       do_swap_page()    |yes  
-                  |                    |                                            | 
-                 [a]        vma->vm_flags & VM_SHARED --+                    pte_protnone()
-                                       |no              |                    |yes        |
-                                 do_cow_fault()         |yes           do_numa_page()    |no           
-                                       |                |                                |
-                                      [b]       do_shared_fault()                        :
-                                                        |                                |
-                                                       [c]               update_mmu_cache()
+    |                                                           |yes        |
+    +- When vma->vm_ops->fault                       do_anonymous_page()    |no
+                  |                                                         |
+       vmf->flags & FAULT_FLAG_WRITE --+                             pte_present()
+                  |no                  |                             |no        |
+            do_read_fault()            |yes                   do_swap_page()    |yes
+                  |                    |                                        |
+                 [a]        vma->vm_flags & VM_SHARED --+               pte_protnone()
+                                       |no              |               |yes        |
+                                 do_cow_fault()         |yes      do_numa_page()    |no
+                                       |                |                           |
+                                      [b]     do_shared_fault()                     :
+                                                        |                           |
+                                                       [c]          update_mmu_cache()
 
-Above all follows:
+Above all follows the logic below:
 
 __do_fault()
      |
@@ -653,7 +915,7 @@ __do_fault()
      |            |
      |            +- pte_alloc_one(vma->vm_mm)
      |
-     +- vma->vm_ops->fault()
+     +- vma->vm_ops->fault() callback
 
 ----------------------------------------------------------------------------------------
 - PAGE MIGRATION -
@@ -662,8 +924,18 @@ Migrate the pages specified in a list, to the free pages supplied as the target 
 page migration.
 
 migrate_pages() @mm/migrate.c
-
-
+      |
+      +- 10 attempts or if no pages are movable any more
+                              |
+                              +- PageHuge() ---------------> unmap_and_move_huge_page()
+                                     |
+                                     +- unmap_and_move()
+                                               |
+                                               +- Obtain the lock on page, remove all
+                                                  ptes and migrate the page to the
+                                                  newly allocated page in newpage.
+                                                                 |
+                                                                 +- __unmap_and_move()
 
 
 ----------------------------------------------------------------------------------------
