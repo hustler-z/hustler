@@ -122,8 +122,8 @@ vmalloc() - Allocate virtually contiguous memory with given size
    |
    +- __vmalloc_area_node() - Allocate physical pages and map them into vmalloc space.                        
                 |
-                +- (array_size > PAGE_SIZE) ->> [3]
-               [7]           |no 
+                +- (array_size > PAGE_SIZE) ->> [3] recursion
+               [7]           |no
                              +- kmalloc_node() @include/linux/slab.h
                                       |
                                       +- __kmalloc_node()
@@ -688,6 +688,41 @@ try_to_compact_pages() for high-order allocation
                                          c) ISOLATE_SUCCESS
                           |
                           +- migrate_pages() @mm/migrate.c
+
+wakeup_kcompactd()
+        |
+        +- check if kcompactd_node_suitable() - [END]
+                                |yes
+                                +- wake_up_interrupt(&pgdat->kcompactd_wait)
+                                                                   |
+                                                                   v
+        +----------------------------------------------------------+
+        |
+The backgound compaction daemon
+        |
+   kcompactd()
+        |
+        +- loop wait for event
+        |           |
+       [2]          +- kcompactd_do_work()
+                                |
+                                +- Find a suitable zone to do compaction
+                                                       |
+                                                       v
+                                                       +-> compact_zone()
+                                                       |
+                                                       +<-------+
+       [2]                                                      |
+        |                                                       |
+        +- should_proactive_compact_node()                      |
+                         |yes                                   |
+                         +- proactive_compact_node()            |
+                                       |                        |
+                                       +- compact all zones within a node till each
+                                          zone's fragmentation score reaches within
+                                          proactive compaction thresholds (as
+                                          determined by the proactiveness tunable).
+
 
 ----------------------------------------------------------------------------------------
 - Page Faults -
