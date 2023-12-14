@@ -38,6 +38,14 @@ allows software to access a 4-bit allocation tag for each 16-byte granule in the
 physical address space.
 
 ----------------------------------------------------------------------------------------
+Arm A64 Instruction Set
+
+adr <Xd>, <label>
+mrs <Xt>, (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>)
+msr <pstatefield> #<imm>
+msr (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>), <Xt>
+
+----------------------------------------------------------------------------------------
 - HUGE PAGES -
 
 To avoid spending precious processor cycles on the address translation, CPUs maintain a
@@ -64,6 +72,7 @@ struct vm_struct - kernel vmalloc area descriptor
 
 struct vmap_block -> va
                       |
+                      v
              struct vmap_area
              [va_start:va_end]
 
@@ -71,9 +80,9 @@ vmap_area_list
 purge_vmap_area_list
 free_vmap_area_list
 
-vmap_area_root - 'busy' vmap area rb-tree root
-purge_vmap_area_root - purge vmap area rb-tree root
-free_vmap_area_root - 'free' vmap area rb-tree root 
+vmap_area_root       - 'busy' vmap area rb-tree root
+purge_vmap_area_root -  purge vmap area rb-tree root
+free_vmap_area_root  - 'free' vmap area rb-tree root
 
 @mm/vmalloc.c
 
@@ -91,6 +100,7 @@ vmalloc() - Allocate virtually contiguous memory with given size
                                         | 
                                         +- alloc_vmap_area()
                                        [1]         |
+                                                   v
                                            Allocate a region of KVA of the
                                            specified size and alignment,
                                            within [vstart, vend]
@@ -100,18 +110,22 @@ vmalloc() - Allocate virtually contiguous memory with given size
                                   +------------------------>>+- find_vmap_lowest_match()
                                                              |             |
                                                             [5]            |
+                                                                           v
                                                                 Find the first free block
                                                                 (lowest start address) in
-                                                                the rb-tree.
+                                                                the free_vmap_area_root
+                                                                rb-tree.
+
 
                                                             [5]
                                                              |
                                                              +- adjust_va_to_fit_type()
                                                                          |
+                                                                         v
                                                               Update the free vmap_area
 
                                        [1]
-                                        |                   
+                                        |
                   vmap_area_root/list ->+- insert_vmap_area()
                           |                         |
                           |                         |- find_va_links()
@@ -120,7 +134,7 @@ vmalloc() - Allocate virtually contiguous memory with given size
 
   [2]
    |
-   +- __vmalloc_area_node() - Allocate physical pages and map them into vmalloc space.                        
+   +- __vmalloc_area_node() - Allocate physical pages and map them into vmalloc space.
                 |
                 +- (array_size > PAGE_SIZE) ->> [3] recursion
                [7]           |no
@@ -135,7 +149,9 @@ vmalloc() - Allocate virtually contiguous memory with given size
                 +- vm_area_alloc_pages()
                [4]          |
                             +- When order=0, use bulk allocator
-                           [6] 1) alloc_pages_bulk_array_mempolicy() @mm/mempolicy.c
+                           [6]                  |
+                                                v
+                               1) alloc_pages_bulk_array_mempolicy() @mm/mempolicy.c
                                                 |
                                                 +- consider mempolicy
                                                            |
@@ -145,23 +161,24 @@ vmalloc() - Allocate virtually contiguous memory with given size
                                2) alloc_pages_bulk_array_node()      |
                                                |                     |
                                                +- consider node id   |
-                                                          |          | 
-                                                          +----------+
+                                                          |          |
+                                                          +--------->+
+
                            [6]
                             |
                             +- When order>0, or bulk allocator fails.
                                1) alloc_pages()
                                2) alloc_pages_node()
-                               then split_page()
+                               Then split_page()
                                          |
-                                         +- Takes a non-compound higher-order page, 
+                                         +- Takes a non-compound higher-order page,
                                             and splits it into n (1 << order) sub-
                                             pages: page[0..n].
 
                [4]
                 |
-                +- map pages to a kernel virtual address
-                   vmap_pages_range() 
+                +- Map pages to a kernel virtual address
+                   vmap_pages_range()
                            |
                            +- vmap_pages_range_noflush()
                                          |
@@ -171,6 +188,7 @@ vmalloc() - Allocate virtually contiguous memory with given size
                                                                    |
                                                       To build page table [layout]
                                                                    |
+                                                                   v
             +-------------+-------------+------------+-------------+-------------+ 
             |     PGD     |     P4D     |     PUD    |     PMD     |     PTE     |
             +-------------+-------------+------------+-------------+-------------+
@@ -183,25 +201,80 @@ vmalloc() - Allocate virtually contiguous memory with given size
                                                +- - - - - ->|             |
                                          vmap_pmd_range     |             |
                                                             +- - - - - - >|
-                                                      vmap_pte_range      |            
-                                                                        [end]
+                                                      vmap_pte_range      |
+                                                                          v
+                                                                        [END]
 
 VMALLOC_SPACE
 
-+ - - - - + - VMALLOC_START
-|         |
-|         |
-.         .
-.         .
++----------------+ - VMALLOC_START
+|                |
+|                |
+|                |
+:                :
+|                |
+|                |
+|                |
++----------------+ - VMALLOC_END
 
-|         |
-|         |
-+ - - - - + - VMALLOC_END
+Kernel space and User space have seperate translation tables.
+
+* Translation Control Register (TCR_EL1) - EL1&0 Translation Regime
+
++----------------+--------------+
+|                |       |
+| Kernel Space   |
+|                | tcr_el1.t1sz
+|                |
+:                :       |
++----------------+--------------+
+:                :       |
+|                |
+|                |
+|                |
+|                |
+|                |
+| User Space     | tcr_el1.t0sz
+|                |
+|                |
+|                |
+|                |
+|                |
+|                |       |
++----------------+-------------+
+
+----------------------------------------------------------------------------------------
+- IOREMAP -
+
+
+
+ioremap()
+   |
+   +- ioremap_prot()
+        |
+        +- ioremap_allowed()
+                |yes
+                +- get_vm_area_caller()
+                |          |
+                |          +- __get_vm_area_node()
+                |
+                +- ioremap_page_range()
+                           |
+                           +- vmap_range_noflush()
+                           |
+                           +- flush_cache_vmap()
+
+----------------------------------------------------------------------------------------
+- DMA -
+
+
+
+
 
 ----------------------------------------------------------------------------------------
 - ADDRESS TRANSLATION -
 
-a) Address Space Identifiers (ASIDs)
+a) Address Space Identifiers (ASIDsp
             |
             +- Tagging translations with the owning process
 
@@ -309,17 +382,17 @@ $ cat /proc/pagetypeinfo
 
 struct free_area
 
-+------------+                        +---------------------+
-| order = 0  | -> struct free_list -> | MIGRATE_UNMOVABLE   |
-+------------+                        +---------------------+
-|            |                        | MIGRATE_MOVABLE     |
-:            :                        +---------------------+
-|            |                        | MIGRATE_RECLAIMABLE |
-+------------+                        +---------------------+
-| order = 11 |                        | MIGRATE_HIGHATOMIC  |
-+------------+                        +---------------------+
-                                      | MIGRATE_ISOLATE     |
-                                      +---------------------+
++------------+    +------------------+    +---------------------+
+| order = 0  | -> | struct free_list | -> | MIGRATE_UNMOVABLE   |
++------------+    +------------------+    +---------------------+
+|            |                            | MIGRATE_MOVABLE     |
+:            :                            +---------------------+
+|            |                            | MIGRATE_RECLAIMABLE |
++------------+                            +---------------------+
+| order = 11 |                            | MIGRATE_HIGHATOMIC  |
++------------+                            +---------------------+
+                                          | MIGRATE_ISOLATE     |
+                                          +---------------------+
 
 __alloc_pages() with struct alloc_context ac instantiated
        |
@@ -370,6 +443,7 @@ __alloc_pages() with struct alloc_context ac instantiated
                                                                   1) __rmqueue_cma_fallback()
                                                                   2) __rmqueue_fallback()
                                                                              |
+                                                                             v
                              Try finding a free buddy page on the fallback list and put it
                              on the free list of requested migratetype.
                              a) find_suitable_fallback() to find largest/smallest available
@@ -399,7 +473,7 @@ __alloc_pages() with struct alloc_context ac instantiated
                    |  Since alloc_flags changed                   |
                    |                                             [5]
                    +- __alloc_pages_direct_compact()
-                   |  If costly order
+                   |  If costly order allocation
                    |
              +---->+- alloc_flags & ALLOC_KSWAPD
              |     |  Then wake_all_kswapds()
@@ -435,16 +509,18 @@ __alloc_pages() with struct alloc_context ac instantiated
                    +- __alloc_pages_direct_compact()
                    |                |
                   [8]               +- try_to_compact_pages() @mm/compaction.c
+                                    |
                                     +- get_page_from_freelist()
+                                    |
                                     +- compaction_defer_reset()
                                        Update defer tracking counters after successful
                                        compaction of given order.
             [6]   [8]
              |     |
              +<----+- should_reclaim_retry()
-             |     |                                               
+             |     |
              +<----+- should_compact_retry()
-                   |                                                
+                   |
                    +- check_retry_cpuset()                       [5]
                       OR                                          |
                       check_retry_zonelist() -------------------->+
@@ -677,6 +753,7 @@ try_to_compact_pages() for high-order allocation
                                          reduce the number of pages that need migration
                                          before a pageblock is free.
                                                    |
+                                                   v
                                          fast_find_migrateblock()
 
                                       |
@@ -696,7 +773,7 @@ wakeup_kcompactd()
                                 +- wake_up_interrupt(&pgdat->kcompactd_wait)
                                                                    |
                                                                    v
-        +----------------------------------------------------------+
+        +<---------------------------------------------------------+
         |
 The backgound compaction daemon
         |
@@ -723,6 +800,31 @@ The backgound compaction daemon
                                           proactive compaction thresholds (as
                                           determined by the proactiveness tunable).
 
+(Fragmentation Score)
+    |
+    |                _____ proactive compaction invokes
+    |               /     \
+    |----------------------------------- (threshold)
+    |         ____/         \
+    |   _____/               \__________ proactive compaction suspends
+    |  /
+    | /
+    +------------------------------------> (time)
+
+fragmentation_score_node()
+            |
+            +- compute per-node fragmentation score
+                              |
+                              +- fragmentation_score_zone_weighted()
+                                                 |
+                                                 +- fragmentation_score_zone()
+                                                        |        |
+                                                        +        +- extfrag_for_order()
+                                                       /                [0, 100]
+                                                      /
+                                  zone->present_pages
+                 sum of [ ------------------------------------ ] all zones
+                          zone->zone_pgdat->node_present_pages
 
 ----------------------------------------------------------------------------------------
 - Page Faults -
@@ -811,6 +913,7 @@ Exceptions are conditions or system events that require some action by privilege
                     |     \ v spsr_el[n]
                     v       + elr_el[n] - Exception Link Register
                                                      |
+                                                     v
                                           When taking an exception to EL1, holds the
                                           address to return to.
 
@@ -820,19 +923,26 @@ Causes to Exception:
      |                  |
      |                  +- Error response on a memory access (indicating perhaps that the
      |                     specified address does not correspond to real memory in the
-     |                      system)
+     |                     system)
      |
      +- far_el[n] - Holds the faulting virtual address for all synchronous instruction
                     abort exceptions, data abort exceptions, PC alignment fault
                     exceptions and watchpoint exceptions that are taken to EL1.
 
-The virtual address of each table base is set by the Vector Base Address Registers:
-a) vbar_el3
-b) vbar_el2
-c) vbar_el1
+The virtual address of each table base is set by the Vector Base Address Registers.
+
+a) vbar_el[n]
+
+The Exception Syndrome Registers contains information that allows the exception handler
+to determine the reason for the exception. It's updated only for synchronous exceptions
+and SError.
+
+a) esr_el[n]
 
 If an exception is taken, the PSTATE information is saved in the Saved Program Status
 Registers (spsr_el3, spsr_el2, spsr_el1).
+
+PSTATE as below:
 
 |31                                                         0|
 +-+-+-+-+---------+--+--+-----------------+-+-+-+-+-+-+------+
@@ -844,9 +954,10 @@ Registers (spsr_el3, spsr_el2, spsr_el1).
                                            | +----- SError interrupt process state mask
                                            +------- Debug exception mask
 
+
 exception vectors
    |
-vectors
+vectors => Assembly Code
    |
    +- ...
    |
@@ -864,9 +975,9 @@ vectors
    |                        |          v
    | el0t_64_sync_handler() <----------+
    |    |                   |
-   | el0_da() ------------------------>+
+   | el0_da() ------------------------>+- Data Abort
    |    |                   |          |
-   | el0_ia() ------------------------>+
+   | el0_ia() ------------------------>+- Instruction Abort
 U  |                        |          |
 ---+------------------------+          |
 K  |                        |          |
@@ -918,6 +1029,7 @@ do_translation_fault() @arch/arm64/mm/fault.c       |
                                       +- is_vm_hugetlb_page() ------->+
                                                   |                   |
                                            hugetlb_fault()            |
+                                                                      v
                                                              __handle_mm_fault()
                                                              |
                                                              :
@@ -948,7 +1060,7 @@ __do_fault()
      |
      +- When no vmf->prealloc_pte
      |            |
-     |            +- pte_alloc_one(vma->vm_mm)
+     |            +- pte_alloc_one()
      |
      +- vma->vm_ops->fault() callback
 
@@ -963,7 +1075,7 @@ migrate_pages() @mm/migrate.c
       +- 10 attempts or if no pages are movable any more
                               |
                               +- PageHuge() ---------------> unmap_and_move_huge_page()
-                                     |
+                                     |no
                                      +- unmap_and_move()
                                                |
                                                +- Obtain the lock on page, remove all
@@ -976,7 +1088,51 @@ migrate_pages() @mm/migrate.c
 ----------------------------------------------------------------------------------------
 - SLAB -
 
+@include/linux/slub_def.h
 
+                                                    +- struct kmem_cache_cpu {
+                                                    |       void **freelist;
+                                                    |       ...
+                                                    |       struct slab *slab;
+                                                    |       struct slab *partial;
+                                                    |       ...
+                                                    |  };
+struct kmem_cache {                                 |
+    struct kmem_cache_cpu __percpu *cpu_slab; ------+
+    ...
+    struct kmem_cache_node *node[MAX_NUMNODES];
+};
+
+kzalloc() @include/linux/slab.h
+   |
+   +- kmalloc()
+         |
+         +- Size is constant - __kmalloc()
+                  |                 |
+                 [0]                +- __do_kmalloc_node()
+                                          |
+                                          +- size > KMALLOC_MAX_CACHE_SIZE ---+
+                                              |no                             |
+                                              +- kmalloc_slab()               |
+                                              |                               |
+                 [0]                          +- __kmem_cache_alloc_node()    |
+                  |yes                                                        |
+                  +- size > KMALLOC_MAX_CACHE_SIZE - kmalloc_large()          |
+                       |no                                |                   v
+                      [1]                                 +- __kmalloc_large_node()
+                                                                |
+                                                                +- alloc_pages_node()
+
+
+                      [1]    kmalloc_caches[NR_KMALLOC_TYPES][KMALLOC_SHIFT_HIGH + 1]
+                       |        /
+                       +- kmalloc_trace()
+                                |
+                                +- __kmem_cache_alloc_node()
+                                      |
+                                      +- slab_alloc_node()
+                                                |
+                                                +-
 
 
 
