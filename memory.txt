@@ -40,10 +40,45 @@ physical address space.
 ----------------------------------------------------------------------------------------
 Arm A64 Instruction Set
 
+a) Form PC-relative address
 adr <Xd>, <label>
+b) Move system register to general-purpose register
 mrs <Xt>, (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>)
+c) Move immediate value to special register
 msr <pstatefield> #<imm>
+d) Move general-purpose register to system register
 msr (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>), <Xt>
+e) Data memory barrier
+dmb <option>|#<imm>
+f) Data synchronization barrier
+dsb <option>|#<imm>
+g) Store pair of registers
+stp <Xt1>, <Xt2>, [<Xn|sp>], #<imm>
+stp <Xt1>, <Xt2>, [<Xn|sp>, #<imm>]!
+
+----------------------------------------------------------------------------------------
+
+Memory attributes and properties are a way of defining how memory behaves.
+
+                              +---------> Device Memory
+                              |
+                     +------------------+                        -+
+Non-cached Ordered - |   Peripherals    |                         |
+                     +------------------+                         |
+                     |   Kernel Data    |                         +-- Privileged
+         cacheable - +------------------+                         |   Access Only
+                     |   Kernel Code    | - Read-only Executable  |
+                     +------------------+                        -+
+                     |                  |
+                     :                  :
+                     |                  |                        -+
+                     +------------------+                         |
+                     | Application Data |                         |
+         cacheable - +------------------+                         +-- Unprivileged
+                     | Application Data |                         |
+                     +------------------+                        -+
+
+Peripheral registers => Memory-Mapped I/O (MMIO)
 
 ----------------------------------------------------------------------------------------
 - HUGE PAGES -
@@ -56,6 +91,92 @@ overall system performance.
 
 1) HugeTLB filesystem (hugetlbfs), a pseudo filesystem that uses RAM as its backing store.
 2) Transparent HugePages (THP)
+
+----------------------------------------------------------------------------------------
+- MMAP -
+
+mmap() @arch/arm64/kernel/sys.c
+  |
+  +- ksys_mmap_pgoff() @mm/mmap.c
+            |
+            +- vm_mmap_pgoff() @mm/util.c
+                     |
+                     +- security_mmap_file()
+                               |ret=0
+                               +- do_map()
+                                     |
+                                     +- get_unmapped_area()
+                                     |  Obtain the address to map to:
+                                        a) From current->mm->get_unmapped_area
+                                        b) From shmem_get_unmapped_area
+                                     |
+                                     +- flags & MAP_FIXED_NOREPLACE
+                                                    |!=0x0
+                                                    +- find_vma_intersection()
+                                                       Look up the first VMA with
+                                                       intersects the interval.
+
+                                     |
+                                     +- mmap_region()
+                                        |     |     |
+                         +--------------+     |     +---------------+
+                         |                    |                     |
+                         v                    v                     v
+                 a) file mappings    b) anonymous mapping    c) shared mapping
+                    |                   |                       |
+                    +- call_mmap()      +- vma_set_anonymous()  +- shmem_zero_setup()
+                         |                    |                     |
+                         +--------------------+---------------------+
+                                              |
+                                              v
+                                vma_interval_tree_insert() @mm/interval_tree.c
+
+                                   ●
+                                  / \
+                                 ○   ○
+                                / \ / \
+
+                                Note:
+                                struct vm_area_sruct {
+                                    ...
+                                    union {
+                                        struct {
+                                            struct rb_node rb; -------------->+
+                                            unsigned long rb_subtree_last;    |
+                                        } shared;                             |
+                                        ...                                   |
+                                    };                                        |
+                                    ...                                       |
+                                };                                            |
+                                                                              |
+                                struct address_space {                        |
+                                    ...                                       |
+                                    ...                                       v
+                                    struct rb_root_cached i_mmap; <-----------+
+                                    ...
+                                };
+
+----------------------------------------------------------------------------------------
+- SHMEM -
+
+shmem_zero_setup() @mm/shmem.c
+        |
+        +- shmem_kernel_file_setup()
+           Get an unlinked file living in tmpfs which must be kernel internal.
+                        |
+                        +- __shmem_file_setup()
+                                    |
+                                    +- shmem_get_inode()
+
+
+                                    |
+                                    +- ramfs_nommu_expand_for_mapping()
+                                       Add a contiguous set of pages into ramfs inode
+                                       when it's truncated from size 0 on the
+                                       assumption that it's going to be used for an
+                                       mmap of shared memory.
+                                                     |res=0
+                                                     +- alloc_file_pseudo()
 
 ----------------------------------------------------------------------------------------
 - VIRTUALLAY CONTIGUOUS MEMORY -
@@ -352,6 +473,12 @@ start_kernel() @init/main.c
                       +- dma_contiguous_reserve()
 
 ----------------------------------------------------------------------------------------
+- MEMBLOCK -
+
+Memblock is a method of managing memory regions during the early boot period when the
+usual kernel memory allocators are not up and running.
+
+----------------------------------------------------------------------------------------
 - BUDDY SYSTEM -
 
 (1) CONFIG_NUMA=y
@@ -425,7 +552,7 @@ __alloc_pages() with struct alloc_context ac instantiated
                                                          a) get_page_from_free_area()
                                                          b) del_page_from_free_list()
                                                          c) if current order doesn't meet,
-                                                         go to higher order, if available,
+                                                         Go to higher order, if available,
                                                          split them into half, put a half
                                                          back to lower order of free area,
                                                          another half as requested.
@@ -534,6 +661,35 @@ __alloc_pages() with struct alloc_context ac instantiated
                       __alloc_pages_cpuset_fallback()
                       
 ----------------------------------------------------------------------------------------
+- MEMPOOL -
+
+@include/linux/mempool.h
+
+a) mempool_create_slab_pool()
+b) mempool_create_kmalloc_pool()
+c) mempool_create_page_pool()
+
+mempool_create() @mm/mempool.c
+       |
+       +- mempool_create_node()
+                    |
+                    +- kzalloc_node()
+                            | mempool_t *pool
+                            +- mempool_init_node()
+                                        |
+                                        +- kmalloc_array_node()
+                                                   | pool->elements
+                                                   +- For each element, do
+                                                      pool->alloc()
+                                                              |
+                                                              +- Decided by the type
+                                                                 of mempool
+
+                                                   |
+                                                   +- Then add_element() to
+                                                      the mempool
+
+----------------------------------------------------------------------------------------
 - Direct Reclaim -
 
 try_to_free_pages() with struct scan_control sc initialized
@@ -641,7 +797,7 @@ cgroup.
 ----------------------------------------------------------------------------------------
 - Page Swap -
 
-wakeup_kswapd()
+wakeup_kswapd() @mm/vmscan.c
       |
       +- Check if pgdat->kswapd_wait is active ---> [END]
                          |
@@ -680,11 +836,13 @@ The Background Pageout Daemon
                                       |
                     +---------------->+
                     |                 |
-                    |                 +- pgdat_balanced()
-                    |                 |
-                    |                 +- kswapd_shrink_node()
-                    |  sc.priority>=1 |
-                    +<----------------+
+                    |                 +- pgdat_balanced() ------------------+
+                    |                 |                                     |
+                    |                 +- kswapd_shrink_node()               |
+                    |  sc.priority>=1 |                                     |
+                    +<----------------+                                     |
+                                                                            v
+                                                                    Check on watermark
 
 $ sar -B 1
 ----------------------------------------------------------------------------------------
@@ -1135,7 +1293,8 @@ kzalloc() @include/linux/slab.h
                                                 +-
 
 
-
+----------------------------------------------------------------------------------------
+- KSM -
 
 
 
