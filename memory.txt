@@ -1193,26 +1193,45 @@ do_translation_fault() @arch/arm64/mm/fault.c       |
                                                              :
                                                              |
                                                              +- handle_pte_fault()
-                               vmf->pte                         |       |
-    +<----------------------------------------------------------+       | no vmf->pte
-    |                                                                   |
-do_fault() @mm/memory.c                                         vma_is_anonymous()
-    |                                                           |yes        |
-    +- When vma->vm_ops->fault                       do_anonymous_page()    |no
-                  |                                                         |
-       vmf->flags & FAULT_FLAG_WRITE --+                             pte_present()
-                  |no                  |                             |no        |
-            do_read_fault()            |yes                   do_swap_page()    |yes
-                  |                    |                                        |
-                 [a]        vma->vm_flags & VM_SHARED --+               pte_protnone()
-                                       |no              |               |yes        |
-                                 do_cow_fault()         |yes      do_numa_page()    |no
-                                       |                |                           |
-                                      [b]     do_shared_fault()                     :
-                                                        |                           |
-                                                       [c]          update_mmu_cache()
+                               vmf->pte                         |     |
+    +<----------------------------------------------------------+     |!vmf->pte
+    |                                                                [1]
+do_fault() @mm/memory.c
+    |
+    +- When vma->vm_ops->fault
+                  |
+       vmf->flags & FAULT_FLAG_WRITE --+
+                  |no                  |
+            do_read_fault()            |yes
+                  |                    |
+                 [a]        vma->vm_flags & VM_SHARED --+
+                                       |no              |
+                                 do_cow_fault()         |yes
+                                       |                |
+                                      [b]     do_shared_fault()
+                                                        |
+                                                       [c]
 
-Above all follows the logic below:
+                                                                     [1]
+                                                                      |
+                                                               vma_is_anonymous()
+                                                               |yes        |
+                                                    do_anonymous_page()    |no
+                                                                           |
+                                                                pte_present()
+                                                                |no        |
+                                                         do_swap_page()    |yes
+                                                                           |
+                                                                   pte_protnone()
+                                                                   |yes    |
+                                                         do_numa_page()    |no
+                                                                           |
+                                                                           :
+                                                                           |
+                                                               update_mmu_cache()
+
+
+Above all [a, b, c] follows the logic below:
 
 __do_fault()
      |
@@ -1232,7 +1251,7 @@ migrate_pages() @mm/migrate.c
       |
       +- 10 attempts or if no pages are movable any more
                               |
-                              +- PageHuge() ---------------> unmap_and_move_huge_page()
+                              +- PageHuge() --------------> unmap_and_move_huge_page()
                                      |no
                                      +- unmap_and_move()
                                                |
@@ -1245,6 +1264,12 @@ migrate_pages() @mm/migrate.c
 
 ----------------------------------------------------------------------------------------
 - SLAB -
+
+SLOB - Simple List of Blocks
+SLAB - Simple List of Allocated Blocks
+SLUB - Simple List of Unqueued Blocks
+
+
 
 @include/linux/slub_def.h
 
@@ -1259,7 +1284,19 @@ struct kmem_cache {                                 |
     struct kmem_cache_cpu __percpu *cpu_slab; ------+
     ...
     struct kmem_cache_node *node[MAX_NUMNODES];
-};
+};               |
+                 |
+                 +- struct kmem_cache_node { @mm/slab.h
+                        ...
+                        struct list_head slabs_partial; -+
+                        struct list_head slabs_full;     |-> CONFIG_SLAB
+                        struct list_head slabs_free;    -+
+                        ...
+                        stuct list_head partial;        ---> CONFIG_SLUB
+                        ...
+                    };
+
+
 
 kzalloc() @include/linux/slab.h
    |
