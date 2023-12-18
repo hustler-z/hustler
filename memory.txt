@@ -38,25 +38,6 @@ allows software to access a 4-bit allocation tag for each 16-byte granule in the
 physical address space.
 
 ----------------------------------------------------------------------------------------
-Arm A64 Instruction Set
-
-a) Form PC-relative address
-adr <Xd>, <label>
-b) Move system register to general-purpose register
-mrs <Xt>, (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>)
-c) Move immediate value to special register
-msr <pstatefield> #<imm>
-d) Move general-purpose register to system register
-msr (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>), <Xt>
-e) Data memory barrier
-dmb <option>|#<imm>
-f) Data synchronization barrier
-dsb <option>|#<imm>
-g) Store pair of registers
-stp <Xt1>, <Xt2>, [<Xn|sp>], #<imm>
-stp <Xt1>, <Xt2>, [<Xn|sp>, #<imm>]!
-
-----------------------------------------------------------------------------------------
 
 Memory attributes and properties are a way of defining how memory behaves.
 
