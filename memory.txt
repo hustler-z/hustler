@@ -345,6 +345,10 @@ Kernel space and User space have seperate translation tables.
 |                |       |
 +----------------+-------------+
 
+The size offset of the memory region addressed by TTBR1_EL1. The region size is
+2^(64-T1SZ) bytes. The maximum and minimum possible values for T1SZ depend on the
+level of translation table and the memory translation granule size.
+
 ----------------------------------------------------------------------------------------
 - IOREMAP -
 
@@ -1169,13 +1173,13 @@ do_translation_fault() @arch/arm64/mm/fault.c       |
                                                   |                   |
                                            hugetlb_fault()            |
                                                                       v
-                                                             __handle_mm_fault()
-                                                             |
-                                                             :
-                                                             |
-                                                             +- handle_pte_fault()
-                               vmf->pte                         |     |
-    +<----------------------------------------------------------+     |!vmf->pte
+                                                          +- __handle_mm_fault()
+                                                          |
+                                                          :
+                                                          |
+                                                          +- handle_pte_fault()
+                               vmf->pte                       |       |
+    +<--------------------------------------------------------+       |!vmf->pte
     |                                                                [1]
 do_fault() @mm/memory.c
     |
@@ -1199,12 +1203,12 @@ do_fault() @mm/memory.c
                                                                |yes        |
                                                     do_anonymous_page()    |no
                                                                            |
-                                                                pte_present()
-                                                                |no        |
+                                                                    pte_present()
+                                                                   /no     |
                                                          do_swap_page()    |yes
                                                                            |
                                                                    pte_protnone()
-                                                                   |yes    |
+                                                                  /yes     |
                                                          do_numa_page()    |no
                                                                            |
                                                                            :
