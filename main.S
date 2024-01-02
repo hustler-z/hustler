@@ -1,6 +1,46 @@
 /* 
  * Arm64 Assembly Code Starter
  * ----------------------------------------------------
+ * AArch64 general purpose registers and
+ * special registers
+ *
+ * Parameter Passing and/or Scratch Registers(volatile)
+ * X0 ~ X7 (W0 ~ W7)
+ *
+ * Caller-Saved Scratch Registers(volatile)
+ * X8(XR) ~ X16(IP0) X17(IP1) X18(PR)
+ * W8 ~ W18
+ *
+ * Callee-Saved Registers(non-volatile)
+ * X19 ~ X29(FP)
+ * W19 ~ W29
+ *
+ * Procedure Link Register(hardware special)
+ * X30(LR)
+ * W30
+ *  |
+ *  +- hold the return address for subroutines.
+ *
+ * Zero Register(hardware special)
+ * XZR(X31)
+ * WZR(W31)
+ *
+ * Stack Pointer(hardware special)
+ * SP(X31)
+ *  |
+ *  +- hold the address where the stack ends.
+ *
+ * Program Counter(hardware special)
+ * PC
+ *
+ * Processor State(hardware special)
+ * PSTATE
+ *   |
+ *   +- contains bits that indicate the status of the
+ *      current process, including information about
+ *      the results of previous operations.
+ *
+ * ----------------------------------------------------
  * .type <name>, <type_description>
  * .size <name>, <expression> - set the size associated 
  *                              with the symbol.
@@ -127,17 +167,6 @@ info:
 
   .size info, (. -info)
 
-/*
- * ----------------------------------------------------
- * Frame pointer           - x29
- * PSTATE register
- * Procedure link register - x30
- * Stack pointer           - sp
- * Zero pointer            - xzr/wzr
- * Program counter         - pc
- * ----------------------------------------------------
- */
-
 .global pstate
 .type   pstate, %function
 
@@ -154,6 +183,9 @@ pstate:
  * NZCV      - condition flags
  * DAIF      - interrupt bits
  * CurrentEL - current exception level
+ *
+ *
+ *
  * ----------------------------------------------------
  */
 
