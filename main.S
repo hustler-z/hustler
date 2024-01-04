@@ -119,22 +119,22 @@ str: .string "Hello, Assembly\n"
 .p2align 4
 
 func:
-  add x0, x0, x1
-  ret
+    add x0, x0, x1
+    ret
 
 .global factorial
 .type   factorial, %function
 factorial:
-  mov x3, x0
+    mov x3, x0
 loop:
-  subs x3, x3, #1
-  cmp  x3, #0
-  b.eq end
-  mul  x0, x0, x3
-  b loop
+    subs x3, x3, #1
+    cmp  x3, #0
+    b.eq end
+    mul  x0, x0, x3
+    b loop
 end:
-  ret
-  .size factorial, (. -factorial)
+    ret
+    .size factorial, (. -factorial)
 
 /*
  * ----------------------------------------------------
@@ -157,22 +157,22 @@ end:
 .type   info, "function"
 
 info:
-  stp x29, x30, [sp, #-16]!
-  adr x0, str
-  bl  printf
+    stp x29, x30, [sp, #-16]!
+    adr x0, str
+    bl  printf
 
-  mov w0, 0
-  ldp x29, x30, [sp], #16
-  ret
+    mov w0, 0
+    ldp x29, x30, [sp], #16
+    ret
 
-  .size info, (. -info)
+    .size info, (. -info)
 
 .global pstate
 .type   pstate, %function
 
 pstate:
-  mrs x0, NZCV
-  ret
+    mrs x0, NZCV
+    ret
 
 /*
  * ----------------------------------------------------
