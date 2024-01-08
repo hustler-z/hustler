@@ -1,6 +1,11 @@
 /* 
  * Arm64 Assembly Code Starter
  * ----------------------------------------------------
+ * Modern computers execute instructions sequentially.
+ * In other words, the next instruction to be executed
+ * is at the memory address immediately following the
+ * current instruction.
+ * ----------------------------------------------------
  * AArch64 general purpose registers and
  * special registers
  *
@@ -45,7 +50,8 @@
  * .size <name>, <expression> - set the size associated 
  *                              with the symbol.
  * .macro <macname> <macargs> ...
- * .equ   <name>, <expression>
+ * .equ   <symbol>, <expression>
+ * .set   <symbol>, <expression>
  * .comm  <symbol>, <length> - similar to "extern" in C.
  * ----------------------------------------------------
  * .section <name>
@@ -178,15 +184,43 @@ pstate:
  * ----------------------------------------------------
  * mrs Xt<-PSTATE
  * msr PSTATE<-Xt
+ *
+ * br  pc<-Xn
+ * ret pc<-X30 or pc<-Xn
  * 
  * PSTATE:
  * NZCV      - condition flags
  * DAIF      - interrupt bits
  * CurrentEL - current exception level
- *
- *
- *
+ * ----------------------------------------------------
+ * Address Mode
+ * 1) Register Address:
+ *    [Xn|sp] - addressing method is used to access the
+ *              memory address that is contained in the
+ *              register Xn or sp.
+ * 2) Signed Immediate Offset:
+ *    [Xn|sp, #+/-<imm9>]
+ * 3) Unsigned Immediate Offset:
+ *    [Xn|sp, #<imm12>]
+ * 4) Pre-indexed Immediate Offset:
+ *    [Xn|sp, #+/-<imm9>]! - The memory address is
+ *              computed by adding the unshifted,
+ *              signed 9-bit immediate to the number
+ *              stored in Xn or sp.
+ * 5) Post-indexed Immediate Offset:
+ *    [Xn|sp], #+/-<imm9> - Register Xn or sp is used as
+ *              the address of the value to be loaded or
+ *              stored.
+ * 6) Register Offset:
+ *    [Xn|sp, Xm, <option>]
+ *    e.g. ldr x3, [x2, x1, lsl #3]
+ * 7) Literal:
+ *    label
+ * 8) Pseudo Load:
+ *    =<immediate|symbol>
  * ----------------------------------------------------
  */
 
-
+.macro mul tmp1, tmp2
+    mul \tmp1, \tmp1, \tmp2
+.endm
