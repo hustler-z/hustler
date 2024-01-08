@@ -466,6 +466,25 @@ usual kernel memory allocators are not up and running.
 ----------------------------------------------------------------------------------------
 - BUDDY SYSTEM -
 
++--------------------------------------------------------------------------------------+
+| @Configuration                                                                       |
+| CONFIG_ARM64_PAGE_SHIFT=12                                                           |
+|                                                                                      |
+| @arch/arm64/include/asm/page-def.h                                                   |
+| #define PAGE_SHIFT          CONFIG_ARM64_PAGE_SHIFT                                  |
+| #define PAGE_SIZE           (_AC(1, UL) << PAGE_SHIFT)                               |
+|                                                                                      |
+| @include/linux/mm.h                                                                  |
+| #define PAGE_ALIGN(addr) ALIGN(addr, PAGE_SIZE)                                      |
+|                                                                                      |
+| @include/linux/align.h                                                               |
+| #define ALIGN(x, a)      __ALIGN_KERNEL((x), (a))                                    |
+|                                                                                      |
+| @include/uapi/linux/const.h                                                          |
+| #define __ALIGN_KERNEL(x, a)   __ALIGN_KERNEL_MASK(x, (__typeof__(x))(a) - 1)        |
+| #define __ALIGN_KERNEL_MASK(x, mask)  (((x) + (mask)) & ~(mask))                     |
++--------------------------------------------------------------------------------------+
+
 (1) CONFIG_NUMA=y
 
 alloc_pages() 
