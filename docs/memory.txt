@@ -1,4 +1,6 @@
-+- - - - - - - - - - - - - - - - - - hustler@kwork -- - - - - - - - - - - - - - - - - -+
++--------------------------------------------------------------------------------------+
+| Refer to Linux-6.1.63                                                                |
++--------------------------------------------------------------------------------------+
 
 Memory Layout on AArch64 Linux
 
@@ -350,6 +352,56 @@ The size offset of the memory region addressed by TTBR1_EL1. The region size is
 level of translation table and the memory translation granule size.
 
 ----------------------------------------------------------------------------------------
+- REVERSE MAPPING (RMAP) -
+
+ physical pages   PTEs
+      |            |
+ (struct page) --->+
+
+
+  malloc()
+   |                                                                          User Space
+----------------------------------------------------------------------------------------
+   |                                                                        Kernel Space
+  brk() - syscall @mm/mmap.c
+   |
+   +- if brk <= mm->brk
+             |
+             +- do_brk_munmap() -> Unmap a partial vma.
+
+   |
+   +- check_brk_limits()
+   |
+   +- do_brk_flags() -> Extend the brk VMA from addr to addr + len. If the VMA is
+           |            NULL or the flags do not match then create a new anonymous
+           |            VMA.
+           |
+           +- (1) vma->anon_vma
+                         |
+                         +- anon_vma_interval_tree_pre_update_vma()
+                         |
+                         +- anon_vma_interval_tree_post_update_vma()
+           |
+           +- (2) anonymous mapping
+                         |
+                         +- vm_area_alloc()
+                                  |
+                                  +- kmem_cache_alloc()
+                                            |
+                                            +- vm_area_cachep
+                                  |
+                                  +- vma_init()
+                         |
+                         +- vma_set_anonymous() -> set vma->vm_ops to NULL.
+
+   |
+   +- userfaultfd_unmap_complete()
+   |
+   +- if populate
+            |
+            +- mm_populate()
+
+----------------------------------------------------------------------------------------
 - IOREMAP -
 
 
@@ -380,7 +432,7 @@ ioremap()
 ----------------------------------------------------------------------------------------
 - ADDRESS TRANSLATION -
 
-a) Address Space Identifiers (ASIDsp
+a) Address Space Identifiers (ASIDs)
             |
             +- Tagging translations with the owning process
 
@@ -535,7 +587,7 @@ __alloc_pages() with struct alloc_context ac instantiated
        |
        +- get_page_from_freelist()
        |           |
-      [3]          +- 1) scan zonelist, looking for a zone with enough free
+      [3]          +- 1) scan zonelist, looking for a zone with enough free pages.
                          a. Check the watermark via zone_watermark_fast()
                             if false, try to reclaim via node_reclaim() when needed;
                             if true, try to allocate from current zone;
@@ -579,17 +631,21 @@ __alloc_pages() with struct alloc_context ac instantiated
                              on the free list of requested migratetype.
                              a) find_suitable_fallback() to find largest/smallest available
                                 free page in other list.
-                             Note: fallback list can be (one for current, other two fallback)
-                             MIGRATE_UNMOVABLE, MIGRATE_MOVABLE, MIGRATE_RECLAIMABLE
+                             Note: fallback lists can be (depends on current migratetype,
+                             other two are fallbacks) two of below:
+                                1) MIGRATE_UNMOVABLE
+                                2) MIGRATE_MOVABLE
+                                3) MIGRATE_RECLAIMABLE
+                             -------------------------------------------------------------
                              b) get_page_from_free_area()
                              c) steal_suitable_fallback()
                                         |
                                         +- when whole_block=true, do move_freepages_block()
                                                                                  |
-                                       Move the free pages in a range to the freelist tail
-                                       of the requested type via move_freepages()
-                                                                     |
-                                                      loop to move_to_free_list()
+                                           Move the free pages in a range to the freelist
+                                           tail of the requested type via move_freepages()
+                                                                                 |
+                                                               loop to move_to_free_list()
 
                            [x]-+- Test on zone->flags - ZONE_BOOSTED_WATERMARK
                                                                    |
@@ -630,8 +686,8 @@ __alloc_pages() with struct alloc_context ac instantiated
                                              +- __drain_all_pages()
                                                 Optimized to only execute on CPUs where
                                                 pcplists are not empty, with these CPUs
-                                                |
-                                                +- drain_pages_zone()
+                                                    |
+                                                    +- drain_pages_zone()
                                                            |
                                                            +- free_pcppages_bulk()
 
@@ -694,7 +750,7 @@ mempool_create() @mm/mempool.c
                                                       the mempool
 
 ----------------------------------------------------------------------------------------
-- Direct Reclaim -
+- PAGE RECLAIM -
 
 try_to_free_pages() with struct scan_control sc initialized
         |
@@ -989,7 +1045,7 @@ fragmentation_score_node()
                           zone->zone_pgdat->node_present_pages
 
 ----------------------------------------------------------------------------------------
-- Page Faults -
+- PAGE FAULT -
 
 @include/linux/sched.h
 
@@ -1335,8 +1391,12 @@ kzalloc() @include/linux/slab.h
 
 
 ----------------------------------------------------------------------------------------
-- KSM -
+- KERNEL SAMEPAGE MERGING (KSM) -
+
+KSM is a memory-saving de-duplication feature, enabled by CONFIG_KSM=y. KSM maintains
+reverse mapping information for KSM pages in the stable tree.
 
 
-
-+- - - - - - - - - - - - - - - - - - hustler@kwork -- - - - - - - - - - - - - - - - - -+
++--------------------------------------------------------------------------------------+
+| Memory Management                                                                    |
++--------------------------------------------------------------------------------------+
