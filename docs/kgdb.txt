@@ -1,0 +1,28 @@
++--------------------------------------------------------------------------------------+
+| Refer to Linux-6.1.63                                                                |
++--------------------------------------------------------------------------------------+
+
+[1] Configuration to enable/disable kdb
+
+# CONFIG_STRICT_KERNEL_RWX is not set
+CONFIG_FRAME_POINTER=y
+CONFIG_KGDB=y
+CONFIG_KGDB_SERIAL_CONSOLE=y
+CONFIG_KGDB_KDB=y
+CONFIG_KDB_KEYBOARD=y
+
+[2] kgdboc (kgdb over console)
+
+For kgdb/gdb, kgdboc is designed to work with a single serial port. The Kernel command
+line option kgdbwait makes kgdb wait for a debugger connection during booting of a 
+kernel. The kgdbcon feature allows you to see printk() messages inside gdb while gdb
+is connected to the kernel.
+
+$ lkvm run -k Image -d rootfs.ext4 -c 6 -m 512 -n disk --debug \
+           --console serial -p "kgdboc=ttyS1 kgdbwait kgdbcon" --tty 1
+
+Enter the kernel debugger manually or by waiting for an oops or fault. Where enable
+CONFIG_MAGIC_SYSRQ=y.
+
+$ echo g > /proc/sysrq-trigger
+----------------------------------------------------------------------------------------
