@@ -222,7 +222,7 @@ pstate:
 .type   debug, %function
 
 debug:
-    cbz x0,  error
+    cbz x0, error
     add x0, x0, #6
     ret
 error:
@@ -230,3 +230,10 @@ error:
     ret
 
     .size debug, (. -debug)
+/*
+ * cmp -  compare
+ * cmn -  compare negative
+ * cbz -  compare and branch on zero
+ *        cbz Xn, <label>
+ * cbnz - compare and branch on nonzero
+ */

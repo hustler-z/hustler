@@ -327,8 +327,8 @@ Kernel space and User space have seperate translation tables.
 
 +----------------+--------------+
 |                |       |
-| Kernel Space   |
-|                | tcr_el1.t1sz
+|                |
+| Kernel Space   | tcr_el1.t1sz
 |                |
 :                :       |
 +----------------+--------------+
@@ -403,7 +403,6 @@ level of translation table and the memory translation granule size.
 
 ----------------------------------------------------------------------------------------
 - IOREMAP -
-
 
 
 ioremap()
@@ -855,7 +854,7 @@ cgroup.
 
 
 ----------------------------------------------------------------------------------------
-- Page Swap -
+- PAGE SWAP -
 
 wakeup_kswapd() @mm/vmscan.c
       |
