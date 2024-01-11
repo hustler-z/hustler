@@ -108,9 +108,6 @@
  * mul  - multiply
  * sdiv - signed divide
  * udiv - unsigned divide
- *
- * cmp  - compare
- * tst  - test bits
  * ----------------------------------------------------
  */
 
@@ -221,6 +218,15 @@ pstate:
  * ----------------------------------------------------
  */
 
-.macro mul tmp1, tmp2
-    mul \tmp1, \tmp1, \tmp2
-.endm
+.global debug
+.type   debug, %function
+
+debug:
+    cbz x0,  error
+    add x0, x0, #6
+    ret
+error:
+    mov x0, -1
+    ret
+
+    .size debug, (. -debug)

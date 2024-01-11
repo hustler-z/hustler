@@ -15,6 +15,7 @@ extern int func(int a, int b);
 extern int info(void);
 extern int factorial(int x); 
 extern int pstate(void);
+extern int debug(int x);
 
 unsigned int udiv(int a, int b)
 {
@@ -35,6 +36,7 @@ int main(void)
     printf("PSTATE: 0x%016x\n", pstate());
     printf("factorial of %d: %d\n", x, factorial(x));
     printf("%d / %d = %d\n", b, a, udiv(b, a));
-  
+    printf("x=%d, y=%d\n", 0, debug(0));
+    printf("x=%d, y=%d\n", 2, debug(2));
     return 0;
 }
