@@ -21,6 +21,8 @@ CONFIG_MAGIC_SYSRQ=y
 CONFIG_MAGIC_SYSRQ_SERIAL=y
 CONFIG_DEBUG_INFO=y
 
+CONFIG_RANDOMIZE_BASE=n
+
 [2] kgdboc (kgdb over console)
 
 For kgdb/gdb, kgdboc is designed to work with a single serial port. The Kernel command
@@ -37,6 +39,21 @@ $ lkvm run -k Image -d rootfs.ext4 -c 6 -m 512 -n disk --debug \
 
   Info: Assigned terminal 1 to pty /dev/pts/[X]
   ...
+
+[Tip: kvmtool does not work so far]
+
+$ qemu-system-aarch64 \
+    -machine virt \
+    -cpu cortex-a53 \
+    -smp 2 \
+    -m 1G \
+    -kernel Image.gz \
+    -drive format=raw,index=0,file=rootfs.ext4 \
+    -nographic \
+    -append "noinitrd root=/dev/vda console=ttyAMA0 init=/linuxrc nokaslr" \
+    -S -gdb tcp::5050
+
+[Tip: qemu works properly so far]
 
 $ gdb vmlinux
 (gdb) target remote /dev/pts/[X]
