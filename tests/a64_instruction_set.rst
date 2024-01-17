@@ -1,3 +1,4 @@
+A64 INSTRUCTION SET
 ----------------------------------------------------------------------------------------
 
 ABS: Absolute value.
@@ -132,11 +133,13 @@ CLS: Count Leading Sign bits.
 
 CLZ: Count Leading Zeros.
 
-CMN (extended register): Compare Negative (extended register): an alias of ADDS (extended register).
+CMN (extended register): Compare Negative (extended register): an alias of ADDS
+                         (extended register).
 
 CMN (immediate): Compare Negative (immediate): an alias of ADDS (immediate).
 
-CMN (shifted register): Compare Negative (shifted register): an alias of ADDS (shifted register).
+CMN (shifted register): Compare Negative (shifted register): an alias of ADDS
+                        (shifted register).
 
 CMP (extended register): Compare (extended register): an alias of SUBS (extended register).
 
@@ -162,29 +165,38 @@ CPYFPRN, CPYFMRN, CPYFERN: Memory Copy Forward-only, reads non-temporal.
 
 CPYFPRT, CPYFMRT, CPYFERT: Memory Copy Forward-only, reads unprivileged.
 
-CPYFPRTN, CPYFMRTN, CPYFERTN: Memory Copy Forward-only, reads unprivileged, reads and writes non-temporal.
+CPYFPRTN, CPYFMRTN, CPYFERTN: Memory Copy Forward-only, reads unprivileged,
+                              reads and writes non-temporal.
 
-CPYFPRTRN, CPYFMRTRN, CPYFERTRN: Memory Copy Forward-only, reads unprivileged and non-temporal.
+CPYFPRTRN, CPYFMRTRN, CPYFERTRN: Memory Copy Forward-only, reads unprivileged
+                                 and non-temporal.
 
-CPYFPRTWN, CPYFMRTWN, CPYFERTWN: Memory Copy Forward-only, reads unprivileged, writes non-temporal.
+CPYFPRTWN, CPYFMRTWN, CPYFERTWN: Memory Copy Forward-only, reads unprivileged,
+                                 writes non-temporal.
 
 CPYFPT, CPYFMT, CPYFET: Memory Copy Forward-only, reads and writes unprivileged.
 
-CPYFPTN, CPYFMTN, CPYFETN: Memory Copy Forward-only, reads and writes unprivileged and non-temporal.
+CPYFPTN, CPYFMTN, CPYFETN: Memory Copy Forward-only, reads and writes unprivileged
+                           and non-temporal.
 
-CPYFPTRN, CPYFMTRN, CPYFETRN: Memory Copy Forward-only, reads and writes unprivileged, reads non-temporal.
+CPYFPTRN, CPYFMTRN, CPYFETRN: Memory Copy Forward-only, reads and writes unprivileged,
+                              reads non-temporal.
 
-CPYFPTWN, CPYFMTWN, CPYFETWN: Memory Copy Forward-only, reads and writes unprivileged, writes nontemporal.
+CPYFPTWN, CPYFMTWN, CPYFETWN: Memory Copy Forward-only, reads and writes unprivileged,
+                              writes nontemporal.
 
 CPYFPWN, CPYFMWN, CPYFEWN: Memory Copy Forward-only, writes non-temporal.
 
 CPYFPWT, CPYFMWT, CPYFEWT: Memory Copy Forward-only, writes unprivileged.
 
-CPYFPWTN, CPYFMWTN, CPYFEWTN: Memory Copy Forward-only, writes unprivileged, reads and writes nontemporal.
+CPYFPWTN, CPYFMWTN, CPYFEWTN: Memory Copy Forward-only, writes unprivileged,
+                              reads and writes nontemporal.
 
-CPYFPWTRN, CPYFMWTRN, CPYFEWTRN: Memory Copy Forward-only, writes unprivileged, reads non-temporal.
+CPYFPWTRN, CPYFMWTRN, CPYFEWTRN: Memory Copy Forward-only, writes unprivileged,
+                                 reads non-temporal.
 
-CPYFPWTWN, CPYFMWTWN, CPYFEWTWN: Memory Copy Forward-only, writes unprivileged and non-temporal.
+CPYFPWTWN, CPYFMWTWN, CPYFEWTWN: Memory Copy Forward-only, writes unprivileged
+                                 and non-temporal.
 
 CPYP, CPYM, CPYE: Memory Copy.
 
@@ -544,11 +556,13 @@ PACDB, PACDZB: Pointer Authentication Code for Data address, using key B.
 
 PACGA: Pointer Authentication Code, using Generic key.
 
-PACIA, PACIA1716, PACIASP, PACIAZ, PACIZA: Pointer Authentication Code for Instruction address, using key A.
+PACIA, PACIA1716, PACIASP, PACIAZ, PACIZA: Pointer Authentication Code for
+                                           Instruction address, using key A.
 
 PACIASPPC: Pointer Authentication Code for return address, using key A.
 
-PACIB, PACIB1716, PACIBSP, PACIBZ, PACIZB: Pointer Authentication Code for Instruction address, using key B.
+PACIB, PACIB1716, PACIBSP, PACIBZ, PACIZB: Pointer Authentication Code for
+                                           Instruction address, using key B.
 
 PACIBSPPC: Pointer Authentication Code for return address, using key B.
 
@@ -580,21 +594,27 @@ RCWCLR, RCWCLRA, RCWCLRL, RCWCLRAL: Read Check Write atomic bit Clear on doublew
 
 RCWCLRP, RCWCLRPA, RCWCLRPL, RCWCLRPAL: Read Check Write atomic bit Clear on quadword in memory.
 
-RCWSCAS, RCWSCASA, RCWSCASL, RCWSCASAL: Read Check Write Software Compare and Swap doubleword in memory.
+RCWSCAS, RCWSCASA, RCWSCASL, RCWSCASAL: Read Check Write Software Compare and Swap
+                                        doubleword in memory.
 
-RCWSCASP, RCWSCASPA, RCWSCASPL, RCWSCASPAL: Read Check Write Software Compare and Swap quadword in memory.
+RCWSCASP, RCWSCASPA, RCWSCASPL, RCWSCASPAL: Read Check Write Software Compare and
+                                            Swap quadword in memory.
 
-RCWSCLR, RCWSCLRA, RCWSCLRL, RCWSCLRAL: Read Check Write Software atomic bit Clear on doubleword in memory.
+RCWSCLR, RCWSCLRA, RCWSCLRL, RCWSCLRAL: Read Check Write Software atomic bit Clear
+                                        on doubleword in memory.
 
-RCWSCLRP, RCWSCLRPA, RCWSCLRPL, RCWSCLRPAL: Read Check Write Software atomic bit Clear on quadword in memory.
+RCWSCLRP, RCWSCLRPA, RCWSCLRPL, RCWSCLRPAL: Read Check Write Software atomic bit
+                                            Clear on quadword in memory.
 
 RCWSET, RCWSETA, RCWSETL, RCWSETAL: Read Check Write atomic bit Set on doubleword in memory.
 
 RCWSETP, RCWSETPA, RCWSETPL, RCWSETPAL: Read Check Write atomic bit Set on quadword in memory.
 
-RCWSSET, RCWSSETA, RCWSSETL, RCWSSETAL: Read Check Write Software atomic bit Set on doubleword in memory.
+RCWSSET, RCWSSETA, RCWSSETL, RCWSSETAL: Read Check Write Software atomic bit
+                                        Set on doubleword in memory.
 
-RCWSSETP, RCWSSETPA, RCWSSETPL, RCWSSETPAL: Read Check Write Software atomic bit Set on quadword in memory.
+RCWSSETP, RCWSSETPA, RCWSSETPL, RCWSSETPAL: Read Check Write Software atomic
+                                            bit Set on quadword in memory.
 
 RCWSSWP, RCWSSWPA, RCWSSWPL, RCWSSWPAL: Read Check Write Software Swap doubleword in memory.
 
