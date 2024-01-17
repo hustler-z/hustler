@@ -140,12 +140,12 @@ Conﬁguration Register HCR_EL2. The SCR_EL3 register speciﬁes which exception
 routed to EL3, while the HCR_EL2 register similarly speciﬁes which exceptions are
 routed to EL2.
 
-		Exceptions
+        Exceptions
              |
 HCR_EL2 >>---+---> EL2
 
-		Exceptions
-		     |
+        Exceptions
+             |
 SCR_EL3 >>---+---> EL3
 
 ----------------------------------------------------------------------------------------
@@ -163,12 +163,12 @@ effciency and to enable interrupt virtualization.
  +-------------+  Priority   +---------------+     IAR     +------------+
  | Distributor | ----------> | CPU Interface | ----------> | CPU core X |
  +-------------+             +---------------+    irqID    +------------+
-									 |							  |
-									 |							  v
-									 |					  Interrupt Handler
-									 |					          |
-									 +<---------------------------+
-									               EoI
+                                     |                            |
+                                     |                            v
+                                     |            Device-specific Interrupt Handler
+                                     |                            |
+                                     |            EoI             v
+                                     +<---------------------------+
 
 Types of Interrupts:
 	• Software Generated Interrupt (SGI)
@@ -177,9 +177,8 @@ Types of Interrupts:
 	• Locality-specific Peripheral Interrupt (LPI)
 
 Interrupts can either be edge-triggered or level-sensitive.
-							   |                   |
-							   v                   v
-		 When GIC detets [rising edge] or [high voltage level]
+                             |                   |
+		When GIC detets [rising edge] or [high voltage level]
 
 Interrupts can be in different states:
 	Inactive
