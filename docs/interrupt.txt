@@ -62,7 +62,13 @@ rest of Secure state.
 		Software Step exceptions
 2) Asynchronous exceptions
     • Physical interrupts
-    • SError
+        • SError
+        • IRQ
+        • FIQ
+    • Virtual interrupts
+        • vSError
+        • vIRQ
+        • vFIQ
 
 The Exception Syndrome Register, ESR_ELn, contains information which allows the
 exception handler to determine the reason for the exception. It is updated only
@@ -129,7 +135,7 @@ Exception mask bits (DAIF) in PSTATE allow exception events to be masked:
     • I - IRQ asynchronous exception mask bit
     • F - FIQ asynchronous exception mask bit
 
-For synchronous exceptions and SErrors, the Exception Syndrome Register(FSR) is also
+For synchronous exceptions and SErrors, the Exception Syndrome Register(ESR) is also
 updated.
 
 Each Exception level has its own vector table, with the base address defined by its own
@@ -178,7 +184,7 @@ Types of Interrupts:
 
 Interrupts can either be edge-triggered or level-sensitive.
                              |                   |
-		When GIC detets [rising edge] or [high voltage level]
+        When GIC detets [rising edge] or [high voltage level]
 
 Interrupts can be in different states:
 	Inactive
@@ -220,6 +226,35 @@ Reference:
 ----------------------------------------------------------------------------------------
 Reference to Linux-6.1.63
 
-[TODO]
+=> linux-6.1.63/arch/arm64/kernel/entry.S
 
+/*
+ * Exception vectors.
+ */
+	.pushsection ".entry.text", "ax"
+
+	.align	11
+SYM_CODE_START(vectors)
+	kernel_ventry	1, t, 64, sync		// Synchronous EL1t ------+
+	kernel_ventry	1, t, 64, irq		// IRQ EL1t               |
+	kernel_ventry	1, t, 64, fiq		// FIQ EL1t               | UNHANDLED
+	kernel_ventry	1, t, 64, error		// Error EL1t ------------+
+
+	kernel_ventry	1, h, 64, sync		// Synchronous EL1h
+	kernel_ventry	1, h, 64, irq		// IRQ EL1h
+	kernel_ventry	1, h, 64, fiq		// FIQ EL1h
+	kernel_ventry	1, h, 64, error		// Error EL1h
+
+	kernel_ventry	0, t, 64, sync		// Synchronous 64-bit EL0
+	kernel_ventry	0, t, 64, irq		// IRQ 64-bit EL0
+	kernel_ventry	0, t, 64, fiq		// FIQ 64-bit EL0
+	kernel_ventry	0, t, 64, error		// Error 64-bit EL0
+
+	kernel_ventry	0, t, 32, sync		// Synchronous 32-bit EL0
+	kernel_ventry	0, t, 32, irq		// IRQ 32-bit EL0
+	kernel_ventry	0, t, 32, fiq		// FIQ 32-bit EL0
+	kernel_ventry	0, t, 32, error		// Error 32-bit EL0
+SYM_CODE_END(vectors)
+
+=> linux-6.1.63/arch/arm64/kernel/entry-common.c
 ----------------------------------------------------------------------------------------

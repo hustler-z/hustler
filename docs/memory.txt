@@ -2,6 +2,124 @@
 | Refer to Linux-6.1.63                                                                |
 +--------------------------------------------------------------------------------------+
 
+BASICS
+----------------------------------------------------------------------------------------
+ARMv8 MMU and Caches
+
+A cache is a small, fast block of memory that sits between the core and main memory. A
+cache line is the smallest loadable unit of a cache, a block of contiguous words from
+main memory under the same tag.
+
+          +---------+   +---------+
+L1 Caches | D-cache | + | I-cache | -> For each core
+          +---------+   +---------+
+               |             |
+          +-----------------------+
+L2 Caches |          ...          | -> Share between cores in a cluster
+          +-----------------------+
+                      |
+          +-----------------------+
+L3 Caches |          ...          | -> Share between clustlers
+          +-----------------------+
+                      |
+          +-----------+----------------+--------------> BUS
+                                       |
+                            +----------------------+
+                            |      Main Memory     |
+                            +----------------------+
+
+The MMU translates the virtual addresses of code and data to the physical addresses in
+the actual hardware system. The translation is carried out automatically in hardware and
+is transparent to the application. In addition to address translation, the MMU controls
+memory access permissions, memory ordering, and cache policies for each region of memory.
+
+              +------------------------------+
++----------+  | MMU (Memory Management Unit) |  +--------+
+| ARM Core |->| a) TLBs                      |->| Caches |
++----------+  | b) Table Walk Unit           |  +--------+
+              +------------------------------+            \
+                                                           \
+                                                +--------------------+
+                                                | MEMORY             |
+                                                | Translation Tables |
+                                                +--------------------+
+
+The Translation Lookaside Buffer (TLB) is a cache of recently accessed page translations
+in the MMU. For each memory access performed by the processor, the MMU checks whether
+the translation is cached in the TLB. If the requested address translation causes a hit
+within the TLB, the translation of the address is immediately available.
+
+Each TLB entry typically contains not just physical and Virtual Addresses, but also
+attributes such as memory type, cache policies, access permissions, the Address Space ID
+(ASID), and the Virtual Machine ID (VMID).
+
+If the TLB does not contain a valid translation for the Virtual Address issued by the
+processor, known as a TLB miss, an external translation table walk or lookup is
+performed. Dedicated hardware within the MMU enables it to read the translation tables
+in memory. The newly loaded translation can then be cached in the TLB for possible reuse
+if the translation table walk does not result in a page fault.
+
+TLB Invalidate Instruction
+
+TLBI <tlbi_op> {, <Xt>}
+
+For a change of a single TLB entry:
+tlbi vae1, <Xt>
+which invalidates an entry associated with the address specified in the register Xt.
+
+[VA]
+
+63                                                                 0
++-------------+---------+---------------+---------------+----------+
+| TTBR select |   ***   | Level 3 index | level 4 index | PA[15:0] |
++-------------+---------+---------------+---------------+----------+
+       |                        |                   |            |
+       |         Index in table |                   |            |
+   +-------+           +--------+                   |            |
+   | TTBRx |           |  63         0     +--------+            |
+   +-------+           |  +----------+     |  63         0       |
+       |               |  :          :     |  +----------+       |
+       |               |  |          |     |  :          :       |
+       |               |  +---+----+-+     |  |          |       |
+       |               +->|   | BA |--->+  |  +---+----+-+       |
+       |                  +---+----+-+  |  +->|   | BA |-----+   |
+       |  Page Table BA   |          |  |     +---+----+-+   |   |
+       +------ *** ------>+----------+  |     |          |   |   |
+                          L2 page table +---->+----------+   |   |
+                                              L3 page table  |   |
+                                                             |   |
+                                            +----------------+   |
+[PA]                                        |                    |
+                                            v                    v
++--------------------------------+----------------------+----------+
+|                                |       PA[47:16]      | PA[15:0] |
++--------------------------------+----------------------+----------+
+
+Context Switching
+
+Context switch requires the kernel to save all execution state associated with the
+process and to restore the state of the process to be run next. The kernel also switches
+translation table entries to those of the next process to be run. The memory of the
+tasks that are not currently running is completely protected from the task that is
+running.
+
+Save and restore elements:
+    • general-purpose registers X0-X30.
+    • Advanced SIMD and Floating-point registers V0-V31.
+    • Some status registers.
+    • TTBR0_EL1 and TTBR0.
+    • Thread Process ID (TPIDxxx) Registers.
+    • Address Space ID (ASID).
+
+For EL0 and EL1, there are two translation tables. TTBR0_EL1 provides translations for
+the bottom of Virtual Address space, which is typically application space and TTBR1_EL1
+covers the top of Virtual Address space, typically kernel space.
+
+TTBR0_EL1 -> Userspace
+TTBR1_EL1 -> Kernelspace
+
+----------------------------------------------------------------------------------------
+
 Memory Layout on AArch64 Linux
 
     +----------------------------------------------------------------------------------+
@@ -350,6 +468,54 @@ Kernel space and User space have seperate translation tables.
 The size offset of the memory region addressed by TTBR1_EL1. The region size is
 2^(64-T1SZ) bytes. The maximum and minimum possible values for T1SZ depend on the
 level of translation table and the memory translation granule size.
+
+Two Stage Translations
+
+Stage 1 Translation                       Stage 2 Translation (Control by Hypervisor)
+      |                                           |
+      v                                           v
+VA <--+--> IPA (Intermediate Physical Address) <--+--> PA
+
+For Non-secure EL1/0 accesses, these must be explicitly enabled by writing to the
+Hypervisor Configuration Register HCR_EL2.
+
++-------------------+    +--------------------+    +-------------+
+|      OS (EL1)     |    | Guest OS           |    | Peripherals |    +-------------+
++-------------------+--->| Translation Tables |--->+-------------+    | Translation |
+| Application (EL0) |    | TTBRn_EL1          |    |    Flash    |--->| tables      |
++-------------------+    +--------------------+    +-------------+    | VTTBR0_EL2  |
+ Virtual memory map                                |     RAM     |    +-------------+
+ Under control of                                  +-------------+           |
+ guest OS                                                                    |
+                                                                             | VTCR_EL2
+                                                                             |
+                         +--------------------+                              |
++-------------------+    | Hypervisor         |           TCR_EL2            v
+| Hypervisor (EL2)  |--->| Translation Tables |----------------------------->+
++-------------------+    | TTBR0_EL2          |                              |
+                         +--------------------+                              |
+                                                                             |
+                         +--------------------+                              |
++-------------------+    | Secure Monitor     |           TCR_EL3            v
+|Secure Monitor(EL3)|--->| Translation Tables |----------------------------->+
++-------------------+    | TTBR0_EL3          |                              |
+ Virtual memory space    +--------------------+                              |
+ seen by Hypervisor                                                          |
+ and Secure Monitor                                                          v
+                                                              +--------------+
+                                                              |
+                                                              |       +-------------+
+                                                              |       | Peripherals |
+                                                              |       +-------------+
+                                                              |       |     RAM     |
+                                                              |       +-------------+
+                                                              +------>| Peripherals |
+                                                                      +-------------+
+                                                                      |     RAM     |
+                                                                      +-------------+
+                                                                      |    Flash    |
+                                                                      +-------------+
+                                                             Real physical memory map
 
 ----------------------------------------------------------------------------------------
 - REVERSE MAPPING (RMAP) -
@@ -1395,6 +1561,10 @@ kzalloc() @include/linux/slab.h
 KSM is a memory-saving de-duplication feature, enabled by CONFIG_KSM=y. KSM maintains
 reverse mapping information for KSM pages in the stable tree.
 
+----------------------------------------------------------------------------------------
+Reference
+
+[a] ARM®Cortex®-A Series Version: 1.0 Programmer’s Guide for ARMv8-A
 
 +--------------------------------------------------------------------------------------+
 | Memory Management                                                                    |
