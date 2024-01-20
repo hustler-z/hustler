@@ -1,3 +1,3 @@
 Linux Kernel Education
-
-# memory management - 2023.12.12
+Mainly forcus on ARM based linux kernel.
+[ Tech makes life better ]
