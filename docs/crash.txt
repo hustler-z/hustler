@@ -1,0 +1,149 @@
++--------------------------------------------------------------------------------------+
+| CASE STUDY                                                                           |
++--------------------------------------------------------------------------------------+
+
+kernel logs when it crashed:
+
+[   54.667134] Unable to handle kernel paging request at virtual address ffffffc08138799e
+[   54.667395] Mem abort info:
+[   54.667451]   ESR = 0x96000045
+[   54.667610]   EC = 0x25: DABT (current EL), IL = 32 bits
+[   54.667704]   SET = 0, FnV = 0
+[   54.667772]   EA = 0, S1PTW = 0
+[   54.667870] Data abort info:
+[   54.667938]   ISV = 0, ISS = 0x00000045
+[   54.667996]   CM = 0, WnR = 1
+[   54.670503] swapper pgtable: 4k pages, 39-bit VAs, pgdp=0000000040e1c000
+[   54.670776] [ffffffc08138799e] pgd=0000000000000000, p4d=0000000000000000, pud=0000000000000000
+[   54.674304] Internal error: Oops: 96000045 [#1] PREEMPT_RT SMP
+[   54.679438] Modules linked in:
+[   54.679668] CPU: 0 PID: 639 Comm: thread2 Tainted: G W 5.10.145-rt74-g8486af2177c9-dirty #36
+[   54.679981] Hardware name: linux,dummy-virt (DT)
+[   54.680254] pstate: 80000085 (Nzcv daIf -PAN -UAO -TCO BTYPE=--)
+[   54.680409] pc : queued_spin_lock_slowpath+0x1b8/0x3a8
+[   54.680636] lr : _raw_spin_lock_irqsave+0x84/0xb0
+[   54.680792] sp : ffffffc011ecbe10
+[   54.680851] x29: ffffffc011ecbe10 x28: 0000000000000000
+[   54.681051] x27: 0000000000000000 x26: ffffffc010e74a10
+[   54.681224] x25: ffffffc011eb3d80 x24: ffffffc0100a2440
+[   54.681769] x23: ffffffc010b05228 x22: ffffffc011eb3c68
+[   54.682597] x21: ffffff80c249a980 x20: ffffff80c2458ec0
+[   54.682771] x19: 0000000000000000 x18: ffffffffffffffff
+[   54.682889] x17: 0000000012e9a236 x16: 0000000031f39da0
+[   54.682982] x15: 0000ad3d7b10e734 x14: 00000000000002d1
+[   54.683058] x13: 00000000000002d1 x12: 0000000000000000
+[   54.683132] x11: 0000000000000002 x10: 0000000000000000
+[   54.683229] x9 : 0000000000040000 x8 : 0000000000000000
+[   54.683307] x7 : ffffff80ff788a00 x6 : ffffffc010da98e0
+[   54.683381] x5 : ffffffc010c90000 x4 : ffffff80ff788a00
+[   54.683493] x3 : ffffffc011eb3d80 x2 : 00000000706f6f6e
+[   54.683571] x1 : ffffffc010c90a30 x0 : ffffff80ff788a08
+[   54.683651] Call trace:
+[   54.683692]  queued_spin_lock_slowpath+0x1b8/0x3a8
+[   54.683804]  swake_up_one+0x18/0x50
+[   54.683879]  thread_wake2+0x10/0x20
+[   54.683950]  kthread+0x18c/0x198
+[   54.684023]  ret_from_fork+0x10/0x34
+[   54.693206] Code: d37c0400 8b000021 910020e0 f862d8c2 (f8226827)
+[   54.699734] ---[ end trace 0000000000000004 ]---
+
+----------------------------------------------------------------------------------------
+
+ESR (Exception Syndrome Register)
+
+63   56 55                   32 31    25                                    0
++------+-----------------------+----+--+------------------------------------+
+| RES0 |         ISS2          | EC |IL|                ISS                 |
++------+-----------------------+----+--+------------------------------------+
+
+EC (Exception Class) [31:26] - Indicates reason for the exception
+IL (Instruction Length) [25] - For synchronous exception
+ISS (Instruction Specific Syndrome) [24:0]
+
+----------------------------------------------------------------------------------------
+<a> linux-6.1.63/arch/arm64/kernel/entry-common.c
+
+el1h_64_sync_handler() branch based on EC
+          |
+          | • el1_abort() ---> do_mem_abor()
+          | • el1_pc()
+          | • el1_undef()
+          | • el1_bti()
+          | • el1_dbg()
+          | • el1_fpac()
+          v
+
+el0t_64_sync_handler() branch based on EC
+          |
+          | • el0_svc() ---> invoke_syscall()
+          | • el0_da()  ---> do_mem_abort()
+          | • el0_ia()  ---> do_mem_abort()
+          | • el0_fpsimd_acc()
+          | • el0_sve_acc()
+          | • el0_sme_acc()
+          | • el0_fpsimd_exc()
+          | • el0_sys()
+          | • el0_sp()
+          | • el0_pc()
+          | • el0_undef()
+          | • el0_bti()
+          | • el0_dbg()
+          | • el0_fpac()
+          | • el0_inv()
+          v
+
+<b> linux-6.1.63/arch/arm64/mm/fault.c
+
+do_mem_abort()
+     |
+     +- (struct fault_info *)inf->fn(far, esr, regs)
+                                   |
+                                   |
+Registration on fault_info[] <-----+ callback
+Functions includes:
+
+- do_bad()
+- do_translation_fault()
+           |                        yes
+           +- is_ttbr0_addr(far) --------> do_page_fault()
+                     |no
+                     +- do_bad_area()
+- do_page_fault()
+- do_sea()
+- do_tag_check_fault()
+           |
+           +- do_bad_area()
+
+- do_alignment_fault()
+           |
+           +- compact_user_mode(regs)                       yes
+              && CONFIG_COMPACT_ALIGNMENT_FIXUPS enabled --------+
+                        |no                                      |
+                        +- do_bad_area()            do_compact_alignment_fixup()
+
+do_bad_area()
+     |                     yes
+     +- user_mode(regs) --------> set_thread_esr() ----> arm64_force_sig_fault()
+              |no
+              +- __do_kernel_fault()
+                         |
+            [Analysis on Exception reason]
+              If can't fix the exception
+              then die_kernel_fault()
+              fires with the msg.
+
+do_kernel_fault()
+       | --------------------------+ bust_spinlock(1)
+       +- mem_abort_decode()       |
+       |                           |
+       +- show_pte()               |
+       |                           |
+  +<---+- die("Oop", regs, esr)    |
+  |    |---------------------------+ bust_spinlock(0)
+  |    +- make_task_dead(SIGKILL)
+  |                |
+  |                :
+  +- __die()       +- do_exit()
+  :
+  +- panic()
+----------------------------------------------------------------------------------------
