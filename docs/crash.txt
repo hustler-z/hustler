@@ -65,12 +65,12 @@ ISS (Instruction Specific Syndrome) [24:0]
 
 el1h_64_sync_handler() branch based on EC
           |
-          | • el1_abort() ---> do_mem_abor()
-          | • el1_pc()
-          | • el1_undef()
-          | • el1_bti()
-          | • el1_dbg()
-          | • el1_fpac()
+          | • el1_abort() ---> do_mem_abor(far, esr, regs)
+          | • el1_pc()    ---> do_sp_pc_abort(far, esr, regs)
+          | • el1_undef() ---> do_undefinstr(regs, esr)
+          | • el1_bti()   ---> do_el1_bti(regs, esr)
+          | • el1_dbg()   ---> do_debug_exception(far, esr, regs)
+          | • el1_fpac()  ---> do_el1_spac(regs, esr)
           v
 
 el0t_64_sync_handler() branch based on EC
@@ -98,18 +98,35 @@ do_mem_abort()
      |
      +- (struct fault_info *)inf->fn(far, esr, regs)
                                    |
-                                   |
 Registration on fault_info[] <-----+ callback
+                                   |!=0                  yes
+                                   +- user_mode(regs) --------> die_kernel_fault()
+                                            |no
+                                            +- arm64_notify_die()
+                                               For an unrecognized fault type.
+
 Functions includes:
 
 - do_bad()
+     |
+     +- Unimpletmented
+
 - do_translation_fault()
            |                        yes
            +- is_ttbr0_addr(far) --------> do_page_fault()
                      |no
                      +- do_bad_area()
+
 - do_page_fault()
+
 - do_sea()
+     |
+     +- arm64_notify_die()
+                |                     yes
+                +- user_mode(regs) --------> arm64_force_sig_fault()
+                         |no
+                         +- die()
+
 - do_tag_check_fault()
            |
            +- do_bad_area()
@@ -121,29 +138,64 @@ Functions includes:
                         |no                                      |
                         +- do_bad_area()            do_compact_alignment_fixup()
 
+----------------------------------------------------------------------------------------
+
+arm64_force_sig_fault()
+          |
+          +- arm64_show_signal()
+          |                       no
+          +- signo == SIGKILL --------> force_sig_fault()
+                    |yes
+                    +- force_sig(SIGKILL)
+
+----------------------------------------------------------------------------------------
+
 do_bad_area()
      |                     yes
      +- user_mode(regs) --------> set_thread_esr() ----> arm64_force_sig_fault()
               |no
               +- __do_kernel_fault()
+                         :
                          |
             [Analysis on Exception reason]
-              If can't fix the exception
-              then die_kernel_fault()
-              fires with the msg.
+            If can't fix the exception then die_kernel_fault() fires with the "msg".
 
-do_kernel_fault()
-       | --------------------------+ bust_spinlock(1)
+die_kernel_fault()
+       |
+       +-------------------------->+ bust_spinlock(1)
+       |                           |
        +- mem_abort_decode()       |
        |                           |
        +- show_pte()               |
        |                           |
   +<---+- die("Oop", regs, esr)    |
-  |    |---------------------------+ bust_spinlock(0)
+  |    |                           |
+  |    +<--------------------------+ bust_spinlock(0)
+  |    :
   |    +- make_task_dead(SIGKILL)
   |                |
   |                :
-  +- __die()       +- do_exit()
   :
-  +- panic()
+  +- oops_enter()
+  |
+  +- console_verbose() ---> __die() ---> crach_kexec() ---> add_taint()
+  |                            |
+  :                            +- notify_die()
+  |
+  +- oops_exit()
+  :
+  +- panic() <--- in_interrupt()
+  :
+  +- The return value of __die() != NOTIFY_STOP
+                        |yes
+                        +- make_task_dead(SIGSEGV)
+
+make_task_dead()
+       :
+       |
+       +- panic()
+       :
+       |
+       +- do_exit(signr)
+
 ----------------------------------------------------------------------------------------
