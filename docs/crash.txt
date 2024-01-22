@@ -65,7 +65,7 @@ ISS (Instruction Specific Syndrome) [24:0]
 
 el1h_64_sync_handler() branch based on EC
           |
-          | • el1_abort() ---> do_mem_abor(far, esr, regs)
+          | • el1_abort() ---> do_mem_abort(far, esr, regs)
           | • el1_pc()    ---> do_sp_pc_abort(far, esr, regs)
           | • el1_undef() ---> do_undefinstr(regs, esr)
           | • el1_bti()   ---> do_el1_bti(regs, esr)
@@ -119,9 +119,14 @@ Functions includes:
 
 - do_page_fault()
 
+[Synchronous External Abort]
 - do_sea()
-     |
-     +- arm64_notify_die()
+	 |                                             yes
+	 + In user state, apei_claim_sea(regs) == 0 --------> <return>
+				|no
+				: <--- siaddr
+				|
+		arm64_notify_die()
                 |                     yes
                 +- user_mode(regs) --------> arm64_force_sig_fault()
                          |no
