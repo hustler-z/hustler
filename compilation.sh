@@ -1,7 +1,3 @@
-#!/bin/sh
-
-# common linux kernel compilation script
-
 export CROSS_COMPILE=/conic/armcc/bin/aarch64-none-linux-gnu-
 export ARCH=arm64
 
@@ -23,8 +19,14 @@ build() {
 			;;
 		kernel)
 			cd $KPATH
+
 			echo "------------------------------- Start Compalition ------------------------------"
+			start=$(date +%s)
 			make -j88 O=out/
+			end=$(date +%s)
+			total=$[ $end-$start ]
+			echo "--------------------------------------------------------------------------------"
+			echo "The Compilation Time of the kernel: $(($total/60)) min $(($total%60)) sec"
 			echo "------------------------------- Done Compalition -------------------------------"
 			;;
         mrproper)
@@ -40,7 +42,7 @@ build() {
 			echo "----------------------------------- Done Clean ---------------------------------"
             ;;
 		*)
-			echo "./build.sh [option] [path]"
+			echo "./compilation.sh [config/kernel/mrproper/clean] [path]"
 			;;
 	esac
 }
