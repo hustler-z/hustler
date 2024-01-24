@@ -59,7 +59,7 @@ instruction on any PE in the multiprocessor system.
 
 #define dsb(opt)	asm volatile("dsb " #opt : : : "memory")
 ----------------------------------------------------------------------------------------
-RCU
+RCU (Read-Copy Update) is a synchronization mechanism.
 
 
 

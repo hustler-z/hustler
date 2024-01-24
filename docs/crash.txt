@@ -86,11 +86,15 @@ el0t_64_sync_handler() branch based on EC
           | • el0_sp()
           | • el0_pc()
           | • el0_undef()
-          | • el0_bti()
+          | • el0_bti() ---> do_el0_bti()
           | • el0_dbg()
           | • el0_fpac()
           | • el0_inv()
           v
+
+BTI (Branch Target Identification)
+do_el1_bti()
+do_el0_bti()
 
 <b> linux-6.1.63/arch/arm64/mm/fault.c
 
@@ -167,22 +171,22 @@ do_bad_area()
 
 die_kernel_fault()
        |
-       +-------------------------->+ bust_spinlock(1)
-       |                           |
-       +- mem_abort_decode()       |
-       |                           |
-       +- show_pte()               |
-       |                           |
-  +<---+- die("Oop", regs, esr)    |
-  |    |                           |
+       +<--------------------------+ bust_spinlock(1)
+       |
+       +- mem_abort_decode()
+       |
+       +- show_pte()
+       |
+  +<---+- die("Oops"", regs, esr)
+  |    |
   |    +<--------------------------+ bust_spinlock(0)
   |    :
   |    +- make_task_dead(SIGKILL)
   |                |
   |                :
   :
-  +- oops_enter()
-  |
+  +- oops_enter()              +-> arch/arm64/kernel/traps.c
+  |                            |
   +- console_verbose() ---> __die() ---> crach_kexec() ---> add_taint()
   |                            |
   :                            +- notify_die()
@@ -198,9 +202,90 @@ die_kernel_fault()
 make_task_dead()
        :
        |
-       +- panic()
+       +- panic() to halt the system
        :
        |
        +- do_exit(signr)
+              :
+              +- if tsk->mm (current task)
+                          |
+                          +- sync_mm_rss(tsk->mm)
+              |
+              +- if group_dead <- tsk->signal->live
+                         |
+                         +- if is_global_init(tsk)
+                                    |yes
+                                    +- panic()
+              :
+              +- taskstats_exit()
+              |
+              +- exit_mm()
+              |
+              +- trace_sched_process_exit()
+              |
+              +- exit_sem()
+              |
+              +- exit_shm()
+              |
+              +- exit_files()
+              |
+              +- exit_fs()
+              |
+              +- exit_task_namespaces()
+              |
+              +- exit_task_work()
+              |
+              +- exit_thread()
+              |
+              +- perf_event_exit_task()
+              |
+              +- sched_autogroup_exit_task()
+              |
+              +- cgroup_exit()
+              |
+              +- flush_ptrace_hw_breakpoint()
+              |
+              +- exit_tasks_rcu_start()
+              |
+              +- exit_notify()
+              |
+              +- proc_exit_connector()
+              |
+              +- mpol_put_task_policy()
+              :
+              +- validate_creds_for_do_exit()
+              |
+              +- exit_task_stack_account()
+              |
+              +- exit_rcu()
+              |
+              +- exit_tasks_rcu_finish()
+              :
+              +- do_task_dead()
+                      |
+                      :
+                      +- __schedule(SM_NONE)
+
+panic()
+  |
+  :
+  +- Disable local interrupts.
+     local_irq_disable()
+     preempt_disable_notrace()
+
+  +- Only one CPU is allowed to execute the panic
+     if old_cpu != PANIC_CPU_INVALID && old_cpu != this_cpu
+             |                          |yes
+             |                          +- panic_smp_self_stop()
+             +- 1st CPU fired panic()
+                        |
+                        +- console_verbose()
+                        :
+                        +- if !test_taint(TAINT_DIE) && oops_in_progress <= 1
+                                      |yes
+                                      +- dump_stack()
+                        +- kgdb_panic()
+                        :
+                        +-
 
 ----------------------------------------------------------------------------------------
