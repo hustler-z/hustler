@@ -700,6 +700,7 @@ usual kernel memory allocators are not up and running.
 | @include/uapi/linux/const.h                                                          |
 | #define __ALIGN_KERNEL(x, a)   __ALIGN_KERNEL_MASK(x, (__typeof__(x))(a) - 1)        |
 | #define __ALIGN_KERNEL_MASK(x, mask)  (((x) + (mask)) & ~(mask))                     |
+| => (x + a - 1) & (~(a - 1))                                                          |
 +--------------------------------------------------------------------------------------+
 
 (1) CONFIG_NUMA=y

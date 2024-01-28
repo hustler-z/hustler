@@ -9,11 +9,13 @@ build() {
 			cd $KPATH
 			make menuconfig
 			echo "------------------------------ Move Configuration ------------------------------"
-			if [ -d "out" ];then
-				mv .config out/
-			else
-				mkdir out
-				mv .config out/
+			if [ -f ".config" ];then
+				if [ -d "out" ];then
+					mv .config out/
+				else
+					mkdir out
+					mv .config out/
+				fi
 			fi
 			echo "------------------------------ Done Configuration ------------------------------"
 			;;
