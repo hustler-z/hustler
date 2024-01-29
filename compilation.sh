@@ -1,4 +1,4 @@
-export CROSS_COMPILE=/conic/armcc/bin/aarch64-none-linux-gnu-
+export CROSS_COMPILE=/cc/armcc/bin/aarch64-none-linux-gnu-
 export ARCH=arm64
 
 KPATH=$2

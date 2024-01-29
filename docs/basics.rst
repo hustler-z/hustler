@@ -58,6 +58,11 @@ instruction on any PE in the multiprocessor system.
 #define dmb(opt)	asm volatile("dmb " #opt : : : "memory")
 
 #define dsb(opt)	asm volatile("dsb " #opt : : : "memory")
+
+----------------------------------------------------------------------------------------
+spin_lock/unlock()
+
+
 ----------------------------------------------------------------------------------------
 RCU (Read-Copy Update) is a synchronization mechanism.
 

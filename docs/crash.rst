@@ -284,6 +284,7 @@ panic()
                         +- if !test_taint(TAINT_DIE) && oops_in_progress <= 1
                                       |yes
                                       +- dump_stack()
+
                         +- kgdb_panic()
                         :
                         +-
