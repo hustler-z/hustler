@@ -194,6 +194,37 @@ overall system performance.
 2) Transparent HugePages (THP)
 
 ----------------------------------------------------------------------------------------
+- COMPOUND PAGES -
+
+A compound page with order N consists of 2^N physically contiguous pages. A compound
+page with order 2 takes the form of "HTTT", where H donates its head page and T donates
+its tail page(s). The major consumers of compound pages are hugeTLB pages (HugeTLB Pages),
+the SLUB etc. memory allocators and various device drivers.
+
+PageHead   PageTails
+  /          /
++-+- ~ ~ -+-+
+|x|       |x|
++-+- ~ ~ -+-+
+      |
+      +-> 2^N Physically Contiguous Pages
+
+with __GFP_COMP, alloc_pages() can allocate compound pages.
+
+@include/linux/page-flags.h
+
+1) PageComound()
+        |
+        +- page->flags or page->compound_head
+                    |
+                    +- PG_head (@enum pageflags)
+
+2) PageHead()
+3) PageTail()
+
+Above functions can verify if pages are compound/page heads/tails.
+
+----------------------------------------------------------------------------------------
 - MMAP -
 
 mmap() @arch/arm64/kernel/sys.c
@@ -700,6 +731,7 @@ usual kernel memory allocators are not up and running.
 | @include/uapi/linux/const.h                                                          |
 | #define __ALIGN_KERNEL(x, a)   __ALIGN_KERNEL_MASK(x, (__typeof__(x))(a) - 1)        |
 | #define __ALIGN_KERNEL_MASK(x, mask)  (((x) + (mask)) & ~(mask))                     |
+|                                                                                      |
 | => (x + a - 1) & (~(a - 1))                                                          |
 +--------------------------------------------------------------------------------------+
 
