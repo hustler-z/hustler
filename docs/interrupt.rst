@@ -26,6 +26,7 @@ Saved Program Status Register
     SPSR_ELx Holds the saved processor state when an exception is taken to this ELx
 Vector Base Address Register
     VBAR_ELx Holds the exception base address for any exception that is taken to ELx
+
 ----------------------------------------------------------------------------------------
 
 Execuation states - AArch32/AArch64
@@ -218,11 +219,13 @@ the interrupt.
 When the device-specific handler finishes execution, the top-level handler writes the
 same interrupt ID to the End of Interrupt (EoI) register in the CPU Interface block,
 indicating the end of interrupt processing.
+
 ----------------------------------------------------------------------------------------
 
 Reference:
 [1] Learn the architecture - AArch64 Exception Model
 [2] ARM Cortex-A Series Programmer’s Guide for ARMv8-A
+
 ----------------------------------------------------------------------------------------
 Reference to Linux-6.1.63
 
@@ -257,4 +260,75 @@ SYM_CODE_START(vectors)
 SYM_CODE_END(vectors)
 
 => linux-6.1.63/arch/arm64/kernel/entry-common.c
+----------------------------------------------------------------------------------------
+el1h_64_irq_handler()
+	 |
+	 +- el1_interrupt()
+
+el1h_64_fiq_handler()
+	 |
+	 +- with handler callback [void (*handle_arch_irq/fiq)()]
+	    el1_interrupt()
+		  |
+		  +- if CONFIG_ARM64_PSEUDO_NMI enabled and not interrupt_enabled()
+				 |no		              |yes
+				 +- __el1_irq()		      +- __el1_pnmi()
+					:                              :
+					+--> do_interrupt_handler() <--+
+						        |
+							:
+							+- if on_thread_stack() -> [1]
+								|yes
+								+- call_on_irq_stack()
+							    @arch/arm64/kernel/entry.S
+
+   [1]
+    |no
+ handler() callback registered
+    |
+    +-> 1) handle_arch_irq <-- set_handle_irq() to set the irq handlers
+	2) hanele_arch_fiq <-- set_handle_fiq() to set the fiq handlers
+
+Note that normally, gic_handle_irq() is set as root IRQ handler. check the workflow:
+@arch/arm64/kernel/irq.c
+
+init_IRQ()
+    |
+    +- init_irq_stacks()
+    |
+    +- init_irq_scs()
+    |
+    +- irqchip_init()
+    :        |
+	     +- of_irq_init(__irqchip_of_table) @drivers/irqchip/irqchip.c
+	     :  To scan and init matching interrupt controllers in DT
+
+Note that GIC, GICv2, GICv3, GICv4, etc. have different initialization processes.
+
+el1h_64_error_handler()
+	 |
+	 +- do_serror()
+
+----------------------------------------------------------------------------------------
+
+el0t_64_irq_handler()
+	 |
+	 +- __el0_irq_handler_common() ----->+
+					     |
+el0t_64_fiq_handler()			     |
+	 |				     |
+	 +- __el0_fiq_handler_common() ----->+
+					     |
+					     +- el0_interrupt()
+					              |
+						      :
+						      +- do_interrupt_handler()
+
+el0t_64_error_handler()
+	 |
+	 +- __el0_error_handler_common()
+			  |
+			  :
+			  +- do_serror() @arch/arm64/kernel/traps.c
+
 ----------------------------------------------------------------------------------------
