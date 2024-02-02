@@ -5,21 +5,19 @@ KPATH=$2
 
 build() {
 	case $1 in
-		config)
+		cfg)
 			cd $KPATH
 			make menuconfig
 			echo "------------------------------ Move Configuration ------------------------------"
-			if [ -f ".config" ];then
-				if [ -d "out" ];then
-					mv .config out/
-				else
-					mkdir out
-					mv .config out/
-				fi
+			if [ -d "out" ];then
+				mv .config out/
+			else
+				mkdir out
+				mv .config out/
 			fi
 			echo "------------------------------ Done Configuration ------------------------------"
 			;;
-		kernel)
+		out)
 			cd $KPATH
 
 			echo "------------------------------- Start Compalition ------------------------------"
@@ -28,23 +26,56 @@ build() {
 			end=$(date +%s)
 			total=$[ $end-$start ]
 			echo "--------------------------------------------------------------------------------"
-			echo "The Compilation Time of the kernel: $(($total/60)) min $(($total%60)) sec"
+			echo "Done compiling kernel in $(($total/60)) min $(($total%60)) sec"
 			echo "------------------------------- Done Compalition -------------------------------"
 			;;
-        mrproper)
+		tags)
+			cd $KPATH
+
+			echo "--------------------------- Start Generating tags ------------------------------"
+			start=$(date +%s)
+
+			ctags=$(command -v ctags)
+			if [ -z $ctags ];then
+				echo "ctags ain't installed yet"
+				TAGS=
+			else
+				TAGS=tags
+			fi
+			cscope=$(command -v cscope)
+			if [ -z $cscope ];then
+				echo "cscope ain't installed yet"
+				CSCOPE=
+			else
+				CSCOPE=cscope
+			fi
+			echo "--------------------------------------------------------------------------------"
+			make -j88 $TAGS $CSCOPE
+			end=$(date +%s)
+			total=$[ $end-$start ]
+			echo "--------------------------------------------------------------------------------"
+			echo "Done generating tags in $(($total/60)) min $(($total%60)) sec"
+			echo "--------------------------------------------------------------------------------"
+			;;
+		mrproper)
 			echo "------------------------ Remove Previous Configuration -------------------------"
-            cd $KPATH
+			cd $KPATH
 			make mrproper
 			echo "------------------------------ Done Configuration ------------------------------"
-            ;;
-        clean)
+			;;
+		clean)
 			echo "----------------------------------- Make Clean ---------------------------------"
-            cd $KPATH
+			cd $KPATH
 			make clean
 			echo "----------------------------------- Done Clean ---------------------------------"
-            ;;
+			;;
 		*)
-			echo "./compilation.sh [config/kernel/mrproper/clean] [path]"
+			echo "Usage: ./compilation <option> [path]"
+			echo "--------------------------------------------------------------------------------"
+			echo "[0] generate tags: ./compilation.sh tags [path]"
+			echo "[1] create .config: ./compilation.sh cfg [path]"
+			echo "[2] compile the kernel: ./compilation.sh out [path]"
+			echo "--------------------------------------------------------------------------------"
 			;;
 	esac
 }
