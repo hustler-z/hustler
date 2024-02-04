@@ -92,9 +92,29 @@ el0t_64_sync_handler() branch based on EC
           | • el0_inv()
           v
 
-BTI (Branch Target Identification)
+*) BTI (Branch Target Identification)
+
 do_el1_bti()
+     |
+     +- die()
+
 do_el0_bti()
+     |
+     +- force_signal_inject()
+
+*) FPAC
+
+do_el1_fpac()
+     |
+     +- die()
+
+do_el0_fpac()
+     |
+     +- force_signal_inject()
+                  |
+                  :
+                  +- @desc [SIGILL/SIGSEGV]
+                     arm64_notify_die()
 
 <b> linux-6.1.63/arch/arm64/mm/fault.c
 
@@ -288,5 +308,15 @@ panic()
                         +- kgdb_panic()
                         :
                         +-
+
+----------------------------------------------------------------------------------------
+
+Bus Error
+
+SIGBUS {si_signo=SIGBUS, si_code=BUS_ADRERR, si_addr=0x7fa884a000}
+                                     |
+                                     v
+SIGBUS indicates an access to an invalid address. In particular, SIGBUS signals often
+result from dereferencing a misaligned pointer.
 
 ----------------------------------------------------------------------------------------

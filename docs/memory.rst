@@ -470,7 +470,7 @@ VMALLOC_SPACE
 |                |
 +----------------+ - VMALLOC_END
 
-Kernel space and User space have seperate translation tables.
+Kernel space and User space have separate translation tables.
 
 * Translation Control Register (TCR_EL1) - EL1&0 Translation Regime
 
@@ -735,6 +735,15 @@ usual kernel memory allocators are not up and running.
 | => (x + a - 1) & (~(a - 1))                                                          |
 +--------------------------------------------------------------------------------------+
 
+nr_free_buffer_pages() - count number of pages beyond high watermark
+          |
+          +- nr_free_zone_pages() -> sum of [managed_pages - high_pages] of all zones
+
+
+si_mem_available()
+         |
+         +-> Userspace Allocated Memory + Page Cache + Reclaimable Kernel Memory
+
 (1) CONFIG_NUMA=y
 
 alloc_pages() 
@@ -779,7 +788,7 @@ __alloc_pages() with struct alloc_context ac instantiated
        |
        +- prepare_alloc_pages()
        |           |
-      [2]          +- Initialize the alloc_context struture
+      [2]          +- Initialize the alloc_context structure
 
       [2]    
        |
@@ -1045,7 +1054,7 @@ shrink_slab()
 ----------------------------------------------------------------------------------------
 - Control Group -
 
-cgroup is a mechanism to organize proccesses hierarchically and distribute system resources
+cgroup is a mechanism to organize processes hierarchically and distribute system resources
 along the hierarchy in a controlled and configurable manner.
 
 cgroups form a tree structure and every process in the system belongs to one and only one
@@ -1191,7 +1200,7 @@ wakeup_kcompactd()
                                                                    v
         +<---------------------------------------------------------+
         |
-The backgound compaction daemon
+The background compaction daemon
         |
    kcompactd()
         |
@@ -1550,7 +1559,7 @@ struct kmem_cache {                                 |
                         struct list_head slabs_full;     |-> CONFIG_SLAB
                         struct list_head slabs_free;    -+
                         ...
-                        stuct list_head partial;        ---> CONFIG_SLUB
+                        struct list_head partial;        ---> CONFIG_SLUB
                         ...
                     };
 
@@ -1593,6 +1602,27 @@ kzalloc() @include/linux/slab.h
 
 KSM is a memory-saving de-duplication feature, enabled by CONFIG_KSM=y. KSM maintains
 reverse mapping information for KSM pages in the stable tree.
+
+----------------------------------------------------------------------------------------
+- MEMFD -
+
+memfd_creat() - @syscall @mm/memfd.c
+     |
+     +-> create an anonymous file that can be shared in a shmem tmpfs or hugetlbfs.
+
+memfd_fcntl()
+     |
+     +- 1) F_ADD_SEALS
+                |
+                +- memfd_add_seals()
+                           |
+                           +-> Sealing allows multiple parties to share a tmpfs or
+                               hugetlbfs file but restrict access to a specific subset
+                               of file operations.
+
+        2) F_GET_SEALS
+                |
+                +- memfd_get_seals()
 
 ----------------------------------------------------------------------------------------
 Reference

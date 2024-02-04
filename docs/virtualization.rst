@@ -3,13 +3,13 @@ BASIC INTRO
 
 Virtualization is technology that allows you to create multiple simulated environments or dedicated
 resources from a single, physical hardware system. Software called a <hypervisor> connects directly
-to that hardware and allows you to split 1 system into a seperate, distinct, and secure environments
+to that hardware and allows you to split 1 system into a separate, distinct, and secure environments
 known as <virtual machines> VMs.
 
 +---------+---------+-------------+
 | guest 0 | guest 1 |   . . .     |
 +---------+---------+-------------+
-| HOST(equiped with a hypervisor) |
+|HOST(equipped with a hypervisor) |
 +---------------------------------+
 
 Things like CPU, memory and storage as a pool of resources that can be relocated.
@@ -47,7 +47,7 @@ contained in a separate VM.
 A hypervisor can perform:
 
 * memory management
-  stage 2 translation tables set up by the hypervisor tanslate intermediate physical memory
+  stage 2 translation tables set up by the hypervisor translate intermediate physical memory
   addresses to physical memory addresses.
 
 * device emulation

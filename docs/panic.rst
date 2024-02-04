@@ -90,7 +90,7 @@ Whichever generates incorrect instructions that cpu can't recognize.
 
 ----------------------------------------------------------------------------------------------------
 
-Panic has been solved. It might be the problem that compliation issues or configuration issues with
+Panic has been solved. It might be the problem that compilation issues or configuration issues with
 rootfs images, where might corrupt the executable.
 
 Currently use busybox-1.36.1 made rootfs.ext4:

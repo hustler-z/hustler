@@ -29,7 +29,7 @@ Vector Base Address Register
 
 ----------------------------------------------------------------------------------------
 
-Execuation states - AArch32/AArch64
+Execution states - AArch32/AArch64
 
 +---------+     (interprocessing)      +---------+
 | AArch64 | -------------------------> | AArch32 |
@@ -61,6 +61,7 @@ rest of Secure state.
 		Watchpoint exceptions
 		Vector Catch exceptions
 		Software Step exceptions
+
 2) Asynchronous exceptions
     • Physical interrupts
         • SError
@@ -162,7 +163,7 @@ Generic Interrupt Controller (GIC)
 The GIC performs the critical tasks of interrupt management, prioritization, and
 routing. The GIC marshals all interrupts from across the system, prioritizes them, and
 sends them to a core to be dealt with. GICs are primarily used to boost processor
-effciency and to enable interrupt virtualization.
+efficiency and to enable interrupt virtualization.
 
 [Interrupt Sources] each of them with a unique interrupt ID.
   |  |   ... |
@@ -185,7 +186,7 @@ Types of Interrupts:
 
 Interrupts can either be edge-triggered or level-sensitive.
                              |                   |
-        When GIC detets [rising edge] or [high voltage level]
+        When GIC detects [rising edge] or [high voltage level]
 
 Interrupts can be in different states:
 	Inactive
@@ -330,5 +331,10 @@ el0t_64_error_handler()
 			  |
 			  :
 			  +- do_serror() @arch/arm64/kernel/traps.c
+				|
+				+- if !arm64_is_ras_serror(esr) or
+				      arm64_is_fatal_ras_serror(regs, esr)
+				                 |yes
+						 +- arm64_serror_panic(regs, esr)
 
 ----------------------------------------------------------------------------------------
