@@ -152,11 +152,24 @@ Translation table lookup with 4KB pages
      |                 +-------------------------------> [47:39] L0 index
      +-------------------------------------------------> [63]    TTBR0/1
 
+----------------------------------------------------------------------------------------
+- MTE -
+
 ARMv8.5 based processors introduce the Memory Tagging Extension (MTE) feature. MTE is
 built on top of the ARMv8.0 virtual address tagging TBI (Top Byte Ignore) feature and
 allows software to access a 4-bit allocation tag for each 16-byte granule in the
 physical address space.
 
+----------------------------------------------------------------------------------------
+- KERNEL PAGE TABLE DUMP -
+
+ptdump is a debugfs interface that provides a detailed dump of the kernel page tables.
+CONFIG_GENERIC_PTDUMP=y
+CONFIG_PTDUMP_CORE=y
+CONFIG_PTDUMP_DEBUGFS=y
+
+$ mount -t debugfs nodev /sys/kernel/debug
+$ cat /sys/kernel/debug/kernel_page_tables
 ----------------------------------------------------------------------------------------
 
 Memory attributes and properties are a way of defining how memory behaves.
@@ -190,8 +203,97 @@ cache of such translations called Translation Lookaside Buffer (or TLB).
 Huge Pages significantly reduces pressure on TLB, improves TLB hit-rate and thus improves
 overall system performance.
 
+Huga Pages - Contiguous areas of physical memory. typically associated with Page table
+             level.
+             Pros: Fewer translation entries, Less time servicing TLB miss.
+             Cons: Less granular page size, Fewer TLB entries.
+
+
 1) HugeTLB filesystem (hugetlbfs), a pseudo filesystem that uses RAM as its backing store.
+   Pools of hugetlb pages are created/preallocated.
+
+-----------------------------------------------------
+$ cat /proc/meminfo | egrep Huge
+AnonHugePages:         0 kB
+ShmemHugePages:        0 kB
+FileHugePages:         0 kB
+HugePages_Total:       0
+HugePages_Free:        0
+HugePages_Rsvd:        0
+HugePages_Surp:        0
+Hugepagesize:       2048 kB
+Hugetlb:               0 kB
+-----------------------------------------------------
+
+[+] mm/hugetlb.c
+
+    hugetlb_init()
+       |
+       +- 
+
 2) Transparent HugePages (THP)
+             |
+             +-> Primaryly used for anonymous memory.
+
+                 [+] mm/madvise.c
+                 * Related madvise behavior:
+                 1) MADV_HUGEPAGE   - enable THP for give range
+                 2) MADV_NOHUGEPAGE - disable THP for give range
+                 3) MADV_COLLAPSE   - synchronously coalesce pages into new THP
+
+                 madvise() @syscall
+                    |
+                    +- do_madvise()
+                            |
+                            :
+                            +- madvise_walk_vmas() walk the vmas in range[start, end)
+                                        |          and call the visit callback.
+                                        :
+                                        +- visit()
+                                              |
+                       +<--------- madvise_vma_behavior()
+                       |                            |
+                       :  [+] mm/khugepaged.c       :  [+] mm/khugepaged.c
+                       +- madvise_collapse()        +- hugepage_madvise()
+                                                         |
+                                                         +- 1) MADV_HUGEPAGE
+                                                               khugepaged_enter_vma()
+                                                                          |
+                                              +<--------------------------+
+                                              |
+                                              :
+                                              +- __khugepaged_enter()
+                                                           |
+                                                           :
+                                                           +- ..
+
+HPAGE_PMD_SIZE => 2M
+
+madvise_collapse()
+        |
+        :                                                no
+        +- if IS_ENABLED(CONFIG_SHMEM) && vma->vm_file -----> hpage_collapse_scan_pmd()
+                  |yes
+                  +- hpage_collapse_scan_file()
+
+By default, transparent hugepage support is disabled in order to avoid risking an
+increased memory footprint for applications that are not guaranteed to benefit from it.
+When transparent hugepage support is enabled, it is for all mappings, and khugepaged
+scans all mappings. Defrag is invoked by khugepaged hugepage allocations and by page
+faults for all hugepage allocations.
+
+----------------------------------------------------------------------------------------
+- Heterogeneous Memory Management (HMM) -
+
+
+
+
+
+----------------------------------------------------------------------------------------
+- High Memory -
+
+High memory (highmem) is used when the size of physical memory approaches or exceeds the
+maximum size of virtual memory.
 
 ----------------------------------------------------------------------------------------
 - COMPOUND PAGES -
@@ -442,6 +544,7 @@ vmalloc() - Allocate virtually contiguous memory with given size
                                                       To build page table [layout]
                                                                    |
                                                                    v
+            [Virtual/Linear Address]
             +-------------+-------------+------------+-------------+-------------+ 
             |     PGD     |     P4D     |     PUD    |     PMD     |     PTE     |
             +-------------+-------------+------------+-------------+-------------+
@@ -457,6 +560,8 @@ vmalloc() - Allocate virtually contiguous memory with given size
                                                       vmap_pte_range      |
                                                                           v
                                                                         [END]
+
+----------------------------------------------------------------------------------------
 
 VMALLOC_SPACE
 
@@ -549,6 +654,23 @@ Hypervisor Configuration Register HCR_EL2.
                                                              Real physical memory map
 
 ----------------------------------------------------------------------------------------
+
+remap memory to userspace
+          |
+   vm_iomap_memory()
+          |
+          :
+          +- io_remap_pfn_range()
+                      |
+                      +- remap_pfn_range()
+                                 |
+                                 +- track_pfn_remap()
+                                 |
+                                 +- remap_pfn_range_notrack()
+
+
+----------------------------------------------------------------------------------------
+
 - REVERSE MAPPING (RMAP) -
 
  physical pages   PTEs
@@ -565,6 +687,9 @@ Hypervisor Configuration Register HCR_EL2.
    +- if brk <= mm->brk
              |
              +- do_brk_munmap() -> Unmap a partial vma.
+                      |
+                      :
+                      +- do_mas_align_munmap()
 
    |
    +- check_brk_limits()
@@ -597,6 +722,10 @@ Hypervisor Configuration Register HCR_EL2.
    +- if populate
             |
             +- mm_populate()
+                     |
+                     +- __mm_populate() => populate and/or mlock pages within
+                                           a range of address space.
+                                           [+] mm/gup.c
 
 ----------------------------------------------------------------------------------------
 - IOREMAP -
@@ -666,9 +795,9 @@ start_kernel() @init/main.c
               |
               +- paging_init() @arch/arm64/mm/mmu.c
               |       |
-             [0]      +- map_kernel
+             [0]      +- map_kernel()
                       |
-                      +- map_mem
+                      +- map_mem()
 
              [0]
               |
@@ -1262,6 +1391,25 @@ struct task_struct {
     void *stack;
     ...
     struct mm_struct *mm;
+
+/**
+ * tsk->mm => real address space (which cares about user-level page tales, whereas
+ * anonymous address space does not.)
+ *
+ * The rule is that for a process with a real address space (ie tsk->mm is non-NULL)
+ * the active_mm obviously always has to be the same as the real one.
+ *
+ * [ kthreads - anonymous processes ]
+ * For a anonymous process, tsk->mm == NULL, and tsk->active_mm is the "borrowed" mm
+ * while the anonymous process is running. When the anonymous process gets scheduled
+ * away, the borrowed address space is returned and cleared.
+ *
+ * To support all that, the "struct mm_struct" now has two counters: a "mm_users"
+ * counter that is how many "real address space users" there are, and a "mm_count"
+ * counter that is the number of "lazy" users (ie anonymous users) plus one if there
+ * are any real users.
+ */
+
     struct mm_struct *active_mm;
     ...
     pid_t pid;
@@ -1559,7 +1707,7 @@ struct kmem_cache {                                 |
                         struct list_head slabs_full;     |-> CONFIG_SLAB
                         struct list_head slabs_free;    -+
                         ...
-                        struct list_head partial;        ---> CONFIG_SLUB
+                        struct list_head partial;       ---> CONFIG_SLUB
                         ...
                     };
 
