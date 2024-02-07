@@ -95,6 +95,16 @@ which invalidates an entry associated with the address specified in the register
 |                                |       PA[47:16]      | PA[15:0] |
 +--------------------------------+----------------------+----------+
 
+pgd_offset()
+     |
+     +-> p4d_offset()
+              |
+              +-> pud_offset()
+                       |
+                       +-> pmd_offset()
+                                |
+                                +-> pte_offset_map_lock()
+
 Context Switching
 
 Context switch requires the kernel to save all execution state associated with the
@@ -698,11 +708,19 @@ remap memory to userspace
            |            NULL or the flags do not match then create a new anonymous
            |            VMA.
            |
-           +- (1) vma->anon_vma
-                         |
-                         +- anon_vma_interval_tree_pre_update_vma()
-                         |
-                         +- anon_vma_interval_tree_post_update_vma()
+           +- (1) vma->anon_vma ------------------------------------------>+
+                         |                                                 |
+                         +- anon_vma_interval_tree_pre_update_vma()        |
+                         |                                                 |
+                         +- anon_vma_interval_tree_post_update_vma()       |
+                                                                           v
+                   +-------------------------------------------------------+-----------+
+                   | A file's MAP_PRIVATE vma can be in both i_mmap tree and anon_vma  |
+                   | list, after a COW of one of the file pages.  A MAP_SHARED vma     |
+                   | can only be in the i_mmap tree.  An anonymous MAP_PRIVATE, stack  |
+                   | or brk vma (with NULL file) can only be in an anon_vma list.      |
+                   +-------------------------------------------------------------------+
+
            |
            +- (2) anonymous mapping
                          |
