@@ -25,7 +25,7 @@ PCI vs. PCIe
 PCI uses a shared parallel bus architecture, in which the PCI host and all devices share
 a common set of address, data, and control lines.
 
-PCI Express is based on point-to-point topology, with seperate serial links connecting
+PCI Express is based on point-to-point topology, with separate serial links connecting
 every devices to the root complex (host).
 
 PCI Express bus link supports full-duplex communication between any two endpoints, with

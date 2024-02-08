@@ -228,95 +228,100 @@ execve() @syscall
    +- do_execve()
           |
           +- do_execveat_common()
-			|
-			:
-		        +- alloc_bprm()
-			|	|
-		       [x]      :
-				+- bprm_mm_init()
-					|
-				        +- mm_alloc()
-					     |
-					     +- allocate_mm()
-						  |
-						  +- kmem_cache_alloc()
-							 |
-							 +-> SLAB cache for mm_struct
-								  (mm_cachep)
-						  |
-						  +- mm_init()
-					:
-					+- __bprm_mm_init()
-					      |
-					      : [+] kernel/fork.c
-					      +- vm_area_alloc()
-						  |
-					          +- kmem_cache_alloc()
-						      |
-						      + SLAB cache for vm_area_struct
-								(vm_area_cachep)
-						  |
-						  +- vma_init()
+            |
+            :
+            +- alloc_bprm()
+            |   	|
+           [x]      :
+                    +- bprm_mm_init()
+                           |
+                           +- mm_alloc()
+                                 |
+                                 +- allocate_mm()
+                                         |
+                                         +- kmem_cache_alloc()
+                                                    |
+                                                    +-> SLAB cache for mm_struct
+                                                                (mm_cachep)
+                                 |
+                                 +- mm_init()
 
-					      Initialize the bprm->vma as
-					      anonymous vma, also initialize
-				              [vm_start, vm_end] of vma, etc.
+                           :
+                           +- __bprm_mm_init()
+                                    |
+                                    : [+] kernel/fork.c
+                                    +- vm_area_alloc()
+                                            |
+                                            +- kmem_cache_alloc()
+                                                 |
+                                                 + SLAB cache for vm_area_struct
+                                                        (vm_area_cachep)
+                                            |
+                                            +- vma_init()
+                                                   |
+                                    +--------------------------------+
+                                    | Initialize the bprm->vma as    |
+                                    | anonymous vma, also initialize |
+                                    | [vm_start, vm_end] of vma, etc.|
+                                    +--------------------------------+
 
-					      vm_end = STACK_TOP_MAX
-                                                              |
-                                                              +-> 1 << VA_BITS_MIN
-									    |
-				                                         VA_BITS
-									    |
-								  CONFIG_ARM64_VA_BITS
-								     (48 as default)
+                                    vm_end = STACK_TOP_MAX
+                                                    |
+                                                    +-> 1 << VA_BITS_MIN
+                                                                  |
+                                                               VA_BITS
+                                                                  |
+                                                        CONFIG_ARM64_VA_BITS
+                                                            (48 as default)
 
-				              vm_start = vma->vm_end - PAGE_SIZE
-							     :
-							     |
-							     v [+] mm/mmap.c
-						     insert_vm_struct()
-
-					 +----------------------------------------+
-					 | Insert vm structure into process list  |
-					 | sorted by address and into the inode's |
-					 | i_mmap tree.  If vm_file is non-NULL   |
-					 | then i_mmap_rwsem is taken here.       |
-					 +----------------------------------------+
-						  |
-						  +- find_vma_intersection()
-						     Look up the first VMA which
-                                                     intersects the interval
-							  |
-							  +- mt_find()
-								|
-								+-> mm->mm_mt
-						  |
-						  +- vma_link()
-							|
-							:
-							+- if vma->vm_file
-								|not NULL
-								:
-								+- vma->vm_file->f_mapping
-								    :
-								    |not NULL
-								    +- __vma_link_file()
-									  |
-						     +<-------------------+
-						     |
-						     v
-					   vma_interval_tree_insert(vma, &mapping->i_mmap)
-						(interval tree - rbtree implemented)
+                                    vm_start = vma->vm_end - PAGE_SIZE
+                                                :
+                                                |
+                                                v [+] mm/mmap.c
+                                        insert_vm_struct()
+                                                |
+                             +----------------------------------------+
+                             | Insert vm structure into process list  |
+                             | sorted by address and into the inode's |
+                             | i_mmap tree.  If vm_file is non-NULL   |
+                             | then i_mmap_rwsem is taken here.       |
+                             +----------------------------------------+
+                                                |
+                                                +- find_vma_intersection()
+                                                   Look up the first VMA which
+                                                   intersects the interval
+                                                          |
+                                                          +- mt_find()
+                                                                |
+                                                                +-> mm->mm_mt
+                                                |
+                                                +- vma_link()
+                                                      |
+                                                      :
+                                                      +- if vma->vm_file
+                                                             |not NULL
+                                                             :
+                                                             +- vma->vm_file->f_mapping
+                                                                     :
+                                                                     |not NULL
+                                                                     +- __vma_link_file()
+                                                                               |
+                             +<------------------------------------------------+
+                             |
+                             v
+        vma_interval_tree_insert(vma, &mapping->i_mmap)
+            (interval tree - rbtree implemented)
 
 [x]
  :
  +- bprm_execve()
          |
-	 :
+         :
          +- sched_exec()
          |
          +- exec_binprm()
+
+@maple tree
 
 ----------------------------------------------------------------------------------------
 
@@ -361,14 +366,14 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
 	}
 
 	if (mm_alloc_pgd(mm)) ----------------------> pgd_alloc() [+] arch/arm64/mm/pgd.c
-		goto fail_nopgd;                        |
-						        +-if PGD_SIZE == PAGE_SIZE
-							            |yes
-							            +- __get_free_page()
-								    *
-								    |no
-							            +- kmem_cache_alloc()
-									  (pgd_cache)
+		goto fail_nopgd;                              |
+                                                      +-if PGD_SIZE == PAGE_SIZE
+                                                                 |yes
+                                                                 +- __get_free_page()
+                                                                 *
+                                                                 |no
+                                                                 +- kmem_cache_alloc()
+                                                                       (pgd_cache)
 	if (init_new_context(p, mm))
 		goto fail_nocontext;
 

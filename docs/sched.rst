@@ -5,6 +5,10 @@
 ----------------------------------------------------------------------------------------
 - Deadline Task Scheduling -
 
+The SCHED_DEADLINE policy contained inside the sched_dl scheduling class is basically an
+implementation of the Earliest Deadline First (EDF) scheduling algorithm, augmented with
+a mechanism (called Constant Bandwidth Server, CBS) that makes it possible to isolate the
+behavior of tasks between each other.
 
 ----------------------------------------------------------------------------------------
 - CFS Scheduler -
@@ -13,6 +17,21 @@
 ----------------------------------------------------------------------------------------
 - Capacity Aware Scheduling -
 
+Consider that homogeneous SMP (identical cpus) vs heterogeneous (different cpus) platforms.
+
+CPU capacity is a measure of the performance a CPU can reach.
+
+=> capacity(cpu) = work_per_hz(cpu) * max_freq(cpu)
+
+original (maximum attainabl) capacity
+                |
+                +- arch_scale_cpu_capacity()
+
+@capacity fitness
+
+The main capacity scheduling criterion of CFS
+
+=> task_util(p) < capacity(task_cpu(p))
 
 ----------------------------------------------------------------------------------------
 - Energy Aware Scheduling -
@@ -90,6 +109,16 @@ schedule()
                                           +- membarrier_switch_mm()
                                           |
                                           +- switch_mm_irq_off()
+                                                      |
+                                                      +- switch_mm()
+                                                              |
+                                                              +- if prev != next
+                                                                         |yes
+                                                                         +- __switch_mm()
+                                                                                   |
+                                                                                   :
+                                                              |
+                                                              +- update_saved_ttbr0()
                                           |
                                           +- lru_gen_use_mm()
                                           |                 no
@@ -110,6 +139,24 @@ schedule()
                                   +- barrier()
                                   |
                         finish_task_switch()
+
+init_mm.pgd does not contain any user mappings and it is always active for kernel
+addresses in TTBR1.
+
+__switch_mm()
+      |
+      +- if next == &init_mm
+                  |yes
+                  +- cpu_set_reserved_ttbr0()
+      |
+      +- check_and_switch_context() <--- [struct mm_struct *next]
+                    :
+                    |
+                    +- cpu_switch_mm()
+                            |
+                            :
+                            +- cpu_do_switch_mm() [+] arch/arm64/mm/context.c
+                               reset ttbr1_el1, ttbr0_el1 with some masks
 
 ----------------------------------------------------------------------------------------
 

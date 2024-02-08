@@ -95,6 +95,8 @@ which invalidates an entry associated with the address specified in the register
 |                                |       PA[47:16]      | PA[15:0] |
 +--------------------------------+----------------------+----------+
 
+      @mm->pgd
+          |
 pgd_offset()
      |
      +-> p4d_offset()
