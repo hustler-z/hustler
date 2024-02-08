@@ -1,3 +1,5 @@
+#!/bin/sh
+
 export CROSS_COMPILE=/os/armcc/bin/aarch64-none-linux-gnu-
 export ARCH=arm64
 
@@ -72,9 +74,9 @@ build() {
 		*)
 			echo "Usage: ./compilation <option> [path]"
 			echo "--------------------------------------------------------------------------------"
-			echo "[0] generate tags: ./compilation.sh tags [path]"
-			echo "[1] create .config: ./compilation.sh cfg [path]"
-			echo "[2] compile the kernel: ./compilation.sh out [path]"
+			echo "[0] generate tags:      ./compilation.sh tags [path]"
+			echo "[1] create .config:     ./compilation.sh cfg  [path]"
+			echo "[2] compile the kernel: ./compilation.sh out  [path]"
 			echo "--------------------------------------------------------------------------------"
 			;;
 	esac
