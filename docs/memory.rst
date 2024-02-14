@@ -220,6 +220,9 @@ Huga Pages - Contiguous areas of physical memory. typically associated with Page
              Pros: Fewer translation entries, Less time servicing TLB miss.
              Cons: Less granular page size, Fewer TLB entries.
 
+The ARM64 port supports two flavors of hugepages:
+a) Block mappings at the pud/pmd level;
+b) Using the Contiguous bit;
 
 1) HugeTLB filesystem (hugetlbfs), a pseudo filesystem that uses RAM as its backing store.
    Pools of hugetlb pages are created/preallocated.
@@ -241,7 +244,7 @@ Hugetlb:               0 kB
 
     hugetlb_init()
        |
-       +- 
+       +-
 
 2) Transparent HugePages (THP)
              |
@@ -278,7 +281,7 @@ Hugetlb:               0 kB
                                                            |
                                                            :
                                                            +- ..
-
+HPAGE_PUD_SIZE => 1G
 HPAGE_PMD_SIZE => 2M
 
 madvise_collapse()
@@ -464,7 +467,7 @@ vmalloc() - Allocate virtually contiguous memory with given size
                             +- __get_vm_area_node()
                            [2]          |
                                         |- ...
-                                        | 
+                                        |
                                         +- alloc_vmap_area()
                                        [1]         |
                                                    v
@@ -557,7 +560,7 @@ vmalloc() - Allocate virtually contiguous memory with given size
                                                                    |
                                                                    v
             [Virtual/Linear Address]
-            +-------------+-------------+------------+-------------+-------------+ 
+            +-------------+-------------+------------+-------------+-------------+
             |     PGD     |     P4D     |     PUD    |     PMD     |     PTE     |
             +-------------+-------------+------------+-------------+-------------+
                    |             |             |            |             |
@@ -850,7 +853,7 @@ start_kernel() @init/main.c
                                                              |
                                                              +- zone_init_internals()
                                                                    [To each zone]
-                     [1]              
+                     [1]
                       |
                       +- dma_contiguous_reserve()
 
@@ -895,7 +898,7 @@ si_mem_available()
 
 (1) CONFIG_NUMA=y
 
-alloc_pages() 
+alloc_pages()
      |
      +- 1) pol->mode == MPOL_INTERLEAVE
      |                |
@@ -939,7 +942,7 @@ __alloc_pages() with struct alloc_context ac instantiated
        |           |
       [2]          +- Initialize the alloc_context structure
 
-      [2]    
+      [2]
        |
        +- get_page_from_freelist()
        |           |
@@ -975,7 +978,7 @@ __alloc_pages() with struct alloc_context ac instantiated
                                                                |
                                                                +- CONFIG_CMA=y
                                                                   __rmqueue_cma_fallback()
-                                                               
+
                                                                |
                                                                +- Try __rmqueue_smallest()
                                                                   again. If fails, then do
@@ -1067,7 +1070,7 @@ __alloc_pages() with struct alloc_context ac instantiated
                    +- check_retry_cpuset()                       [5]
                       OR                                          |
                       check_retry_zonelist() -------------------->+
- 
+
 
                    |
                    +- __alloc_pages_may_oom()
@@ -1075,7 +1078,7 @@ __alloc_pages() with struct alloc_context ac instantiated
                    |
                    +- When hit nopage
                       __alloc_pages_cpuset_fallback()
-                      
+
 ----------------------------------------------------------------------------------------
 - MEMPOOL -
 
@@ -1243,24 +1246,49 @@ The Background Pageout Daemon
                              |
                              +- kswapd_try_to_sleep()
                              |
-                             +- For kswapd, it will reclaim pages across a node
-                                from zones that are eligible for use by the caller
+                             +- For kswapd, function below will reclaim pages across a
+                                node from zones that are eligible for use by the caller
                                 until at least one zone is balanced.
+                                      |
+                                      v
+        +---------------------------------------------------------------------------+
+        | kswapd scans the zones in the highmem->normal->dma direction.  It skips   |
+        | zones which have free_pages > high_wmark_pages(zone), but once a zone is  |
+        | found to have free_pages <= high_wmark_pages(zone), any page in that zone |
+        | or lower is eligible for reclaim until at least one usable zone is        |
+        | balanced.                                                                 |
+        +---------------------------------------------------------------------------+
                                       |
                                       v
                                 balance_pgdat() with struct scan_control sc initialized
                                       |
                     +---------------->+
                     |                 |
+                    :                 :
                     |                 +- pgdat_balanced() ------------------+
-                    |                 |                                     |
+                    :                 :                                     |
+                    |                 +- mem_cgroup_soft_limit_reclaim()    |
+                    :                 :                                     |
                     |                 +- kswapd_shrink_node()               |
-                    |  sc.priority>=1 |                                     |
-                    +<----------------+                                     |
-                                                                            v
-                                                                    Check on watermark
+                    |  sc.priority>=1 |           |                         |
+                    +<----------------+           |                         |
+                                                  |                         v
+                                                  :                 Check on watermark
+                                                  |
+                    +<----------------------------+
+                    |
+                    +- shrink_node()
+
+----------------------------------------------------------------------------------------
+sar - System Activity Report
 
 $ sar -B 1
+Above command used to report paging statistics, as below:
+
+pgpgin/s  pgpgout/s fault/s  majflt/s  pgfree/s pgscank/s pgscand/s pgsteal/s  %vmeff
+0.00      0.00      3.00      0.00     37.00      0.00      0.00      0.00      0.00
+0.00      0.00      1.00      0.00      6.00      0.00      0.00      0.00      0.00
+
 ----------------------------------------------------------------------------------------
 - MEMORY COMPACTION -
 
@@ -1626,7 +1654,11 @@ do_translation_fault() @arch/arm64/mm/fault.c       |
                                                           +- __handle_mm_fault()
                                                           |
                                                           :
-                                                          |
+                                +---------------------------------------+
+                                | Huge Page (PUD / PMD) related process |
+                                +---------------------------------------+
+                                                          |not huge page
+                                                          :
                                                           +- handle_pte_fault()
                                vmf->pte                       |       |
     +<--------------------------------------------------------+       |!vmf->pte
@@ -1676,6 +1708,7 @@ __do_fault()
      |
      +- vma->vm_ops->fault() callback
 
+
 ----------------------------------------------------------------------------------------
 - PAGE MIGRATION -
 
@@ -1700,11 +1733,7 @@ migrate_pages() @mm/migrate.c
 ----------------------------------------------------------------------------------------
 - SLAB -
 
-SLOB - Simple List of Blocks
 SLAB - Simple List of Allocated Blocks
-SLUB - Simple List of Unqueued Blocks
-
-
 
 @include/linux/slub_def.h
 
@@ -1732,38 +1761,26 @@ struct kmem_cache {                                 |
                     };
 
 
-
-kzalloc() @include/linux/slab.h
-   |
-   +- kmalloc()
-         |
-         +- Size is constant - __kmalloc()
-                  |                 |
-                 [0]                +- __do_kmalloc_node()
-                                          |
-                                          +- size > KMALLOC_MAX_CACHE_SIZE ---+
-                                              |no                             |
-                                              +- kmalloc_slab()               |
-                                              |                               |
-                 [0]                          +- __kmem_cache_alloc_node()    |
-                  |yes                                                        |
-                  +- size > KMALLOC_MAX_CACHE_SIZE - kmalloc_large()          |
-                       |no                                |                   v
-                      [1]                                 +- __kmalloc_large_node()
-                                                                |
-                                                                +- alloc_pages_node()
-
-
-                      [1]    kmalloc_caches[NR_KMALLOC_TYPES][KMALLOC_SHIFT_HIGH + 1]
-                       |        /
-                       +- kmalloc_trace()
+kmem_cache_create()
+        |
+        +- kmem_cache_create_usercopy()
+           Create a cache with a region suitable for copying to userspace
+                       |
+                       :
+                       +- create_cache()
                                 |
-                                +- __kmem_cache_alloc_node()
-                                      |
-                                      +- slab_alloc_node()
-                                                |
-                                                +-
+                                :
+                                +- kmem_cache_zalloc()
+                                           |
+                                           +- kmem_cache_alloc()
+                                               [slab/slub/slob]
+                                :
+                                +- __kmem_cache_create()
+                                     [slab/slub/slob]
 
+slab cache can be found by the *name* created in kmem_cache_create().
+$ cat /proc/slabinfo
+----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
 - KERNEL SAMEPAGE MERGING (KSM) -
@@ -1774,7 +1791,7 @@ reverse mapping information for KSM pages in the stable tree.
 ----------------------------------------------------------------------------------------
 - MEMFD -
 
-memfd_creat() - @syscall @mm/memfd.c
+memfd_creat() - @syscall mm/memfd.c
      |
      +-> create an anonymous file that can be shared in a shmem tmpfs or hugetlbfs.
 
@@ -1791,6 +1808,35 @@ memfd_fcntl()
         2) F_GET_SEALS
                 |
                 +- memfd_get_seals()
+
+----------------------------------------------------------------------------------------
+- MPROTECT -
+
+mprotect() changes the access protections for the calling process's memory pages
+containing any part of the address range in the interval [addr, addr+len-1].  addr must
+be aligned to a page boundary.
+
+If the calling process tries to access memory in a manner that violates the protections,
+then the kernel generates a SIGSEGV signal for the process.
+
+mprotect() - @syscall mm/mprotect.c
+   |
+   +- do_mprotect_pkey()
+              |
+              :
+              +- if vma->vm_ops && vma->vm_ops->mprotect
+                                |NULL
+                                +- mprotect_fixup()
+                                        |
+                                        :
+                                        +- change_protection()
+                                                |
+                                                +- if is_vm_hugetlb_page()
+                                                        |yes
+                                                        +- hugetlb_change_protection()
+                                                        :
+                                                        |no
+                                                        +- change_protection_range()
 
 ----------------------------------------------------------------------------------------
 Reference

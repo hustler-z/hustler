@@ -17,6 +17,7 @@ Things like CPU, memory and storage as a pool of resources that can be relocated
 As for hypervisors:
 
 0) Standalone (Type 1) hypervisor
+
 +---------+---------+-------------+
 | guest 0 | guest 1 |   . . .     |
 +---------+---------+-------------+
@@ -31,6 +32,7 @@ Bare-metal virtualization means that the Type 1 hypervisor has direct access to 
 which results in better performance.
 
 1) Hosted (Type 2) hypervisor
+
 +---------+---------+-------------+
 | guest 0 | guest 1 |   . . .     |
 +---------+---------+-------------+

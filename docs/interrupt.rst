@@ -62,6 +62,7 @@ rest of Secure state.
 		Vector Catch exceptions
 		Software Step exceptions
 
+
 2) Asynchronous exceptions
     • Physical interrupts
         • SError
@@ -209,8 +210,8 @@ exception.
 
 When the core takes an interrupt, it jumps to the top-level interrupt vector obtained
 from the vector table and begins execution.
-The top-level interrupt handler reads the Interrupt Acknowledge Register from the CPU
-Interface block to obtain the interrupt ID.
+The top-level interrupt handler reads the Interrupt Acknowledge Register (IAR) from the
+CPU Interface block to obtain the interrupt ID.
 
 As well as returning the interrupt ID, the read causes the interrupt to be marked as
 active in the Distributor. Once the interrupt ID is known (identifying the interrupt
@@ -260,7 +261,7 @@ SYM_CODE_START(vectors)
 	kernel_ventry	0, t, 32, error		// Error 32-bit EL0
 SYM_CODE_END(vectors)
 
-=> linux-6.1.63/arch/arm64/kernel/entry-common.c
+=> arch/arm64/kernel/entry-common.c
 ----------------------------------------------------------------------------------------
 el1h_64_irq_handler()
 	 |

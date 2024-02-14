@@ -61,7 +61,7 @@ IL (Instruction Length) [25] - For synchronous exception
 ISS (Instruction Specific Syndrome) [24:0]
 
 ----------------------------------------------------------------------------------------
-<a> linux-6.1.63/arch/arm64/kernel/entry-common.c
+<a> arch/arm64/kernel/entry-common.c
 
 el1h_64_sync_handler() branch based on EC
           |
@@ -116,7 +116,7 @@ do_el0_fpac()
                   +- @desc [SIGILL/SIGSEGV]
                      arm64_notify_die()
 
-<b> linux-6.1.63/arch/arm64/mm/fault.c
+<b> arch/arm64/mm/fault.c
 
 do_mem_abort()
      |
@@ -145,8 +145,8 @@ Functions includes:
 
 [Synchronous External Abort]
 - do_sea()
-	 |                                             yes
-	 + In user state, apei_claim_sea(regs) == 0 --------> <return>
+     |                                               yes
+     +-> In user state, apei_claim_sea(regs) == 0 --------> <return>
 				|no
 				: <--- siaddr
 				|
