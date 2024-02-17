@@ -783,9 +783,59 @@ ioremap()
 ----------------------------------------------------------------------------------------
 - DMA -
 
+The kernel manages device resources (like registers) as physical addresses. These are
+the addresses in /proc/iomem. The physical address is not directly useful to a driver;
+it must use ioremap() to map the space and produce a virtual address.
 
+I/O devices use a third kind of address: a "bus address". If a device has registers at
+an MMIO address, or if it performs DMA to read or write system memory, the addresses
+used by the device are bus addresses.
 
+             CPU                  CPU                  Bus
+           Virtual              Physical             Address
+           Address              Address               Space
+            Space                Space
 
+          +-------+             +------+             +------+
+          |       |             |MMIO  |   Offset    |      |
+          |       |  Virtual    |Space |   applied   |      |
+        C +-------+ --------> B +------+ ----------> +------+ A
+          |       |  mapping    |      |   by host   |      |
++-----+   |       |             |      |   bridge    |      |   +--------+
+|     |   |       |             +------+             |      |   |        |
+| CPU |   |       |             | RAM  |             |      |   | Device |
+|     |   |       |             |      |             |      |   |        |
++-----+   +-------+             +------+             +------+   +--------+
+          |       |  Virtual    |Buffer|   Mapping   |      |
+        X +-------+ --------> Y +------+ <---------- +------+ Z
+          |       |  mapping    | RAM  |   by IOMMU           |
+          |       |             |      |                      +-> DMA address
+          |       |             |      |
+          +-------+             +------+
+
+The driver can give a virtual address X to an interface like dma_map_single(), which
+sets up any required IOMMU mapping and returns the DMA address Z. The driver then tells
+the device to do DMA to Z, and the IOMMU maps it to the buffer at address Y in system
+RAM.
+
+Types of DMA Mappings
+
+Consistent DMA mappings which are usually mapped at driver initialization, unmapped at
+the end and for which the hardware should guarantee that the device and the CPU can
+access the data in parallel and will see updates made by each other without any explicit
+software flushing.
+Think of "consistent" as "synchronous" or "coherent"
+
+dma_alloc_coherent()
+dma_free_coherent()
+
+Streaming DMA mappings which are usually mapped for one DMA transfer, unmapped right
+after it (unless you use dma_sync_* below) and for which hardware can optimize for
+sequential accesses.
+Think of "streaming" as "asynchronous" or "outside the coherency domain"
+
+dma_map_single()
+dma_unmap_single()
 
 ----------------------------------------------------------------------------------------
 - ADDRESS TRANSLATION -
