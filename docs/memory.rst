@@ -229,6 +229,7 @@ b) Using the Contiguous bit;
 
 -----------------------------------------------------
 $ cat /proc/meminfo | egrep Huge
+-----------------------------------------------------
 AnonHugePages:         0 kB
 ShmemHugePages:        0 kB
 FileHugePages:         0 kB
@@ -244,7 +245,14 @@ Hugetlb:               0 kB
 
     hugetlb_init()
        |
+       :
+       +- hugetlb_add_hstate() => struct hstate
+       :
        +-
+
+khugepaged()
+     |
+     +-
 
 2) Transparent HugePages (THP)
              |
@@ -670,8 +678,9 @@ Hypervisor Configuration Register HCR_EL2.
 
 ----------------------------------------------------------------------------------------
 
-remap memory to userspace
+remap memory (physical memory) to userspace (user vma)
           |
+          v
    vm_iomap_memory()
           |
           :
@@ -682,7 +691,6 @@ remap memory to userspace
                                  +- track_pfn_remap()
                                  |
                                  +- remap_pfn_range_notrack()
-
 
 ----------------------------------------------------------------------------------------
 
@@ -749,6 +757,8 @@ remap memory to userspace
                      +- __mm_populate() => populate and/or mlock pages within
                                            a range of address space.
                                            [+] mm/gup.c
+                                :
+                                +- populate_vma_page_range()
 
 ----------------------------------------------------------------------------------------
 - IOREMAP -
@@ -1728,7 +1738,7 @@ migrate_pages() @mm/migrate.c
                                                   newly allocated page in newpage.
                                                                  |
                                                                  +- __unmap_and_move()
-
+                                                                    [src -> dst folios]
 
 ----------------------------------------------------------------------------------------
 - SLAB -

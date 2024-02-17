@@ -2,6 +2,12 @@
 | LINUX KERNEL SCHEDULER                                                               |
 +--------------------------------------------------------------------------------------+
 
+$ cat /proc/<pid>/schedstat
+
+a) time spent on the cpu (in nanoseconds)
+b) time spent waiting on a runqueue (in nanoseconds)
+c) # of timeslices run on this cpu
+
 ----------------------------------------------------------------------------------------
 - Deadline Task Scheduling -
 
@@ -11,8 +17,48 @@ a mechanism (called Constant Bandwidth Server, CBS) that makes it possible to is
 behavior of tasks between each other.
 
 ----------------------------------------------------------------------------------------
-- CFS Scheduler -
+- CFS (Completely Fair Scheduler) Scheduler -
 
+CFS's task picking logic is based on this p->se.vruntime value and it is thus very simple:
+it always tries to run the task with the smallest p->se.vruntime value (i.e., the task
+which executed least so far). CFS always tries to split up CPU time between runnable tasks
+as close to "ideal multitasking hardware" as possible.
+
+Ideal Multitasking Hardware - at any time all tasks would have the same p->se.vruntime
+value (i.e., tasks would execute simultaneously and no task would ever get "out of
+balance" from the "ideal" share of CPU time.)
+
+CFS also maintains the rq->cfs.min_vruntime value, which is a monotonic increasing value
+tracking the smallest vruntime among all tasks in the runqueue. The total amount of work
+done by the system is tracked using min_vruntime.
+
+CFS maintains a time-ordered rbtree, where all runnable tasks are sorted by the
+p->se.vruntime key.
+
+                                   ●
+                                  / \
+                                 ○   ○
+                                / \   \
+                               ●   ●
+                              /
+                      (leftmost task)
+
+Summing up, CFS works like this: it runs a task a bit, and when the task schedules
+(or a scheduler tick happens) the task's CPU usage is "accounted for": the (small) time
+it just spent using the physical CPU is added to p->se.vruntime. Once p->se.vruntime
+gets high enough so that another task becomes the "leftmost task" of the time-ordered
+rbtree it maintains (plus a small amount of "granularity" distance relative to the
+leftmost task so that we do not over-schedule tasks and trash the cache), then the new
+leftmost task is picked and the current task is preempted.
+
+CFS implements three scheduling policies:
+a) SCHED_NORMAL
+b) SCHED_BATCH
+c) SCHED_IDLE
+
+[+] kernel/sched/fair.c implements the CFS scheduler
+
+[+] kernel/sched/rt.c implements SCHED_FIFO and SCHED_RR semantics
 
 ----------------------------------------------------------------------------------------
 - Capacity Aware Scheduling -
@@ -36,13 +82,20 @@ The main capacity scheduling criterion of CFS
 ----------------------------------------------------------------------------------------
 - Energy Aware Scheduling -
 
+Energy Aware Scheduling (or EAS) gives the scheduler the ability to predict the impact
+of its decisions on the energy consumed by CPUs. EAS relies on an Energy Model (EM) of
+the CPUs to select an energy efficient CPU for each task, with a minimal impact on
+throughput.
+
+EAS operates only on heterogeneous CPU topologies (such as Arm big.LITTLE) because this
+is where the potential for saving energy through scheduling is the highest.
 
 ----------------------------------------------------------------------------------------
 [+] kernel/sched/core.c
 
 schedule()
-    |
-    :
+    |                       +-----------> tif_need_resched() checks thread info flags.
+    :                       |
     +- __schedule() if need_resched()
             |
             +- get the rq from current cpu with cpu_rq()
@@ -132,9 +185,10 @@ schedule()
                                   |
                                   +- switch_to()
                                          |
-                                         :
-                                         |
-                                         +- cpu_switch_to()
+                                         +- __switch_to()
+                                                 :
+                                                 |
+                                                 +- cpu_switch_to()
 
                                   +- barrier()
                                   |
@@ -197,5 +251,71 @@ SYM_FUNC_START(cpu_switch_to)
 	ret
 SYM_FUNC_END(cpu_switch_to)
 NOKPROBE(cpu_switch_to)
+
+----------------------------------------------------------------------------------------
+- Completion -
+
+Completions are a code synchronization mechanism which is preferable to any misuse of
+locks/semaphores and busy-loops. Completions are built on top of the waitqueue and
+wakeup infrastructure of the Linux scheduler. The event the threads on the waitqueue
+are waiting for is reduced to a simple flag in 'struct completion', appropriately
+called "done".
+
+Completions currently use a FIFO to queue threads that have to wait for the "completion"
+event.
+
+[+] kernel/sched/completion.c
+
+wait_for_completion()
+         |
+         +- wait_for_common(x, MAX_SCHEDULE_TIMEOUT, TASK_UNINTERRUPTIBLE)
+                  |                           |
+                  +- __wait_for_common()      +-------------------------->+
+                              |                                           |
+                              :                                           |
+                              +- do_wait_for_common()                     |
+                                         |                                |
+                                         +- if !x->done                   |
+                                                  |yes                    |
+                                                  :                       |
+                                                  +- action() callback    |
+                                                           |              |
+                                                           v              |
+                                                 schedule_timeout() <-----+
+                                                           |
+                                                           v
+                                           +-----------------------------------+
+                                           | Make the current task sleep       |
+                                           | until @timeout jiffies have       |
+                                           | elapsed. The function behavior    |
+                                           | depends on the current task state |
+                                           | (see also set_current_state()     |
+                                           | description)                      |
+                                           +-----------------------------------+
+
+complete() will wake up a single thread waiting on this completion. Threads will be
+    |      awakened in the same order in which they were queued.
+    :
+    +- x->done = UINT_MAX
+    :
+    +- swake_up_all_locked(&x->wait) finds the task on waitqueue and wakes it up.
+               |
+               :
+               +- wake_up_process(curr->task)
+                              |
+                              v
+        +------------------------------------------+
+        | Attempt to wake up the nominated process |
+        | and move it to the set of runnable       |
+        | processes.                               |
+        +------------------------------------------+
+                              |
+                              +- try_to_wake_up()
+                                        |
+                                        v
+    +------------------------------------------------------------------------+
+    | Conceptually does: If (@state & @p->state) @p->state = TASK_RUNNING.   |
+    | If the task was not queued/runnable, also place it back on a runqueue. |
+    +------------------------------------------------------------------------+
 
 ----------------------------------------------------------------------------------------
