@@ -16,8 +16,75 @@ implementation of the Earliest Deadline First (EDF) scheduling algorithm, augmen
 a mechanism (called Constant Bandwidth Server, CBS) that makes it possible to isolate the
 behavior of tasks between each other.
 
+SCHED_DEADLINE uses three parameters, named "runtime", "period", and "deadline", to
+schedule tasks. A SCHED_DEADLINE task should receive "runtime" microseconds of execution
+time every "period" microseconds, and these "runtime" microseconds are available within
+"deadline" microseconds from the beginning of the period.
+
+Summing up, the CBS algorithm assigns scheduling deadlines to tasks so that each
+task runs for at most its runtime every period, avoiding any interference between
+different tasks (bandwidth isolation), while the EDF algorithm selects the task with
+the earliest scheduling deadline as the one to be executed next.
+
+When a SCHED_DEADLINE task wakes up (becomes ready for execution), the scheduler checks
+if:
+
+	+------------------------------------------------+
+	|	 remaining runtime              runtime  |
+	| ---------------------------------- > --------- |
+	| scheduling deadline - current time     period  |
+	+------------------------------------------------+
+
+if scheduling_deadline < current_time
+     |yes
+     +-> scheduling deadline = current time + deadline remaining runtime = runtime
+
+When a SCHED_DEADLINE task executes for an amount of time t, its remaining runtime is
+decreased as:
+
+	+-------------------------------------------+
+	| remaining runtime = remaining runtime - t |
+	+-------------------------------------------+
+
+When the remaining runtime becomes less or equal than 0, the task is said to be
+"throttled" (also known as "depleted" in real-time literature) and cannot be scheduled
+until its scheduling deadline.
+
+The "replenishment time" for this task is set to be equal to the current
+value of the scheduling deadline; When the current time is equal to the replenishment
+time of a throttled task, the scheduling deadline and the remaining runtime are updated
+as:
+
+	+----------------------------------------------------+
+	| scheduling deadline = scheduling deadline + period |
+	| remaining runtime = remaining runtime + runtime    |
+	+----------------------------------------------------+
+
 ----------------------------------------------------------------------------------------
 - CFS (Completely Fair Scheduler) Scheduler -
+
+struct task_struct {
+	...
+
+	int				on_rq;
+
+	int				prio;
+	int				static_prio;
+	int				normal_prio;
+	unsigned int			rt_priority;
+
+	struct sched_entity		se;
+	struct sched_rt_entity		rt;
+	struct sched_dl_entity		dl;
+	const struct sched_class	*sched_class;
+
+#ifdef CONFIG_SCHED_CORE
+	struct rb_node			core_node;
+	unsigned long			core_cookie;
+	unsigned int			core_occupation;
+#endif
+	...
+}
 
 CFS's task picking logic is based on this p->se.vruntime value and it is thus very simple:
 it always tries to run the task with the smallest p->se.vruntime value (i.e., the task
@@ -57,6 +124,9 @@ b) SCHED_BATCH
 c) SCHED_IDLE
 
 [+] kernel/sched/fair.c implements the CFS scheduler
+
+----------------------------------------------------------------------------------------
+
 
 [+] kernel/sched/rt.c implements SCHED_FIFO and SCHED_RR semantics
 

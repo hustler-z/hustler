@@ -1,5 +1,19 @@
++--------------------------------------------------------------------------------------+
+| LINUX KERNEL TIMERS                                                                  |
++--------------------------------------------------------------------------------------+
+
+hrtimer base infrastructure
+
+timeofday and clock source management
+
+clock event management
+
+high resolution timer functionality
+
+dynamic ticks
+
 ----------------------------------------------------------------------------------------
-GENERIC TIMER
+- GENERIC TIMER -
 
 
 
