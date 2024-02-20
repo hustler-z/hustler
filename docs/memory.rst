@@ -1714,9 +1714,9 @@ do_translation_fault() @arch/arm64/mm/fault.c       |
                                                           +- __handle_mm_fault()
                                                           |
                                                           :
-                                +---------------------------------------+
-                                | Huge Page (PUD / PMD) related process |
-                                +---------------------------------------+
+                                        +---------------------------------------+
+                                        | Huge Page (PUD / PMD) related process |
+                                        +---------------------------------------+
                                                           |not huge page
                                                           :
                                                           +- handle_pte_fault()

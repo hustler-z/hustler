@@ -104,6 +104,7 @@ Hypervisor Conﬁguration Register (HCR_EL2).
 HCR_EL2.VSE -> Setting the bit registers a vSError
 HCR_EL2.VI  -> Setting the bit registers a vIRQ
 HCR_EL2.VF  -> Setting the bit registers a vFIQ
+
 ----------------------------------------------------------------------------------------
 
 In AArch64, interrupts are a specific type of externally generated exception.
@@ -291,27 +292,9 @@ el1h_64_fiq_handler()
     +-> 1) handle_arch_irq <-- set_handle_irq() to set the irq handlers
 	2) hanele_arch_fiq <-- set_handle_fiq() to set the fiq handlers
 
-Note that normally, gic_handle_irq() is set as root IRQ handler. check the workflow:
-@arch/arm64/kernel/irq.c
-
-init_IRQ()
-    |
-    +- init_irq_stacks()
-    |
-    +- init_irq_scs()
-    |
-    +- irqchip_init()
-    :        |
-	     +- of_irq_init(__irqchip_of_table) @drivers/irqchip/irqchip.c
-	     :  To scan and init matching interrupt controllers in DT
-
-Note that GIC, GICv2, GICv3, GICv4, etc. have different initialization processes.
-
 el1h_64_error_handler()
 	 |
 	 +- do_serror()
-
-----------------------------------------------------------------------------------------
 
 el0t_64_irq_handler()
 	 |
@@ -337,5 +320,120 @@ el0t_64_error_handler()
 				      arm64_is_fatal_ras_serror(regs, esr)
 				                 |yes
 						 +- arm64_serror_panic(regs, esr)
+
+----------------------------------------------------------------------------------------
+
+@arch/arm64/kernel/irq.c
+
+init_IRQ()
+    |
+    +- init_irq_stacks()
+    |
+    +- init_irq_scs()
+    |
+    +- irqchip_init()
+    :        |
+	     +- of_irq_init(__irqchip_of_table) @drivers/irqchip/irqchip.c
+	     :  To scan and init matching interrupt controllers in DT
+
+Note that GIC, GICv2, GICv3, GICv4, etc. have different initialization processes.
+
+Note that normally, gic_handle_irq() is set as root IRQ handler.
+
+gic_handle_irq()
+    |
+    :
+    +- generic_handle_domain_irq()
+                    |
+                    :   irq_resolve_mapping(domain, hwirq)
+                    |                 |irq_desc
+                    +- handle_irq_desc()
+                              |
+                              :
+                              +- generic_handle_irq_desc()
+                                            |
+                                            +- desc->handle_irq(desc)
+                                                        |
+                                                        +-> highlevel irq-events handler
+                                                                       |
+                +<-----------------------------------------------------+
+                |
+The interrupt flow handlers (either pre-defined or architecture specific) are assigned
+to specific interrupts by the architecture either during bootup or during device
+initialization.
+
+- handle_level_irq() --- *** ---> action->handler()
+- handle_fasteoi_irq()
+- handle_edge_irq()
+- handle_edge_eoi_irq()
+- handle_simple_irq()
+- handle_untracked_irq()
+- handle_percpu_irq()
+- handle_percpu_devid_irq()
+- handle_bad_irq()
+- handle_nested_irq()
+- handle_fasteoi_nmi()
+- handle_percpu_devid_fasteoi_nmi()
+
+----------------------------------------------------------------------------------------
+
+To allocates interrupt resources and enables the interrupt line and IRQ handling:
+
+request_threaded_irq()
+           |
+           :
+           +- irq_chip_pm_get()
+           |
+           +- __setup_irq()
+                    |
+                    :
+
+@action->handler is still called in hard interrupt context and has to check whether the
+interrupt originates from the device. If yes it needs to disable the interrupt on the
+device and return IRQ_WAKE_THREAD which will wake up the handler thread and run
+@action->thread_fn. This split handler design is necessary to support shared interrupts.
+
+----------------------------------------------------------------------------------------
+- IRQDOMAIN -
+
+The irq_domain library adds mapping between hwirq and IRQ numbers on top of the
+irq_alloc_desc*() API.
+
+|-------------------- irq_resolve_mapping() --------------------->|
+
+                        irqdomain
+Hardware Interrupt ID -------------> IRQ number -------------> irq_desc
+                                                                  |
+       +<---------------------------------------------------------+
+       |
+early_irq_init() initializes the interrupt descriptors.
+       |
+       +- With CONFIG_SPARSE_IRQ enabled, use radix tree to manage the irq_desc.
+       :
+       +- arch_early_irq_init()
+
+----------------------------------------------------------------------------------------
+
+start_kernel()
+     |
+     :
+     +- early_irq_init()
+     |
+     +- init_IRQ()
+     :
+     +- softirq_init()
+     :        |
+              +-> Based on *tasklet*
+
+- HI_SOFTIRQ
+- TIMER_SOFTIRQ
+- NET_TX_SOFTIRQ
+- NET_RX_SOFTIRQ
+- BLOCK_SOFTIRQ
+- IRQ_POLL_SOFTIRQ
+- TASKLET_SOFTIRQ
+- SCHED_SOFTIRQ
+- HRTIMER_SOFTIRQ
+- RCU_SOFTIRQ
 
 ----------------------------------------------------------------------------------------

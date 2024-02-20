@@ -310,7 +310,6 @@ panic()
                         +-
 
 ----------------------------------------------------------------------------------------
-
 Bus Error
 
 SIGBUS {si_signo=SIGBUS, si_code=BUS_ADRERR, si_addr=0x7fa884a000}
@@ -318,5 +317,10 @@ SIGBUS {si_signo=SIGBUS, si_code=BUS_ADRERR, si_addr=0x7fa884a000}
                                      v
 SIGBUS indicates an access to an invalid address. In particular, SIGBUS signals often
 result from dereferencing a misaligned pointer.
+
+----------------------------------------------------------------------------------------
+dump_stack()
+
+
 
 ----------------------------------------------------------------------------------------
