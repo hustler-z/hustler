@@ -432,3 +432,29 @@ the callbacks of a state are removed or an instance is removed from a multi-inst
 state.
 
 ----------------------------------------------------------------------------------------
+(struct task_struct *)p
+
+- sched_setaffinity()
+- set_cpus_allowed_ptr()        p->cpus_ptr, p->nr_cpus_allowed
+- set_user_nice()               p->se.load, p->*prio
+- __sched_setscheduler()        p->sched_class, p->policy, p->*prio,
+                                p->se.load, p->rt_priority,
+                                p->dl.dl_{runtime, deadline, period, flags, bw, density}
+- sched_setnuma()               p->numa_preferred_nid
+- sched_move_task()             p->sched_task_group
+- uclamp_update_active()        p->uclamp*
+
+p->state <- TASK_* is changed locklessly using set_current_state(), __set_current_state()
+or set_special_state(), see their respective comments, or by try_to_wake_up(). This
+latter uses p->pi_lock to serialize against concurrent self.
+
+p->on_rq <- { 0, 1 = TASK_ON_RQ_QUEUED, 2 = TASK_ON_RQ_MIGRATING } is set by
+activate_task() and cleared by deactivate_task(), under rq->lock. Non-zero indicates the
+task is runnable, the special ON_RQ_MIGRATING state is used for migration without holding
+both rq->locks. It indicates task_cpu() is not stable, see task_rq_lock().
+
+p->on_cpu <- { 0, 1 } is set by prepare_task() and cleared by finish_task() such that it
+will be set before p is scheduled-in and cleared after p is scheduled-out, both under
+rq->lock. Non-zero indicates the task is running on its CPU.
+
+----------------------------------------------------------------------------------------

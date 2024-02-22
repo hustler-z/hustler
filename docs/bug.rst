@@ -270,27 +270,37 @@ SIGBUS indicates an access to an invalid address. In particular, SIGBUS signals
 often result from dereferencing a misaligned pointer.
 
 --------------------------------------------------------------------------------
+- TRAPS -
 
-    BUG()
+trap_init() been called in start_kernel()
+
+
+--------------------------------------------------------------------------------
+BUG() will generate a Breakpoint Instruction Exception (EC 0x3C) via assembly
+code: brk BUG_BRK_IMM (0x800)
+
+    BUG() [ BUG_ON(),WARN(),WARN_ON() ]
      |traps
      v
 bug_handler() [+] arch/arm64/kernel/traps.c
      |
      +- report_bug()
-             :
-             +- __report_bug()
+             :                   warning
+             +- __report_bug() -----------> __warn() ---- @BUG_TRAP_TYPE_WARN
                       |
               @BUG_TRAP_TYPE_BUG
                       |
-                      +- die("Oops - BUG", regs, esr)
-                          :
-                          +- __die()
-                               |
-                               +- notify_die()
-                               :
-                               +- print_modules()
-                               |
-                               +- show_regs()
+     |________________|
+     |
+     +- die("Oops - BUG", regs, esr)
+                  :
+                  +- __die()
+                       |
+                       +- notify_die()
+                       :
+                       +- print_modules()
+                       |
+                       +- show_regs()
 
 As log below:
 
@@ -298,7 +308,7 @@ As log below:
 Kernel BUG at do_task_dead+0x4c/0x50 [verbose debug info unavailable ]
 Internal error: Oops - BUG: 0 [#1] PREEMPT_RT SMP
 Modules linked in:
-CPU: 6 PID: 190 Comm: test_thread1 Tainted: G  W *  
+CPU: 6 PID: 190 Comm: test_thread1 Tainted: G  W (init_utsname()->version)
 Hardware name: linux,dummy-virt (DT)
 pstate: 60000005 (nZCv daif -PAN -UAO -TCO BTYPE=--)
 pc : do_task_dead+0x4c/0x50
@@ -334,5 +344,6 @@ To debug a kernel, use objdump and look for the hex offset from the crash output
 to find the valid line of code/assembler.
 
 $ objdump -r -S -l --disassemble *.o
+			[-d]
 
 --------------------------------------------------------------------------------

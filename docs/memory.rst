@@ -358,9 +358,9 @@ mmap() @arch/arm64/kernel/sys.c
             |
             +- vm_mmap_pgoff() @mm/util.c
                      |
-                     +- security_mmap_file()
+                     +- ret = security_mmap_file()
                                |ret=0
-                               +- do_map()
+                               +- do_mmap()
                                      |
                                      +- get_unmapped_area()
                                      |  Obtain the address to map to:
@@ -372,46 +372,65 @@ mmap() @arch/arm64/kernel/sys.c
                                                     +- find_vma_intersection()
                                                        Look up the first VMA with
                                                        intersects the interval.
-
-                                     |
+                flags & MAP_TYPE     |
+                +----------------------------------------------+
+                | MAP_SHARED  MAP_SHARED_VALIDATE  MAP_PRIVATE | with file!=NULL
+                | MAP_SHARED                       MAP_PRIVATE | with file =NULL
+                +----------------------------------------------+
+                                     :
                                      +- mmap_region()
-                                        |     |     |
-                         +--------------+     |     +---------------+
-                         |                    |                     |
-                         v                    v                     v
-                 a) file mappings    b) anonymous mapping    c) shared mapping
-                    |                   |                       |
-                    +- call_mmap()      +- vma_set_anonymous()  +- shmem_zero_setup()
-                         |                    |                     |
-                         +--------------------+---------------------+
                                               |
-                                              v
-                                vma_interval_tree_insert() @mm/interval_tree.c
+                                              +- may_expand_vm() Check against
+                                                 address space limit. Return true
+                                                 if the calling process may expand
+                                                 its vm space by the passed number
+                                                 of pages.
 
-                                   ●
-                                  / \
-                                 ○   ○
-                                / \ / \
+when vma_expand() expand an existing VMA failed:
 
-                                Note:
-                                struct vm_area_sruct {
-                                    ...
-                                    union {
-                                        struct {
-                                            struct rb_node rb; -------------->+
-                                            unsigned long rb_subtree_last;    |
-                                        } shared;                             |
-                                        ...                                   |
-                                    };                                        |
-                                    ...                                       |
-                                };                                            |
-                                                                              |
-                                struct address_space {                        |
-                                    ...                                       |
-                                    ...                                       v
-                                    struct rb_root_cached i_mmap; <-----------+
-                                    ...
-                                };
+                                              :
+                +----------------------------------------------+
+                | a) file mappings         call_mmap()         |
+                | b) anonymous mapping     vma_set_anonymous() |
+                | c) shared mapping        shmem_zero_setup()  |
+                +----------------------------------------------+
+                                              :
+                                              +- if vma->vm_file
+                                                    |!=NULL
+                                                    +- vma_interval_tree_insert()
+
+
+[+] mm/interval_tree.c
+
+struct vm_area_sruct {
+    ...
+    union {
+        struct {
+            struct rb_node rb; -------->+
+            ...                         |
+        } shared;                       |
+        ...                             |                     ●
+    };                                  |                    / \
+    ...                                 |  RB-Tree          ○   ○
+};                                      | Insertion        / \   \
+                                        |                 ●   ●
+struct address_space {                  |
+    ...                                 |
+    ...                                 v
+    struct rb_root_cached i_mmap; <-----+
+    ...
+};
+
+
+New (or expanded) vma always get soft dirty status. Otherwise user-space soft-dirty
+page tracker won't be able to distinguish situation when vma area unmapped, then new
+mapped in-place (which must be aimed as a completely new data area).
+
+vma->vm_flags |= VM_SOFTDIRTY;
+
+call_mmap()
+    |
+    +- file->f_op->mmap(file, vma)
 
 ----------------------------------------------------------------------------------------
 - SHMEM -
@@ -591,9 +610,7 @@ VMALLOC_SPACE
 +----------------+ - VMALLOC_START
 |                |
 |                |
-|                |
 :                :
-|                |
 |                |
 |                |
 +----------------+ - VMALLOC_END
@@ -701,6 +718,8 @@ remap memory (physical memory) to userspace (user vma)
  (struct page) --->+
 
 
+----------------------------------------------------------------------------------------
+
   malloc()
    |                                                                          User Space
 ----------------------------------------------------------------------------------------
@@ -717,22 +736,20 @@ remap memory (physical memory) to userspace (user vma)
    |
    +- check_brk_limits()
    |
-   +- do_brk_flags() -> Extend the brk VMA from addr to addr + len. If the VMA is
+   +- do_brk_flags() => Extend the brk VMA from addr to addr + len. If the VMA is
            |            NULL or the flags do not match then create a new anonymous
            |            VMA.
            |
-           +- (1) vma->anon_vma ------------------------------------------>+
-                         |                                                 |
-                         +- anon_vma_interval_tree_pre_update_vma()        |
-                         |                                                 |
-                         +- anon_vma_interval_tree_post_update_vma()       |
-                                                                           v
-                   +-------------------------------------------------------+-----------+
-                   | A file's MAP_PRIVATE vma can be in both i_mmap tree and anon_vma  |
-                   | list, after a COW of one of the file pages.  A MAP_SHARED vma     |
-                   | can only be in the i_mmap tree.  An anonymous MAP_PRIVATE, stack  |
-                   | or brk vma (with NULL file) can only be in an anon_vma list.      |
-                   +-------------------------------------------------------------------+
+           +- (1) Expand the existing vma if possible
+                        |
+                  vma->anon_vma
+
+                +-------------------------------------------------------+-----------+
+                | A file's MAP_PRIVATE vma can be in both i_mmap tree and anon_vma  |
+                | list, after a COW of one of the file pages.  A MAP_SHARED vma     |
+                | can only be in the i_mmap tree.  An anonymous MAP_PRIVATE, stack  |
+                | or brk vma (with NULL file) can only be in an anon_vma list.      |
+                +-------------------------------------------------------------------+
 
            |
            +- (2) anonymous mapping
@@ -1019,45 +1036,50 @@ __alloc_pages() with struct alloc_context ac instantiated
                            [x]-+- When order>0, allocate via rmqueue_buddy()
                                           |
                                           +- Try __rmqueue_smallest() first
-                                          |           |
-                                         [4]          +- Go through the free lists for
-                                                         the given migratetype and remove
-                                                         the smallest available page from
-                                                         the freelist
-                                                         a) get_page_from_free_area()
-                                                         b) del_page_from_free_list()
-                                                         c) if current order doesn't meet,
-                                                         Go to higher order, if available,
-                                                         split them into half, put a half
-                                                         back to lower order of free area,
-                                                         another half as requested.
-                                                         - expand()
+                                          |                |
+                                         [4]               v
+                                             +--------------------------------------+
+                                             | Go through the free lists for the    |
+                                             | given migratetype and remove the     |
+                                             | smallest available page from the     |
+                                             | freelist.                            |
+                                             | a) get_page_from_free_area()         |
+                                             | b) del_page_from_free_list()         |
+                                             | c) if current order doesn't meet, go |
+                                             | to higher order, if available, split |
+                                             | them into half, put a half back to   |
+                                             | lower order of free area, another    |
+                                             | half as requested.                   |
+                                             +--------------------------------------+
+                                                           |
+                                                         expand()
                                          [4]
                                           |
                                           +- if fails, do __rmqueue()
-                                                               |
-                                                               +- CONFIG_CMA=y
-                                                                  __rmqueue_cma_fallback()
+                                                           |
+                                                           +- CONFIG_CMA=y
+                                                              __rmqueue_cma_fallback()
 
-                                                               |
-                                                               +- Try __rmqueue_smallest()
-                                                                  again. If fails, then do
-                                                                  1) __rmqueue_cma_fallback()
-                                                                  2) __rmqueue_fallback()
+                                                           |
+                                                           +- Try __rmqueue_smallest()
+                                                              again. If fails, then do
+                                                              1) __rmqueue_cma_fallback()
+                                                              2) __rmqueue_fallback()
                                                                              |
                                                                              v
-                             Try finding a free buddy page on the fallback list and put it
-                             on the free list of requested migratetype.
-                             a) find_suitable_fallback() to find largest/smallest available
-                                free page in other list.
-                             Note: fallback lists can be (depends on current migratetype,
-                             other two are fallbacks) two of below:
-                                1) MIGRATE_UNMOVABLE
-                                2) MIGRATE_MOVABLE
-                                3) MIGRATE_RECLAIMABLE
-                             -------------------------------------------------------------
-                             b) get_page_from_free_area()
-                             c) steal_suitable_fallback()
+                        +----------------------------------------------------------------+
+                        | Try finding a free buddy page on the fallback list and put it  |
+                        | on the free list of requested migratetype.                     |
+                        | a) find_suitable_fallback() to find largest/smallest available |
+                        |    free page in other list.                                    |
+                        | Note: fallback lists can be (depends on current migratetype,   |
+                        | other two are fallbacks) two of below:                         |
+                        |       1) MIGRATE_UNMOVABLE                                     |
+                        |       2) MIGRATE_MOVABLE                                       |
+                        |       3) MIGRATE_RECLAIMABLE                                   |
+                        | b) get_page_from_free_area()                                   |
+                        | c) steal_suitable_fallback()                                   |
+                        +----------------------------------------------------------------+
                                         |
                                         +- when whole_block=true, do move_freepages_block()
                                                                                  |
