@@ -1,6 +1,8 @@
 #!/bin/sh
 
-export CROSS_COMPILE=/os/armcc/bin/aarch64-none-linux-gnu-
+TOOLCHAIN=/os/armcc/bin/aarch64-none-linux-gnu
+OBJDUMP=$TOOLCHAIN-objdump
+export CROSS_COMPILE=$TOOLCHAIN-
 export ARCH=arm64
 
 KPATH=$2
@@ -77,6 +79,13 @@ build() {
 			echo "Done cleaning in $(($total/60)) min $(($total%60)) sec"
 			echo "----------------------------------- Done Clean ---------------------------------"
 			;;
+		dsm)
+			echo "---------------------------------- DISASSEMBLE ---------------------------------"
+			echo "objdump -r[relocation] -S[source] -l[line NR] -d[disassemble] *.o"
+			echo ""
+			$OBJDUMP -r -S -l -d $KPATH
+			echo "---------------------------------- DISASSEMBLE ---------------------------------"
+			;;
 		*)
 			echo "Usage: ./compilation <option> [path]"
 			echo "--------------------------------------------------------------------------------"
@@ -85,6 +94,7 @@ build() {
 			echo "[2] compile the kernel: ./compilation.sh out  [path]"
 			echo "[3] mrproper:           ./compilation.sh mrp  [path]"
 			echo "[4] clean:              ./compilation.sh cln  [path]"
+			echo "[5] disassmble *.o:     ./compilation.sh dsm  [path]"
 			echo "--------------------------------------------------------------------------------"
 			;;
 	esac
