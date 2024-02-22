@@ -232,7 +232,7 @@ Reference:
 ----------------------------------------------------------------------------------------
 Reference to Linux-6.1.63
 
-=> linux-6.1.63/arch/arm64/kernel/entry.S
+=> arch/arm64/kernel/entry.S
 
 /*
  * Exception vectors.
@@ -296,6 +296,7 @@ el1h_64_error_handler()
 	 |
 	 +- do_serror()
 
+----------------------------------------------------------------------------------------
 el0t_64_irq_handler()
 	 |
 	 +- __el0_irq_handler_common() ----->+
@@ -322,6 +323,14 @@ el0t_64_error_handler()
 						 +- arm64_serror_panic(regs, esr)
 
 ----------------------------------------------------------------------------------------
+- Linux generic IRQ handling -
+
+	+-------------------------------------------------------------------------+
+	| There are three main levels of abstraction in the Linux interrupt code: |
+	| a) High-level driver API                                                |
+	| b) High-level IRQ flow handlers                                         |
+	| c) Chip-level hardware encapsulation                                    |
+	+-------------------------------------------------------------------------+
 
 @arch/arm64/kernel/irq.c
 
@@ -333,10 +342,71 @@ init_IRQ()
     |
     +- irqchip_init()
     :        |
-	     +- of_irq_init(__irqchip_of_table) @drivers/irqchip/irqchip.c
-	     :  To scan and init matching interrupt controllers in DT
+             +- of_irq_init(__irqchip_of_table) [+] drivers/irqchip/irqchip.c
+             :  To scan and init matching interrupt controllers in DT
+                     :
+                     +-> (struct of_intc_desc *) desc->irq_init_cb
+                                                           |
+Note that GIC, GICv2, GICv3, GICv4, etc.                   |
+have different initialization processes.                   |
+                                                           v
+gic_of_init() <--------------------------------------------+ IRQCHIP_DECLARE()
+    |
+    :
+    +- __gic_init_bases()
+               |
+               :
+               +- if gic == &gic_data[0]
+                           :
+                           +- set_handle_irq(gic_handle_irq)
+               :
+               +- gic_init_bases()
+               |
+               +- if gic == &gic_data[0]
+                           |
+                           +- gic_smp_init()
+                                    :
+                                    +- base_sgi = __irq_domain_alloc_irqs()
+                                    :
+                                    +- set_smp_ipi_range()
+                                               |
+                                               +- request_percpu_irq()
+                                                            |
+                                             +----------------------------+
+                                             | Request NR_IPI of IPI irqs |
+                                             | with ipi_handler()         |
+                                             +----------------------------+
 
-Note that GIC, GICv2, GICv3, GICv4, etc. have different initialization processes.
+IPI (Inter-Processor Interrupt)
+
+ipi_handler() <--------------------- action->handler()
+      |
+      +- do_handle_IPI()
+
+[+] arch/arm64/kernel/smp.c
+
+enum ipi_msg_type {
+	IPI_RESCHEDULE,     ----> scheduler_ipi() [+] include/linux/sched.h
+	IPI_CALL_FUNC,      ----> generic_smp_call_function_interrupt()
+	IPI_CPU_STOP,
+	IPI_CPU_CRASH_STOP,
+	IPI_TIMER,
+	IPI_IRQ_WORK,       ----> irq_work_run() [+] kernel/irq_work.c
+	IPI_WAKEUP,
+	NR_IPI
+};
+
+--------------------------------------------------------------------------------------
+$ cat /proc/interrupts
+
+IPI0:      6474       8148       7791     ...     Rescheduling interrupts
+IPI1:    314876     319197     853535     ...     Function call interrupts
+IPI2:         0          0          0     ...     CPU stop interrupts
+IPI3:         0          0          0     ...     CPU stop (for crash dump) interrupts
+IPI4:         0          0          0     ...     Timer broadcast interrupts
+IPI5:     20319       4925       3830     ...     IRQ work interrupts
+IPI6:         0          0          0     ...     CPU wake-up interrupts
+--------------------------------------------------------------------------------------
 
 Note that normally, gic_handle_irq() is set as root IRQ handler.
 
@@ -362,11 +432,11 @@ The interrupt flow handlers (either pre-defined or architecture specific) are as
 to specific interrupts by the architecture either during bootup or during device
 initialization.
 
-- handle_level_irq() --- *** ---> action->handler()
+- handle_level_irq()
 - handle_fasteoi_irq()
-- handle_edge_irq()
-- handle_edge_eoi_irq()
-- handle_simple_irq()
+- handle_edge_irq()  --- *** ---> action->handler()
+- handle_edge_eoi_irq()                      |
+- handle_simple_irq()                       [x]
 - handle_untracked_irq()
 - handle_percpu_irq()
 - handle_percpu_devid_irq()
@@ -375,18 +445,49 @@ initialization.
 - handle_fasteoi_nmi()
 - handle_percpu_devid_fasteoi_nmi()
 
-----------------------------------------------------------------------------------------
+struct irqaction {
+	irq_handler_t		handler;
+	void			*dev_id;
+	...
+	irq_handler_t		thread_fn;
+	struct task_struct	*thread;
+	...
+} ____cacheline_internodealigned_in_smp;
 
-To allocates interrupt resources and enables the interrupt line and IRQ handling:
+handle_level_irq()
+        |
+        :
+        +- handle_irq_event()
+                   :
+                   +- handle_irq_event_percpu()
+                                 :
+                                 +- __handle_irq_event_percpu()
+                                        |
+                                        :
+                                        +- res = action->handler(irq, action->dev_id)
+                                        :
+                                        +- if res == IRQ_WAKE_THREAD
+                                                :
+                                                +- __irq_wake_thread()
+                                                    |
+                                                    :
+                                                    +- wake_up_process(action->thread)
 
-request_threaded_irq()
-           |
-           :
-           +- irq_chip_pm_get()
-           |
-           +- __setup_irq()
-                    |
-                    :
+To allocates interrupt resources and enables
+the interrupt line and IRQ handling:
+
+request_threaded_irq()                                                         [x]
+        |                                                                       |
+        : (a) corresponding irqaction initialization, e.g., action->handler = handler
+        |
+        +- irq_chip_pm_get()
+        |
+        +- __setup_irq()
+                |
+                :
+                +- setup_irq_thread() creates kernel threads which can be seen: irq/*
+                           :
+                           +- new->thread = get_task_struct(t)
 
 @action->handler is still called in hard interrupt context and has to check whether the
 interrupt originates from the device. If yes it needs to disable the interrupt on the
@@ -408,7 +509,8 @@ Hardware Interrupt ID -------------> IRQ number -------------> irq_desc
        |
 early_irq_init() initializes the interrupt descriptors.
        |
-       +- With CONFIG_SPARSE_IRQ enabled, use radix tree to manage the irq_desc.
+       +- With CONFIG_SPARSE_IRQ enabled, use radix tree
+       |  to manage the irq_desc (for irqdomain use)
        :
        +- arch_early_irq_init()
 
@@ -436,4 +538,4 @@ start_kernel()
 - HRTIMER_SOFTIRQ
 - RCU_SOFTIRQ
 
-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------

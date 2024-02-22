@@ -1,53 +1,10 @@
-+--------------------------------------------------------------------------------------+
-| CASE STUDY                                                                           |
-+--------------------------------------------------------------------------------------+
++------------------------------------------------------------------------------+
+| KERNEL BUGS                                                                  |
++------------------------------------------------------------------------------+
 
-kernel logs when it crashed:
 
-[   54.667134] Unable to handle kernel paging request at virtual address ffffffc08138799e
-[   54.667395] Mem abort info:
-[   54.667451]   ESR = 0x96000045
-[   54.667610]   EC = 0x25: DABT (current EL), IL = 32 bits
-[   54.667704]   SET = 0, FnV = 0
-[   54.667772]   EA = 0, S1PTW = 0
-[   54.667870] Data abort info:
-[   54.667938]   ISV = 0, ISS = 0x00000045
-[   54.667996]   CM = 0, WnR = 1
-[   54.670503] swapper pgtable: 4k pages, 39-bit VAs, pgdp=0000000040e1c000
-[   54.670776] [ffffffc08138799e] pgd=0000000000000000, p4d=0000000000000000, pud=0000000000000000
-[   54.674304] Internal error: Oops: 96000045 [#1] PREEMPT_RT SMP
-[   54.679438] Modules linked in:
-[   54.679668] CPU: 0 PID: 639 Comm: thread2 Tainted: G W 5.10.145-rt74-g8486af2177c9-dirty #36
-[   54.679981] Hardware name: linux,dummy-virt (DT)
-[   54.680254] pstate: 80000085 (Nzcv daIf -PAN -UAO -TCO BTYPE=--)
-[   54.680409] pc : queued_spin_lock_slowpath+0x1b8/0x3a8
-[   54.680636] lr : _raw_spin_lock_irqsave+0x84/0xb0
-[   54.680792] sp : ffffffc011ecbe10
-[   54.680851] x29: ffffffc011ecbe10 x28: 0000000000000000
-[   54.681051] x27: 0000000000000000 x26: ffffffc010e74a10
-[   54.681224] x25: ffffffc011eb3d80 x24: ffffffc0100a2440
-[   54.681769] x23: ffffffc010b05228 x22: ffffffc011eb3c68
-[   54.682597] x21: ffffff80c249a980 x20: ffffff80c2458ec0
-[   54.682771] x19: 0000000000000000 x18: ffffffffffffffff
-[   54.682889] x17: 0000000012e9a236 x16: 0000000031f39da0
-[   54.682982] x15: 0000ad3d7b10e734 x14: 00000000000002d1
-[   54.683058] x13: 00000000000002d1 x12: 0000000000000000
-[   54.683132] x11: 0000000000000002 x10: 0000000000000000
-[   54.683229] x9 : 0000000000040000 x8 : 0000000000000000
-[   54.683307] x7 : ffffff80ff788a00 x6 : ffffffc010da98e0
-[   54.683381] x5 : ffffffc010c90000 x4 : ffffff80ff788a00
-[   54.683493] x3 : ffffffc011eb3d80 x2 : 00000000706f6f6e
-[   54.683571] x1 : ffffffc010c90a30 x0 : ffffff80ff788a08
-[   54.683651] Call trace:
-[   54.683692]  queued_spin_lock_slowpath+0x1b8/0x3a8
-[   54.683804]  swake_up_one+0x18/0x50
-[   54.683879]  thread_wake2+0x10/0x20
-[   54.683950]  kthread+0x18c/0x198
-[   54.684023]  ret_from_fork+0x10/0x34
-[   54.693206] Code: d37c0400 8b000021 910020e0 f862d8c2 (f8226827)
-[   54.699734] ---[ end trace 0000000000000004 ]---
 
-----------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 ESR (Exception Syndrome Register)
 
@@ -60,7 +17,7 @@ EC (Exception Class) [31:26] - Indicates reason for the exception
 IL (Instruction Length) [25] - For synchronous exception
 ISS (Instruction Specific Syndrome) [24:0]
 
-----------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 <a> arch/arm64/kernel/entry-common.c
 
 el1h_64_sync_handler() branch based on EC
@@ -116,15 +73,15 @@ do_el0_fpac()
                   +- @desc [SIGILL/SIGSEGV]
                      arm64_notify_die()
 
-<b> arch/arm64/mm/fault.c
+[+] arch/arm64/mm/fault.c
 
 do_mem_abort()
      |
      +- (struct fault_info *)inf->fn(far, esr, regs)
                                    |
 Registration on fault_info[] <-----+ callback
-                                   |!=0                  yes
-                                   +- user_mode(regs) --------> die_kernel_fault()
+                                   |!=0                 yes
+                                   +- user_mode(regs) ------> die_kernel_fault()
                                             |no
                                             +- arm64_notify_die()
                                                For an unrecognized fault type.
@@ -144,6 +101,7 @@ Functions includes:
 - do_page_fault()
 
 [Synchronous External Abort]
+
 - do_sea()
      |                                               yes
      +-> In user state, apei_claim_sea(regs) == 0 --------> <return>
@@ -167,7 +125,7 @@ Functions includes:
                         |no                                      |
                         +- do_bad_area()            do_compact_alignment_fixup()
 
-----------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 arm64_force_sig_fault()
           |
@@ -177,21 +135,32 @@ arm64_force_sig_fault()
                     |yes
                     +- force_sig(SIGKILL)
 
-----------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 do_bad_area()
-     |                     yes
-     +- user_mode(regs) --------> set_thread_esr() ----> arm64_force_sig_fault()
+     |                    yes
+     +- user_mode(regs) ------> set_thread_esr() ----> arm64_force_sig_fault()
               |no
               +- __do_kernel_fault()
                          :
                          |
-            [Analysis on Exception reason]
-            If can't fix the exception then die_kernel_fault() fires with the "msg".
+          [Analysis on Exception reason]
+                         |
+                         v
+     +---------------------------------------+
+     | msg                                   |
+     | 1) write to read-only memory          |
+     | 2) execute from non-executable memory |
+     | 3) read from unreadable memory        |
+     | 4) NULL pointer dereference           |
+     | 5) paging request                     |
+     +---------------------------------------+
+
+If can't fix the exception then die_kernel_fault() fires with the "msg".
 
 die_kernel_fault()
        |
-       +<--------------------------+ bust_spinlock(1)
+       +<-------------------------- bust_spinlock(1)
        |
        +- mem_abort_decode()
        |
@@ -199,21 +168,20 @@ die_kernel_fault()
        |
   +<---+- die("Oops"", regs, esr)
   |    |
-  |    +<--------------------------+ bust_spinlock(0)
+  |    +<-------------------------- bust_spinlock(0)
   |    :
   |    +- make_task_dead(SIGKILL)
-  |                |
   |                :
   :
-  +- oops_enter()              +-> arch/arm64/kernel/traps.c
-  |                            |
-  +- console_verbose() ---> __die() ---> crach_kexec() ---> add_taint()
-  |                            |
-  :                            +- notify_die()
+  +- oops_enter()
+  :
+  +- __die()
   |
   +- oops_exit()
-  :
-  +- panic() <--- in_interrupt()
+  :                      yes
+  +- if in_interrupt() -------> panic("%s: Fatal exception in interrupt", str)
+  |                      yes
+  +- if panic_on_oops  -------> panic("%s: Fatal exception", str)
   :
   +- The return value of __die() != NOTIFY_STOP
                         |yes
@@ -286,41 +254,85 @@ make_task_dead()
                       :
                       +- __schedule(SM_NONE)
 
-panic()
+--------------------------------------------------------------------------------
+
+panic() => halt the system [+] kernel/panic.c
   |
   :
-  +- Disable local interrupts.
-     local_irq_disable()
-     preempt_disable_notrace()
 
-  +- Only one CPU is allowed to execute the panic
-     if old_cpu != PANIC_CPU_INVALID && old_cpu != this_cpu
-             |                          |yes
-             |                          +- panic_smp_self_stop()
-             +- 1st CPU fired panic()
-                        |
-                        +- console_verbose()
-                        :
-                        +- if !test_taint(TAINT_DIE) && oops_in_progress <= 1
-                                      |yes
-                                      +- dump_stack()
-
-                        +- kgdb_panic()
-                        :
-                        +-
-
-----------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 Bus Error
 
 SIGBUS {si_signo=SIGBUS, si_code=BUS_ADRERR, si_addr=0x7fa884a000}
                                      |
                                      v
-SIGBUS indicates an access to an invalid address. In particular, SIGBUS signals often
-result from dereferencing a misaligned pointer.
+SIGBUS indicates an access to an invalid address. In particular, SIGBUS signals
+often result from dereferencing a misaligned pointer.
 
-----------------------------------------------------------------------------------------
-dump_stack()
+--------------------------------------------------------------------------------
 
+    BUG()
+     |traps
+     v
+bug_handler() [+] arch/arm64/kernel/traps.c
+     |
+     +- report_bug()
+             :
+             +- __report_bug()
+                      |
+              @BUG_TRAP_TYPE_BUG
+                      |
+                      +- die("Oops - BUG", regs, esr)
+                          :
+                          +- __die()
+                               |
+                               +- notify_die()
+                               :
+                               +- print_modules()
+                               |
+                               +- show_regs()
 
+As log below:
 
-----------------------------------------------------------------------------------------
+------------[ cut here ]------------
+Kernel BUG at do_task_dead+0x4c/0x50 [verbose debug info unavailable ]
+Internal error: Oops - BUG: 0 [#1] PREEMPT_RT SMP
+Modules linked in:
+CPU: 6 PID: 190 Comm: test_thread1 Tainted: G  W *  
+Hardware name: linux,dummy-virt (DT)
+pstate: 60000005 (nZCv daif -PAN -UAO -TCO BTYPE=--)
+pc : do_task_dead+0x4c/0x50
+lr : do_task_dead+0x4c/0x50
+sp : ffffffc0113bbdb0
+x29: ffffffc0113bbdb0 x28: ffffff8001498040
+x27: ffffff80038963c8 x26: ffffffc010e54a08
+x25: ffffff800389b040 x24: ffffff800389afc0
+x23: ffffffc010d75080 x22: ffffffc0113bbe38
+x21: 0000000000000000 x20: ffffff800389b328
+x19: ffffff800389abc0 x18: 0000000000000020
+x17: 00000000b4b80526 x16: 0000000000000001
+x15: 00000563c95f14b4 x14: 001599bc21580ad4
+x13: 00000000000001bd x12: 00000000fa83b2da
+x11: 0000000000000000 x10: 0000000000000563
+x9 : 0000000000000000 x8 : 00000000001599bc
+x7 : 000000000000b6fb x6 : 0000000000000000
+x5 : 000000000000001e x4 : 000000000000001e
+x3 : ffffff803fdd3880 x2 : 0000000000000000
+x1 : 0000000000000000 x0 : ffffff800389abc0
+Call trace:
+do_task_dead+0x4c/0x50
+do_exit+0x5e8/0x950
+kthread+0x144/0x1a0
+ret_from_fork+0x10/0x34
+Code: 52800000 32110042 b9003e62 94222456 (d4210000)
+---[ end trace 0000000000000004 ]---
+Kernel panic - not syncing:
+Oops - BUG: Fatal exception
+
+--------------------------------------------------------------------------------
+To debug a kernel, use objdump and look for the hex offset from the crash output
+to find the valid line of code/assembler.
+
+$ objdump -r -S -l --disassemble *.o
+
+--------------------------------------------------------------------------------

@@ -173,14 +173,18 @@ schedule()
             :
             +- schedule_debug()
             :
-            +- check the sched_mode and prev->__state
-                                |ok
-                                +- signal_pending_state()
-                                             |no
-                                             :
-                                             +- deactivate_task()
-                                                       |
-                                                       +- dequeue_task()
+            +- check the sched_mode and (struct task_struct *)prev->__state
+                |ok
+                +- signal_pending_state() -> WRITE_ONCE(prev->__state, TASK_RUNNING)
+                            |no
+                            :
+                            +- deactivate_task()
+                                        |
+                                        +- dequeue_task()
+                                                |
+                                                v
+                        (struct task_struct *)p->sched_class->dequeue_task()
+
 
                             pick_next_task() from the rq
                                   |
@@ -283,6 +287,9 @@ __switch_mm()
                                reset ttbr1_el1, ttbr0_el1 with some masks
 
 ----------------------------------------------------------------------------------------
+signal_pending_state()
+
+----------------------------------------------------------------------------------------
 
 [+] arch/arm64/kernel/entry.S
 
@@ -359,8 +366,6 @@ wait_for_completion()
                                            | until @timeout jiffies have       |
                                            | elapsed. The function behavior    |
                                            | depends on the current task state |
-                                           | (see also set_current_state()     |
-                                           | description)                      |
                                            +-----------------------------------+
 
 complete() will wake up a single thread waiting on this completion. Threads will be
@@ -387,5 +392,43 @@ complete() will wake up a single thread waiting on this completion. Threads will
     | Conceptually does: If (@state & @p->state) @p->state = TASK_RUNNING.   |
     | If the task was not queued/runnable, also place it back on a runqueue. |
     +------------------------------------------------------------------------+
+
+----------------------------------------------------------------------------------------
+- workqueue -
+
+While there are work items on the workqueue the worker executes the functions associated
+with the work items one after the other. When there is no work item left on the workqueue
+the worker becomes idle. When a new work item gets queued, the worker begins executing
+again.
+
+                     +--------+
+           (*) <---- | worker | <---- (*) <---- (*) ---- workqueue
+                     +--------+        |
+                                       |
+                                 (work item N)
+                                       |
+                                       +-> holds a pointer to the function that
+                                           is to be executed asynchronously.
+
+----------------------------------------------------------------------------------------
+- CPUHP (CPU hotplug) -
+
+The kernel option CONFIG_HOTPLUG_CPU needs to be enabled. It is currently available on
+multiple architectures including ARM, MIPS, PowerPC and X86.
+
+$ echo 0 > /sys/devices/system/cpu/cpu0/online
+
+Once the CPU is shutdown, it will be removed from /proc/interrupts, /proc/cpuinfo and 
+should also not be shown visible by the top command.
+
+
+When a CPU is onlined, the startup callbacks are invoked sequentially until the state
+CPUHP_ONLINE is reached. They can also be invoked when the callbacks of a state are
+set up or an instance is added to a multi-instance state.
+
+When a CPU is offlined the teardown callbacks are invoked in the reverse order
+sequentially until the state CPUHP_OFFLINE is reached. They can also be invoked when
+the callbacks of a state are removed or an instance is removed from a multi-instance
+state.
 
 ----------------------------------------------------------------------------------------

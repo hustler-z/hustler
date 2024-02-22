@@ -1841,6 +1841,9 @@ kmem_cache_create()
 slab cache can be found by the *name* created in kmem_cache_create().
 $ cat /proc/slabinfo
 ----------------------------------------------------------------------------------------
+- CMA -
+
+
 
 ----------------------------------------------------------------------------------------
 - KERNEL SAMEPAGE MERGING (KSM) -

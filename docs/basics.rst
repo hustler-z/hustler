@@ -2,6 +2,37 @@
 | LINUX KERNEL BASICS                                                                  |
 +--------------------------------------------------------------------------------------+
 
+Kernel Thread
+
+kthread_create() => create a kthread on the current node
+      |             and leave it in the stopped state.
+      |
+      +- kthread_create_on_node()
+                   |
+                   :
+                   +- __kthread_create_on_node()
+                      - Initialize *kthread_create_info* structure
+                      - Insert create->list to the tail of *kthread_create_list*
+                      - wake_up_process(kthreadd_task)
+
+kthread_bind() => bind a just-created kthread to a cpu.
+      |
+      +- __kthread_bind(p, cpu, TASK_UNINTERRUPTIBLE)
+                |
+                +- __kthread_bind_mask()
+                             |
+                             :
+                             +- do_set_cpus_allowed()
+                                        |
+                                        +- __do_set_cpus_allowed()
+
+kthread_run()
+     |
+     +- kthread_create()
+     |
+     +- wake_up_process()
+
+kthread_stop()
 
 ----------------------------------------------------------------------------------------
 Synchronization
