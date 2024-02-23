@@ -134,35 +134,35 @@ TTBR1_EL1 -> Kernelspace
 
 Memory Layout on AArch64 Linux
 
-    +----------------------------------------------------------------------------------+
-    | Start               End                      Size      Use                       |
-    | ---------------------------------------------------------------------------------+
-    | 0000000000000000    0000ffffffffffff         256TB     user                      |
-    | ffff000000000000    ffff7fffffffffff         128TB     kernel logical memory map |
-    |[ffff600000000000    ffff7fffffffffff]         32TB     [kasan shadow region]     |
-    | ffff800000000000    ffff800007ffffff         128MB     modules                   |
-    | ffff800008000000    fffffbffefffffff         124TB     vmalloc                   |
-    | fffffbfff0000000    fffffbfffdffffff         224MB     fixed mappings (top down) |
-    | fffffbfffe000000    fffffbfffe7fffff           8MB     [guard region]            |
-    | fffffbfffe800000    fffffbffff7fffff          16MB     PCI I/O space             |
-    | fffffbffff800000    fffffbffffffffff           8MB     [guard region]            |
-    | fffffc0000000000    fffffdffffffffff           2TB     vmemmap                   |
-    | fffffe0000000000    ffffffffffffffff           2TB     [guard region]            |
-    +----------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------+
+| Start               End                      Size      Use                       |
+| ---------------------------------------------------------------------------------+
+| 0000000000000000    0000ffffffffffff         256TB     user                      |
+| ffff000000000000    ffff7fffffffffff         128TB     kernel logical memory map |
+|[ffff600000000000    ffff7fffffffffff]         32TB     [kasan shadow region]     |
+| ffff800000000000    ffff800007ffffff         128MB     modules                   |
+| ffff800008000000    fffffbffefffffff         124TB     vmalloc                   |
+| fffffbfff0000000    fffffbfffdffffff         224MB     fixed mappings (top down) |
+| fffffbfffe000000    fffffbfffe7fffff           8MB     [guard region]            |
+| fffffbfffe800000    fffffbffff7fffff          16MB     PCI I/O space             |
+| fffffbffff800000    fffffbffffffffff           8MB     [guard region]            |
+| fffffc0000000000    fffffdffffffffff           2TB     vmemmap                   |
+| fffffe0000000000    ffffffffffffffff           2TB     [guard region]            |
++----------------------------------------------------------------------------------+
 
 Translation table lookup with 4KB pages
 
-    +--------+--------+--------+--------+--------+--------+--------+--------+
-    |63    56|55    48|47    40|39    32|31    24|23    16|15     8|7      0|
-    +--------+--------+--------+--------+--------+--------+--------+--------+
-     |                 |         |         |         |         |
-     |                 |         |         |         |         v
-     |                 |         |         |         |   [11:0 ] in-page offset
-     |                 |         |         |         +-> [20:12] L3 index
-     |                 |         |         +-----------> [29:21] L2 index
-     |                 |         +---------------------> [38:30] L1 index
-     |                 +-------------------------------> [47:39] L0 index
-     +-------------------------------------------------> [63]    TTBR0/1
++--------+--------+--------+--------+--------+--------+--------+--------+
+|63    56|55    48|47    40|39    32|31    24|23    16|15     8|7      0|
++--------+--------+--------+--------+--------+--------+--------+--------+
+|                 |         |         |         |         |
+|                 |         |         |         |         v
+|                 |         |         |         |   [11:0 ] in-page offset
+|                 |         |         |         +-> [20:12] L3 index
+|                 |         |         +-----------> [29:21] L2 index
+|                 |         +---------------------> [38:30] L1 index
+|                 +-------------------------------> [47:39] L0 index
++-------------------------------------------------> [63]    TTBR0/1
 
 ----------------------------------------------------------------------------------------
 - MTE -
@@ -267,10 +267,10 @@ khugepaged()
                  madvise() @syscall
                     |
                     +- do_madvise()
-                            |
-                            :
-                            +- madvise_walk_vmas() walk the vmas in range[start, end)
-                                        |          and call the visit callback.
+                        |
+                        :
+                        +- madvise_walk_vmas() walk the vmas in range[start, end)
+                                        |      and call the visit callback.
                                         :
                                         +- visit()
                                               |
@@ -294,8 +294,8 @@ HPAGE_PMD_SIZE => 2M
 
 madvise_collapse()
         |
-        :                                                no
-        +- if IS_ENABLED(CONFIG_SHMEM) && vma->vm_file -----> hpage_collapse_scan_pmd()
+        :                                               no
+        +- if IS_ENABLED(CONFIG_SHMEM) && vma->vm_file ----> hpage_collapse_scan_pmd()
                   |yes
                   +- hpage_collapse_scan_file()
 
@@ -338,7 +338,7 @@ with __GFP_COMP, alloc_pages() can allocate compound pages.
 
 @include/linux/page-flags.h
 
-1) PageComound()
+1) PageCompound() => true if compound page
         |
         +- page->flags or page->compound_head
                     |
@@ -561,6 +561,8 @@ vmalloc() - Allocate virtually contiguous memory with given size
                                                           |          |
                                                           +--------->+
 
+__alloc_pages_bulk() - allocate a number of order-0 pages to a list or array.
+
                            [6]
                             |
                             +- When order>0, or bulk allocator fails.
@@ -647,7 +649,7 @@ level of translation table and the memory translation granule size.
 
 Two Stage Translations
 
-Stage 1 Translation                       Stage 2 Translation (Control by Hypervisor)
+Stage 1 Translation               Stage 2 Translation (Control by Hypervisor)
       |                                           |
       v                                           v
 VA <--+--> IPA (Intermediate Physical Address) <--+--> PA
@@ -694,6 +696,36 @@ Hypervisor Configuration Register HCR_EL2.
                                                              Real physical memory map
 
 ----------------------------------------------------------------------------------------
+- ADDRESS TRANSLATION -
+
+a) Address Space Identifiers (ASIDs)
+            |
+            +- Tagging translations with the owning process
+
+TLB entries for multiple processes are allowed to coexist in the cache, and the ASID
+determines which entry to use.
+
+b) Virtual Machine Identifiers (VMIDs)
+            |
+            +- Tagging translations with the owning VM
+
+VMIDs allow translations from different VMs to coexist in the cache.
+
+MMU - Memory Management Unit
+
+* The table walk unit - contains logic that reads the translation tables from memory.
+* Translation Lookaside Buffers (TLBs) - cache recently used translations.
+
+Translation Table Base Registers
+
+ttbr0_el1
+ttbr1_el1
+   |
+   +- Holds the base address of the translation table for the initial lookup for stage 1
+      of the translation of an address from the higher VA range in the EL1&0 stage 1
+      translation regime, and other information for this translation regime.
+
+----------------------------------------------------------------------------------------
 
 remap memory (physical memory) to userspace (user vma)
           |
@@ -728,7 +760,7 @@ remap memory (physical memory) to userspace (user vma)
    |
    +- if brk <= mm->brk
              |
-             +- do_brk_munmap() -> Unmap a partial vma.
+             +- do_brk_munmap() => Unmap a partial vma.
                       |
                       :
                       +- do_mas_align_munmap()
@@ -762,13 +794,13 @@ remap memory (physical memory) to userspace (user vma)
                                   |
                                   +- vma_init()
                          |
-                         +- vma_set_anonymous() -> set vma->vm_ops to NULL.
+                         +- vma_set_anonymous() -> set vma->vm_ops = NULL.
 
    |
    +- userfaultfd_unmap_complete()
    |
-   +- if populate
-            |
+   +- if populate => newbrk > oldbrk && (mm->def_flags & VM_LOCKED) != 0
+            |true
             +- mm_populate()
                      |
                      +- __mm_populate() => populate and/or mlock pages within
@@ -776,12 +808,37 @@ remap memory (physical memory) to userspace (user vma)
                                            [+] mm/gup.c
                                 :
                                 +- populate_vma_page_range()
+                                             :
+                                             +- __get_user_pages()
+
+__mm_populate() is used to implement mlock() and the MAP_POPULATE / MAP_LOCKED mmap
+flags. VMAs must be already marked with the desired vm_flags, and mmap_lock must not
+be held.
+
+----------------------------------------------------------------------------------------
+- get_user_pages*() (gup) -
+
+__get_user_pages()
 
 ----------------------------------------------------------------------------------------
 - IOREMAP -
 
+MMIO (Memory Mapped IO) => The data type for an MMIO address is an __iomem qualified
+                           pointer.
+Generic accessors
 
-ioremap()
+readq(),  readl(),  readw(),  readb()
+writeq(), writel(), writew(), writeb()
+
+Example Usage:
+
+writel(0x11001100, ioremap(0xfdc60054, 4))
+        |                       |
+        +- value to write       +- (phys_addr_t) device physical address
+
+ioremap(phys_addr_t addr, size_t size) => MMIO address
+   |
+   |CONFIG_GENERIC_IOREMAP
    |
    +- ioremap_prot()
         |
@@ -853,36 +910,6 @@ Think of "streaming" as "asynchronous" or "outside the coherency domain"
 
 dma_map_single()
 dma_unmap_single()
-
-----------------------------------------------------------------------------------------
-- ADDRESS TRANSLATION -
-
-a) Address Space Identifiers (ASIDs)
-            |
-            +- Tagging translations with the owning process
-
-TLB entries for multiple processes are allowed to coexist in the cache, and the ASID
-determines which entry to use.
-
-b) Virtual Machine Identifiers (VMIDs)
-            |
-            +- Tagging translations with the owning VM
-
-VMIDs allow translations from different VMs to coexist in the cache.
-
-MMU - Memory Management Unit
-
-* The table walk unit - contains logic that reads the translation tables from memory.
-* Translation Lookaside Buffers (TLBs) - cache recently used translations.
-
-Translation Table Base Registers
-
-ttbr0_el1
-ttbr1_el1
-   |
-   +- Holds the base address of the translation table for the initial lookup for stage 1
-      of the translation of an address from the higher VA range in the EL1&0 stage 1
-      translation regime, and other information for this translation regime.
 
 ----------------------------------------------------------------------------------------
 - BOOTTIME MEMORY MANAGEMENT -
@@ -1121,12 +1148,18 @@ __alloc_pages() with struct alloc_context ac instantiated
                                    +- get_page_from_freelist()
                                    |
                                    +- drain_all_pages()
-                                      When above fails, try to spill all the per-cpu
-                                      pages from all CPUs back into the buddy allocator
+                                             |
+                                +---------------------------------------------------+
+                                | When above fails, try to spill all the per-cpu    |
+                                | pages from all CPUs back into the buddy allocator |
+                                +---------------------------------------------------+
                                              |
                                              +- __drain_all_pages()
-                                                Optimized to only execute on CPUs where
-                                                pcplists are not empty, with these CPUs
+                                                    |
+                                          +-----------------------------------------+
+                                          | Optimized to only execute on CPUs where |
+                                          | pcplists are not empty.                 |
+                                          +-----------------------------------------+
                                                     |
                                                     +- drain_pages_zone()
                                                            |
@@ -1141,8 +1174,11 @@ __alloc_pages() with struct alloc_context ac instantiated
                                     +- get_page_from_freelist()
                                     |
                                     +- compaction_defer_reset()
-                                       Update defer tracking counters after successful
-                                       compaction of given order.
+                                                  |
+                                  +-------------------------------------------------+
+                                  | Update defer tracking counters after successful |
+                                  | compaction of given order.                      |
+                                  +-------------------------------------------------+
             [6]   [8]
              |     |
              +<----+- should_reclaim_retry()
@@ -1193,7 +1229,7 @@ mempool_create() @mm/mempool.c
 ----------------------------------------------------------------------------------------
 - PAGE RECLAIM -
 
-try_to_free_pages() with struct scan_control sc initialized
+try_to_free_pages() with (struct scan_control) sc initialized
         |
         +- do_try_to_free_pages() as the main entry point to direct page reclaim
                      |
@@ -1206,20 +1242,22 @@ try_to_free_pages() with struct scan_control sc initialized
                                       +- prepare_scan_count()
                                       |
                                       +- shrink_node_memcgs()
-                                                  |
-                                                  +- mem_cgroup_iter() iterate the memcgs
-                                                  |                                  |
-                                                  +- mem_cgroup_lruvec()             |
-                                                  |                                  |
-                                                  +- shrink_lruvec()                 |
-                                                  |                                  |
-                                                  +- shrink_slab()                   |
-                                                  |                                  |
-                                                  +- sc->proactive                   |
-                                                         |no                         |
-                                                     vmpressure() ------------------>+
+                                                |
+                                                +- mem_cgroup_iter() iterate the memcgs
+                                                |                                  |
+                                                +- mem_cgroup_lruvec()             |
+                                                |                                  |
+                                                +- shrink_lruvec()                 |
+                                                |                                  |
+                                                +- shrink_slab()                   |
+                                                |                                  |
+                                                +- sc->proactive                   |
+                                                        |no                        |
+                                                   vmpressure() ------------------>+
+                                                        |
+                                Account memory pressure through scanned/reclaimed ratio
 
-@include/linux/mmzone.h
+[+] include/linux/mmzone.h
 
 typedef struct pglist_data {
     ...
@@ -1328,12 +1366,13 @@ The Background Pageout Daemon
                              |
                              +- kswapd_try_to_sleep()
                              |
-                             +- For kswapd, function below will reclaim pages across a
-                                node from zones that are eligible for use by the caller
-                                until at least one zone is balanced.
-                                      |
+                             +--------+
+                                      :
                                       v
         +---------------------------------------------------------------------------+
+        | For kswapd, function below will reclaim pages across a node from zones    |
+        | eligible for use by the caller until at least one zone is balanced.       |
+        |                                                                           |
         | kswapd scans the zones in the highmem->normal->dma direction.  It skips   |
         | zones which have free_pages > high_wmark_pages(zone), but once a zone is  |
         | found to have free_pages <= high_wmark_pages(zone), any page in that zone |
@@ -1395,47 +1434,49 @@ try_to_compact_pages() for high-order allocation
         +- compact each zone in the zonelist
                       |
                       +- compact_zone_order() with struct compact_control cc initialized
-                                      |
-                                      +- compact_zone()
-                                               |
-                                               +- initialize two lists:
-                                                  a) cc->freepages
-                                                  b) cc->migratepages
-                                               +- compaction_suitable() check if should
-                                                  do compaction
-                                                           |
-                                                           +- __compaction_suitable()
-                                                           |    |
-                                                          [0]   +- Check if watermarks
-                                                                   for high-order
-                                                                   allocation are met
-                                                                            |
-                                                                   zone_watermark_ok()
-                                                                            |
-                                                                   Possible outcomes
-                                                                   a) COMPACT_CONTINUE
-                                                                   b) COMPACT_SKIPPED
-                                                                   c) COMPACT_SUCCESS
-                                                          [0]
-                                                           |
-                                                           +- fragmentation_index()
-                                                              | @mm/vmstat.c
-                                                              +- __fragmentation_index()
-                                                                           |
-        +<----------------------------------------------------+- Possible outcomes
-        |                                                        a) 0 => lack of memory
-        |                                                        b) 1 => fragmentation
+                                |
+                                +- compact_zone()
+                                        |
+                                        +- initialize two lists:
+                                           a) cc->freepages
+                                           b) cc->migratepages
+                                        +- compaction_suitable() check if should
+                                           do compaction
+                                                |
+                                                +- __compaction_suitable()
+                                                |    |
+                                               [0]   +- Check if watermarks
+                                                        for high-order
+                                                        allocation are met
+                                                                |
+                                                        zone_watermark_ok()
+                                                                |
+                                                        Possible outcomes
+                                                        a) COMPACT_CONTINUE
+                                                        b) COMPACT_SKIPPED
+                                                        c) COMPACT_SUCCESS
+                                               [0]
+                                                |
+                                                +- fragmentation_index()
+                                                        | @mm/vmstat.c
+                                                        +- __fragmentation_index()
+                                                                  |
+        +<------------------------------------------------ Possible outcomes
+        |                                                  a) 0 => lack of memory
+        |                                                  b) 1 => fragmentation
         |
         +- setup for where to start the scanners
         |
         +- loop to do compaction
                           |
                           +- isolate_migratepages()
-                          |           |
-                         [1]          +- Briefly search the free lists for a migration
-                                         source that already has some free pages to
-                                         reduce the number of pages that need migration
-                                         before a pageblock is free.
+                          |     |
+                         [1]    +-->+------------------------------------------------+
+                                    | Briefly search the free lists for a migration  |
+                                    | source that already has some free pages to     |
+                                    | reduce the number of pages that need migration |
+                                    | before a pageblock is free.                    |
+                                    +------------------------------------------------+
                                                    |
                                                    v
                                          fast_find_migrateblock()
@@ -1478,22 +1519,27 @@ The background compaction daemon
         +- should_proactive_compact_node()                      |
                          |yes                                   |
                          +- proactive_compact_node()            |
-                                       |                        |
-                                       +- compact all zones within a node till each
-                                          zone's fragmentation score reaches within
-                                          proactive compaction thresholds (as
-                                          determined by the proactiveness tunable).
+                                        |                       |
+                                +-------------------------------------------+
+                                | compact all zones within a node till each |
+                                | zone's fragmentation score reaches within |
+                                | proactive compaction thresholds (as       |
+                                | determined by the proactiveness tunable). |
+                                +-------------------------------------------+
+
+----------------------------------------------------------------------------------------
+- FRAGMENTATION SCORE -
 
 (Fragmentation Score)
-    |
-    |                _____ proactive compaction invokes
-    |               /     \
-    |----------------------------------- (threshold)
-    |         ____/         \
-    |   _____/               \__________ proactive compaction suspends
-    |  /
-    | /
-    +------------------------------------> (time)
+        |
+        |                _____ proactive compaction invokes
+        |               /     \
+        |----------------------------------- (threshold)
+        |         ____/         \
+        |   _____/               \_________ proactive compaction suspends
+        |  /
+        | /
+        +------------------------------------> (time)
 
 fragmentation_score_node()
             |
@@ -1502,13 +1548,28 @@ fragmentation_score_node()
                               +- fragmentation_score_zone_weighted()
                                                  |
                                                  +- fragmentation_score_zone()
-                                                        |        |
-                                                        +        +- extfrag_for_order()
-                                                       /                [0, 100]
-                                                      /
-                                  zone->present_pages
-                 sum of [ ------------------------------------ ] all zones
-                          zone->zone_pgdat->node_present_pages
+                                                               |
+                                                               +- extfrag_for_order()
+                                                                      [0, 100]
+
+@COMPACTION_HPAGE_ORDER => 9
+
+               data_race(zone->free_area[order].nr_free)
+                                  |
+(free pages of zone) = sum of [ blocks << order ] of all orders
+
+(suitable free blocks) = sum of [ blocks << (order - COMPACTION_HPAGE_ORDER) ] of all
+                         order >= COMPACTION_HPAGE_ORDER
+
+                             (free pages of zone) - ((suitable free blocks) << 9)
+(fragmentation score zone) = ---------------------------------------------------- * 100
+                                            (free pages of zone)
+
+(fragmentation score node)
+
+           zone->present_pages * (fragmentation score zone)
+sum of [ ---------------------------------------------------- ] of all zones
+               zone->zone_pgdat->node_present_pages + 1
 
 ----------------------------------------------------------------------------------------
 - PAGE FAULT -
@@ -1922,6 +1983,61 @@ mprotect() - @syscall mm/mprotect.c
                                                         :
                                                         |no
                                                         +- change_protection_range()
+
+----------------------------------------------------------------------------------------
+Under /proc/sys/vm directory:
+
+- admin_reserve_kbytes
+- compact_memory
+- compact_unevictable_allowed
+- compaction_proactiveness
+- dirty_background_bytes
+- dirty_background_ratio
+- dirty_bytes
+- dirty_expire_centisecs
+- dirty_ratio
+- dirty_writeback_centisecs
+- dirtytime_expire_seconds
+- drop_caches
+- extfrag_threshold
+- hugetlb_shm_group
+- laptop_mode
+- legacy_va_layout
+- lowmem_reserve_ratio
+- max_map_count
+- memory_failure_early_kill
+- memory_failure_recovery
+- min_free_kbytes
+- min_slab_ratio
+- min_unmapped_ratio
+- mmap_min_addr
+- mmap_rnd_bits
+- mmap_rnd_compat_bits
+- nr_hugepages
+- nr_hugepages_mempolicy
+- nr_overcommit_hugepages
+- numa_stat
+- numa_zonelist_order
+- oom_dump_tasks
+- oom_kill_allocating_task
+- overcommit_kbytes
+- overcommit_memory
+- overcommit_ratio
+- page-cluster
+- page_lock_unfairness
+- panic_on_oom
+- percpu_pagelist_high_fraction
+- stat_interval
+- stat_refresh
+- swappiness
+- user_reserve_kbytes
+- vfs_cache_pressure
+- watermark_boost_factor
+- watermark_scale_factor
+- zone_reclaim_mode
+
+Above can be used to tune the operation of the virtual memory (VM) subsystem of the
+Linux kernel and the writeout of dirty data to disk.
 
 ----------------------------------------------------------------------------------------
 Reference

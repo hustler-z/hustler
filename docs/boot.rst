@@ -2,14 +2,7 @@
 | BOOTING PROCESS for Linux                                                            |
 +--------------------------------------------------------------------------------------+
 
-----------------------------------------------------------------------------------------
-Bare-metal Boot Steps for ARMv8 AArch64 mode
 
-• Initializing exceptions
-• Initializing registers
-• Configuring the MMU and caches
-• Enabling NEON and floating point
-• Changing exception levels
 
 ----------------------------------------------------------------------------------------
 - START KERNEL -
@@ -85,29 +78,33 @@ execve() @syscall
                              +----------------------------------------+
                                                 |
                                                 +- find_vma_intersection()
-                                                   Look up the first VMA which
-                                                   intersects the interval
+                                                          |
+                                                +-----------------------------+
+                                                | Look up the first VMA which |
+                                                | intersects the interval.    |
+                                                +-----------------------------+
                                                           |
                                                           +- mt_find()
                                                                 |
                                                                 +-> mm->mm_mt
                                                 |
                                                 +- vma_link()
-                                                      |
-                                                      :
-                                                      +- if vma->vm_file
-                                                             |not NULL
-                                                             :
-                                                             +- vma->vm_file->f_mapping
-                                                                     :
-                                                                     |not NULL
-                                                                     +- __vma_link_file()
-                                                                               |
-                             +<------------------------------------------------+
-                             |
+                                                    |
+                                                    :
+                                                    +- if vma->vm_file
+                                                        |not NULL
+                                                        :
+                                                        +- vma->vm_file->f_mapping
+                                                                :
+                                                                |not NULL
+                                                                +- __vma_link_file()
+                                                                        |
+                             +<-----------------------------------------+
+                             :
                              v
         vma_interval_tree_insert(vma, &mapping->i_mmap)
-            (interval tree - rbtree implemented)
+        (interval tree - rbtree implemented)
+        @note: mm->map_count++ in vma_link()
 
 [x]
  :
@@ -162,15 +159,15 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
 		mm->def_flags = 0;
 	}
 
-	if (mm_alloc_pgd(mm)) ----------------------> pgd_alloc() [+] arch/arm64/mm/pgd.c
-		goto fail_nopgd;                              |
-                                                      +-if PGD_SIZE == PAGE_SIZE
-                                                                 |yes
-                                                                 +- __get_free_page()
-                                                                 *
-                                                                 |no
-                                                                 +- kmem_cache_alloc()
-                                                                       (pgd_cache)
+	if (mm_alloc_pgd(mm)) --------------> pgd_alloc() [+] arch/arm64/mm/pgd.c
+                goto fail_nopgd;                |
+                                                +-if PGD_SIZE == PAGE_SIZE
+                                                        |yes
+                                                        +- __get_free_page()
+                                                        *
+                                                        |no
+                                                        +- kmem_cache_alloc()
+                                                              (pgd_cache)
 	if (init_new_context(p, mm))
 		goto fail_nocontext;
 
