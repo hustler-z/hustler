@@ -34,6 +34,13 @@ kthread_run()
 
 kthread_stop()
 
+When a new kernel thread is created, thread stack is allocated from virtually contiguous
+memory pages from the page level allocator. These pages are mapped into contiguous
+kernel virtual space with PAGE_KERNEL protections.
+
+alloc_thread_stack_node() calls __vmalloc_node_range() to allocate stack with
+PAGE_KERNEL protections.
+
 ----------------------------------------------------------------------------------------
 Synchronization
 

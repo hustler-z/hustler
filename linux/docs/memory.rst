@@ -316,7 +316,12 @@ faults for all hugepage allocations.
 - High Memory -
 
 High memory (highmem) is used when the size of physical memory approaches or exceeds the
-maximum size of virtual memory.
+maximum size of virtual memory. The kernel needs to start using temporary mappings of
+the pieces of physical memory that it wants to access.
+
+Temporary Virtual Mappings
+
+kmap_local_page() => Map a page for temporary usage
 
 ----------------------------------------------------------------------------------------
 - COMPOUND PAGES -
@@ -741,6 +746,7 @@ remap memory (physical memory) to userspace (user vma)
                                  |
                                  +- remap_pfn_range_notrack()
 
+
 ----------------------------------------------------------------------------------------
 
 - REVERSE MAPPING (RMAP) -
@@ -819,6 +825,15 @@ be held.
 - get_user_pages*() (gup) -
 
 __get_user_pages()
+	|
+	v
+	*----------------------------------------------------------*
+	| __get_user_pages walks a process's page tables and takes |
+	| a reference to each struct page that each user address   |
+	| corresponds to at a given instant. That is, it takes the |
+	| page that would be accessed if a user thread accesses    |
+	| the given user virtual address at that instant.          |
+	*----------------------------------------------------------*
 
 ----------------------------------------------------------------------------------------
 - IOREMAP -
@@ -1400,6 +1415,8 @@ The Background Pageout Daemon
                     |
                     +- shrink_node()
 
+do_swap_page()
+
 ----------------------------------------------------------------------------------------
 sar - System Activity Report
 
@@ -1851,6 +1868,14 @@ __do_fault()
      |
      +- vma->vm_ops->fault() callback
 
+do_anonymous_page()
+        :
+        +- page_add_new_anon_rmap() => add mapping to a new anonymous page
+                  :                    no
+                  +- compound page ? -----> set page->_mapcount to 0 (atomic_set)
+                            |yes
+                            +-> set page[1].compound_mapcount to 0 (atomic_set)
+                                set page[1].compound_pincount to 0 (atomic_set)
 
 ----------------------------------------------------------------------------------------
 - PAGE MIGRATION -
@@ -1872,6 +1897,15 @@ migrate_pages() @mm/migrate.c
                                                                  |
                                                                  +- __unmap_and_move()
                                                                     [src -> dst folios]
+
+The main intent of page migration is to reduce the latency of memory accesses by moving
+pages near to the processor where the process accessing that memory is running.
+
+$ cat /proc/<pid>/numa_maps
+-------------------------------------------------------------------------------------
+ffff867f4000 default file=* anon=1 dirty=1 mapmax=2 active=0 N0=1 kernelpagesize_kB=4
+
+Allows an easy review of where the pages of a process are located, as shown above.
 
 ----------------------------------------------------------------------------------------
 - SLAB -
@@ -1922,7 +1956,9 @@ kmem_cache_create()
                                      [slab/slub/slob]
 
 slab cache can be found by the *name* created in kmem_cache_create().
+
 $ cat /proc/slabinfo
+
 ----------------------------------------------------------------------------------------
 - CMA -
 
