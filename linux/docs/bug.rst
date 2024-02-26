@@ -255,9 +255,85 @@ make_task_dead()
                       +- __schedule(SM_NONE)
 
 --------------------------------------------------------------------------------
+- Kernel Panic -
+
+As log shown below:
+
+Kernel panic - not syncing: Attempted to kill init! exitcode=0x00000004
+
+where exitcode defined in [+] include/uapi/asm-generic/signal.h
+
+--------------------------
+#define SIGHUP		 1
+#define SIGINT		 2
+#define SIGQUIT		 3
+#define SIGILL		 4 => Illegal Instruction
+#define SIGTRAP		 5
+#define SIGABRT		 6
+#define SIGIOT		 6
+#define SIGBUS		 7
+#define SIGFPE		 8
+#define SIGKILL		 9
+#define SIGUSR1		10
+#define SIGSEGV		11
+#define SIGUSR2		12
+#define SIGPIPE		13
+#define SIGALRM		14
+#define SIGTERM		15
+#define SIGSTKFLT	16
+#define SIGCHLD		17
+#define SIGCONT		18
+#define SIGSTOP		19
+#define SIGTSTP		20
+#define SIGTTIN		21
+#define SIGTTOU		22
+#define SIGURG		23
+#define SIGXCPU		24
+#define SIGXFSZ		25
+#define SIGVTALRM	26
+#define SIGPROF		27
+#define SIGWINCH	28
+#define SIGIO		29
+#define SIGPOLL		SIGIO
+/*
+#define SIGLOST		29
+*/
+#define SIGPWR		30
+#define SIGSYS		31
+#define	SIGUNUSED	31
+#define SIGRTMIN	32
+--------------------------
 
 panic() => halt the system [+] kernel/panic.c
   |
+  :
+  +- a) disable local interrupt via local_irq_disable()
+        also disable preemption via preempt_disable_notrace()
+  :
+  +- b) Ensure only one CPU is allowed to execute the panic
+        code by panic_smp_self_stop() other CPUs
+                          :
+                          +- sdei_mask_local_cpu()
+  :
+  +- kgdb_panic()
+  :                                  yes
+  +- _crash_kexec_post_notifiers=0 ------> __crash_kexec() ------> crash kernel
+  :
+  +- panic_other_cpus_shutdown()
+  :
+*----------------------------------------------------*
+| Run any panic handlers in an atomic notifier chain |
+| panic_notifier_list by atomic_notifier_call_chain()|
+*----------------------------------------------------*
+  :
+  +- kmsg_dump(KMSG_DUMP_PANIC) => dump kernel log to kernel message dumpers
+  :
+*----------------------------------------------------*
+| _crash_kexec_post_notifiers offers a chance to run |
+| panic_notifiers and dumping kmsg before kdump.     |
+*----------------------------------------------------*
+  :                                   yes
+  +- _crash_kexec_post_notifiers!=0 ------> __crash_kexec() -----> crash kernel
   :
 
 --------------------------------------------------------------------------------

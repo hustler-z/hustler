@@ -1,0 +1,49 @@
++------------------------------------------------------------------------------+
+| ARM64 ASSEMBLY BASICS                                                        |
++------------------------------------------------------------------------------+
+
+Register use in AArch64 SMC and HVC calls
+
+--------------------------------------------------------------------------------
+sp_elx  - ELx stack pointer
+x30     - The link register
+x29     - The frame register
+x19~x28 - Registers that are saved by the called function
+x18     - The platform register
+x17     - Parameter register/The second intra-procedure-call scratch register
+x16     - Parameter register/The first intra-procedure-call scratch register
+x9~x15  - Parameter registers/Temporary registers
+x8      - Parameter register/Indirect result location register
+
+--------------------------------------------------------------------------------
+SMC32/HVC32  SMC64/HVC64
+w7           x7         Parameter register
+                        Optional Client ID in bits[15:0] (ignored for HVC calls)
+                        Optional Secure OS ID in bits[31:16]
+w6           x6         Parameter register
+                        Optional Session ID register
+w4~w5        x4~x5      Parameter registers
+
+--------------------------------------------------------------------------------
+w1~w3        x1~x3      Parameter registers         SMC and HVC result registers
+w0           x0         Function Identifier
+
+--------------------------------------------------------------------------------
+
+Software Delegated Exception Interface (SDEI) provides a mechanism for
+registering and servicing system events from system firmware.
+
+System events are high priority events, which must be serviced immediately by
+an OS or hypervisor.
+
+Software Delegated Exception is a software agreement between higher and lower
+Exception levels for delegating events from the higher Exception level to the
+lower Exception level.
+
+The higher Exception level software is called the dispatcher. The dispatcher
+handles the request from lower Exception level and delegates the event.
+
+The lower Exception level software is called the client. The client uses the
+interface provided by the dispatcher and handles the events.
+
+--------------------------------------------------------------------------------
