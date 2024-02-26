@@ -1,6 +1,8 @@
 #!/bin/sh
 
-TOOLCHAIN=/os/armcc/bin/aarch64-none-linux-gnu
+# Change the toolchain path if necessary
+TOOLCHAIN=/os/toolchains/armcc-64/bin/aarch64-none-linux-gnu
+
 OBJDUMP=$TOOLCHAIN-objdump
 export CROSS_COMPILE=$TOOLCHAIN-
 export ARCH=arm64
