@@ -1,5 +1,0 @@
-set(SRCS prt_config.c)
-add_library(config OBJECT ${SRCS})
-if(${APP} STREQUAL "UniPorton_test_posix_math_interface")
-target_compile_definitions(config PUBLIC -DSMALL_MEM)
-endif()
