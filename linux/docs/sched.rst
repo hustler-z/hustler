@@ -8,6 +8,11 @@ a) time spent on the cpu (in nanoseconds)
 b) time spent waiting on a runqueue (in nanoseconds)
 c) # of timeslices run on this cpu
 
+change the scheduling policy and/or RT priority of a thread
+
+sched_setscheduler()
+        :
+
 ----------------------------------------------------------------------------------------
 - Deadline Task Scheduling -
 
@@ -126,7 +131,68 @@ c) SCHED_IDLE
 [+] kernel/sched/fair.c implements the CFS scheduler
 
 ----------------------------------------------------------------------------------------
+- LOAD BALANCE -
 
+sched_init() => primary task is to initialize per cpu runqueues.
+     :
+     +- init_sched_fair_class()
+                :
+                +- open_softirq(SCHED_SOFTIRQ, run_rebalance_domains)
+                                                  :
+                                                  +- nohz_idle_balance(this_rq, idle)
+                                                  :
+                                                  +- rebalance_domains(this_rq, idle)
+
+run_rebalance_domains() can be triggered when needed from the scheduler tick. Also
+triggered for nohz idle balancing (with nohz_balancing_kick set).
+
+Normal load balance rebalance_domains() checks each scheduling domain to see if it is
+due to be balanced, and initiates a balancing operation if so.
+
+rebalance_domains()
+        :
+        +- load_balance()
+                :
+                +- find_busiest_group()
+                |
+                +- find_busiest_queue()
+                :
+      *
+      |
+*-----+-----*
+| process N |
+|           |
+|           | detach_tasks(&env)
+| ...       +-----*
+|           |      \
+|           |       \ attach_tasks(&env)
+| process 0 |        \
+*-----+-----*         *-----> pull processes from busiest runqueue to this_rq.
+      |
+      ▼
+
+scheduler_tick() => gets called by the timer code, with HZ frequency.
+      :
+      +- trigger_load_balance() => Trigger the SCHED_SOFTIRQ if it is
+                    :              time to do periodic load balancing.
+                    |
+                    +- if time_after_eq(jiffies, rq->next_balance)
+                                        |yes
+                                        +- raise_softirq(SCHED_SOFTIRQ)
+                    |
+                    +- nohz_balancer_kick()
+                                :
+                                +- kick_ilb()
+                                       :
+        smp_call_function_single_async(ilb_cpu, &cpu_rq(ilb_cpu)->nohz_csd)
+                                       |
+                                       ▼
+        *----------------------------------------------------------------*
+        | Run an asynchronous function on a specific CPU, in this case,  |
+        | idle cpu picked by find_new_ilb().                             |
+        *----------------------------------------------------------------*
+
+----------------------------------------------------------------------------------------
 
 [+] kernel/sched/rt.c implements SCHED_FIFO and SCHED_RR semantics
 
@@ -225,12 +291,15 @@ schedule()
                                           +- if prev->mm -----> prev->active_mm = NULL
                                                    |yes
                                                    +- mmgrab()
-                                                      Pin the mm_struct, ensure it won't
-                                                      get freed even after the owning
-                                                      task exits. No guarantee that the
-                                                      associated address space will still
-                                                      exist later on and mmget_not_zero()
-                                                      has to be used before accessing it.
+                                                         |
+                                        +-------------------------------------+
+                                        | Pin the mm_struct, ensure it won't  |
+                                        | get freed even after the owning     |
+                                        | task exits. No guarantee that the   |
+                                        | associated address space will still |
+                                        | exist later on and mmget_not_zero() |
+                                        | has to be used before accessing it. |
+                                        +-------------------------------------+
 
                                           |no => to user
                                           +- membarrier_switch_mm()

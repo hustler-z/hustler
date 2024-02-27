@@ -2,6 +2,16 @@
 | ARM64 ASSEMBLY BASICS                                                        |
 +------------------------------------------------------------------------------+
 
+SMCCC (SMC Calling Convention) [+] arch/arm64/kernel/smccc-call.S
+
+The Function Identifier is passed on W0 on every SMC and HVC call. The bit
+W0[31] determines if the call is Fast (W0[31]==1) or Yielding (W0[31]==0).
+
+In the Fast Call case (W0[31]==1), the bits W0[30:0] determine:
+• The service to be invoked
+• The function to be invoked
+• The calling convention (32-bit or 64-bit) that is in use
+
 Register use in AArch64 SMC and HVC calls
 
 --------------------------------------------------------------------------------
@@ -45,5 +55,25 @@ handles the request from lower Exception level and delegates the event.
 
 The lower Exception level software is called the client. The client uses the
 interface provided by the dispatcher and handles the events.
+
+sdei_mask_local_cpu()
+         |
+         +- invoke_sdei_fn(SDEI_1_0_FN_SDEI_PE_MASK, 0, 0, 0, 0, 0, NULL)
+                   :
+                   +- sdei_firmware_call() [+] drivers/firmware/arm_sdei.c
+                               :
+               *---------------*---------------*
+               |                               |
+     a) sdei_smccc_hvc()           b) sdei_smcc_smc()
+                                        :
+                                        +- smc #0 => cause an exception to EL3
+
+sdei_smccc_hvc()
+       |
+       +- arm_smccc_hvc()
+                |
+                +- __arm_smccc_hvc() [+] arch/arm64/kernel/smccc-call.S
+                           :
+                           +- hvc #0 => cause an exception to EL2
 
 --------------------------------------------------------------------------------

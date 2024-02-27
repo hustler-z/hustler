@@ -2,8 +2,6 @@
 | KERNEL BUGS                                                                  |
 +------------------------------------------------------------------------------+
 
-
-
 --------------------------------------------------------------------------------
 
 ESR (Exception Syndrome Register)
@@ -158,34 +156,17 @@ do_bad_area()
 
 If can't fix the exception then die_kernel_fault() fires with the "msg".
 
-die_kernel_fault()
+die_kernel_fault() => log: Unable to handle kernel * at virtual address *
        |
-       +<-------------------------- bust_spinlock(1)
        |
-       +- mem_abort_decode()
+       +- mem_abort_decode() => display mem abort infos
        |
        +- show_pte()
        |
-  +<---+- die("Oops"", regs, esr)
-  |    |
-  |    +<-------------------------- bust_spinlock(0)
-  |    :
-  |    +- make_task_dead(SIGKILL)
-  |                :
-  :
-  +- oops_enter()
-  :
-  +- __die()
-  |
-  +- oops_exit()
-  :                      yes
-  +- if in_interrupt() -------> panic("%s: Fatal exception in interrupt", str)
-  |                      yes
-  +- if panic_on_oops  -------> panic("%s: Fatal exception", str)
-  :
-  +- The return value of __die() != NOTIFY_STOP
-                        |yes
-                        +- make_task_dead(SIGSEGV)
+       +- die("Oops"", regs, esr) => check the workflow below
+       :
+       +- make_task_dead(SIGKILL)
+       :
 
 make_task_dead()
        :
@@ -320,6 +301,17 @@ panic() => halt the system [+] kernel/panic.c
   +- _crash_kexec_post_notifiers=0 ------> __crash_kexec() ------> crash kernel
   :
   +- panic_other_cpus_shutdown()
+                 :
+                 +- crash_smp_send_stop() => Stop other CPUs in panic
+                             :
+                             +- smp_send_stop()
+                                       :
+                                       +- smp_cross_call(&mask, IPI_CPU_STOP)
+                                                :
+                                                +- __ipi_send_mask()
+                                                          |
+                                                a) chip->ipi_send_mask()
+                                                b) chip->ipi_send_single()
   :
 *----------------------------------------------------*
 | Run any panic handlers in an atomic notifier chain |
@@ -335,6 +327,11 @@ panic() => halt the system [+] kernel/panic.c
   :                                   yes
   +- _crash_kexec_post_notifiers!=0 ------> __crash_kexec() -----> crash kernel
   :
+
+--------------------------------------------------------------------------------
+- Crash Kernel -
+
+__crash_kexec()
 
 --------------------------------------------------------------------------------
 Bus Error
@@ -369,14 +366,28 @@ bug_handler() [+] arch/arm64/kernel/traps.c
      |________________|
      |
      +- die("Oops - BUG", regs, esr)
-                  :
-                  +- __die()
+                :
+                +- __die()
                        |
-                       +- notify_die()
+                       +- notify_die() => call functions in die_chain
+                              :
+                              +- nb->notifier_call() => kgdb_notify()
                        :
                        +- print_modules()
                        |
                        +- show_regs()
+                :
+                +- if in_interrupt()
+                       |yes
+                       +- panic("%s: Fatal exception in interrupt", str)
+                |
+                +- if panic_on_oops
+                       |yes
+                       +- panic("%s: Fatal exception", str)
+                :
+                +- if return value of __die() != NOTIFY_STOP
+                       |yes
+                       +- make_task_dead(SIGSEGV) => check the workflow above
 
 As log below:
 
