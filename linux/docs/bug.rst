@@ -432,5 +432,6 @@ to find the valid line of code/assembler.
 
 $ objdump -r -S -l --disassemble *.o
 			[-d]
+@ -t => display static symbol table vs. -T dynamic symbol table
 
 --------------------------------------------------------------------------------

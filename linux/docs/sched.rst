@@ -2,19 +2,95 @@
 | LINUX KERNEL SCHEDULER                                                               |
 +--------------------------------------------------------------------------------------+
 
+SCHED INTRO
+
+Processes scheduled under one of the real-time policies (SCHED_FIFO, SCHED_RR) have a
+sched_priority value in the range 1 (low) to 99 (high). For threads scheduled under one
+of the normal scheduling policies (SCHED_OTHER, SCHED_IDLE, SCHED_BATCH), sched_priority
+is not used in scheduling decisions (it must be specified as 0).
+
+----------------------------------------------------------------------------------------
+rt_sigprocmask() @syscall [+] kernel/signal.c
+      :
+      +- sigprocmask() => kernel threads that want to temporarily
+                          (or permanently) block certain signals.
+              :
+      *-------------------------------*
+      | SIG_BLOCK       sigorsets()   |
+      | SIG_UNBLOCK     sigandnsets() |
+      | SIG_SETMASK                   |
+      *-------------------------------*
+              :
+              +- __set_current_blocked()
+                            :
+                            +- __set_task_blocked()
+
+----------------------------------------------------------------------------------------
 $ cat /proc/<pid>/schedstat
 
 a) time spent on the cpu (in nanoseconds)
 b) time spent waiting on a runqueue (in nanoseconds)
 c) # of timeslices run on this cpu
 
-change the scheduling policy and/or RT priority of a thread
+@The main, per-CPU runqueue data structure
 
+struct rq {
+        ...
+        unsigned int		nr_running;
+        ...
+        call_single_data_t	nohz_csd;
+        ...
+        struct cfs_rq		cfs;
+        struct rt_rq		rt;
+        struct dl_rq		dl;
+        ...
+        struct task_struct __rcu	*curr;
+        struct task_struct	*idle;
+        struct task_struct	*stop;
+        unsigned long		next_balance;
+        struct mm_struct	*prev_mm;
+        ...
+        /* per rq */
+        struct rq		*core;
+        struct task_struct	*core_pick;
+        unsigned int		core_enabled;
+        unsigned int		core_sched_seq;
+        struct rb_root		core_tree;
+        ...
+}
+
+change the scheduling policy and/or RT priority of a thread
+                                         |
+                                         +- (struct sched_param *) param->sched_priority
 sched_setscheduler()
         :
+	+- _sched_setscheduler() with struct sched_attr initialization
+                    :
+                    +- __sched_setscheduler()
+                                :
 
 ----------------------------------------------------------------------------------------
 - Deadline Task Scheduling -
+
+SCHED_DEADLINE: Sporadic task model deadline scheduling
+
+A sporadic task is one that has a sequence of jobs, where each job is activated at most
+once per period.  Each job also has a relative deadline, before which it should finish
+execution, and a computation  time,  which  is the CPU time necessary for executing the
+job. The moment when a task wakes up because a new job has to be executed is called the
+arrival time (also referred to as the request time or release time).  The start time is
+the time at which a task starts its execution.  The absolute deadline is thus obtained
+by adding the relative deadline to the arrival time.
+
+           arrival/wakeup                    absolute deadline
+                |    start time                    |
+                |        |                         |
+                v        v                         v
+           -----x--------xooooooooooooooooo--------x--------x---
+                         |<- comp. time ->|
+                |<------- relative deadline ------>|
+                |<-------------- period ------------------->|
+
 
 The SCHED_DEADLINE policy contained inside the sched_dl scheduling class is basically an
 implementation of the Earliest Deadline First (EDF) scheduling algorithm, augmented with
@@ -25,6 +101,17 @@ SCHED_DEADLINE uses three parameters, named "runtime", "period", and "deadline",
 schedule tasks. A SCHED_DEADLINE task should receive "runtime" microseconds of execution
 time every "period" microseconds, and these "runtime" microseconds are available within
 "deadline" microseconds from the beginning of the period.
+
+
+           arrival/wakeup                    absolute deadline
+                |    start time                    |
+                |        |                         |
+                v        v                         v
+           -----x--------xooooooooooooooooo--------x--------x---
+                         |<-- Runtime ------->|
+                |<----------- Deadline ----------->|
+                |<-------------- Period ------------------->|
+
 
 Summing up, the CBS algorithm assigns scheduling deadlines to tasks so that each
 task runs for at most its runtime every period, avoiding any interference between
@@ -124,9 +211,32 @@ leftmost task so that we do not over-schedule tasks and trash the cache), then t
 leftmost task is picked and the current task is preempted.
 
 CFS implements three scheduling policies:
-a) SCHED_NORMAL
-b) SCHED_BATCH
-c) SCHED_IDLE
+
+SCHED_NORMAL: Default Linux time-sharing scheduling
+
+The thread to run is chosen from the static priority 0 list based on a dynamic priority
+that is determined only inside this list.  The dynamic priority is based on the nice
+value and is increased for each time quantum the thread is ready to run, but denied to
+run by the scheduler.
+
+SCHED_BATCH: Scheduling batch processes
+
+SCHED_BATCH can be used only at static priority 0. This policy is similar to SCHED_OTHER
+in that it schedules the thread according to its dynamic priority (based on the nice
+value).  The difference is  that  this  policy will cause the scheduler to always assume
+that the thread is CPU-intensive.  Consequently, the scheduler will apply a small
+scheduling penalty with respect to wakeup behavior, so that this thread is mildly
+disfavored in scheduling decisions.
+
+This policy is useful for workloads that are noninteractive, but do not want to lower
+their nice value, and for workloads that want a deterministic scheduling policy without
+interactivity causing extra preemptions (between the workload's tasks).
+
+SCHED_IDLE: Scheduling very low priority jobs
+
+The  nice value is an attribute that can be used to influence the CPU scheduler to favor
+or disfavor a process in scheduling decisions. It affects the scheduling of SCHED_NORMAL
+and SCHED_BATCH (see below) processes.
 
 [+] kernel/sched/fair.c implements the CFS scheduler
 
@@ -195,6 +305,16 @@ scheduler_tick() => gets called by the timer code, with HZ frequency.
 ----------------------------------------------------------------------------------------
 
 [+] kernel/sched/rt.c implements SCHED_FIFO and SCHED_RR semantics
+
+SCHED_FIFO: First in-first out scheduling
+SCHED_FIFO can be used only with static priorities higher than 0, which means that when
+a SCHED_FIFO thread becomes runnable, it will always immediately preempt any currently
+running SCHED_OTHER, SCHED_BATCH, or SCHED_IDLE thread.  SCHED_FIFO is a simple
+scheduling algorithm without time slicing.
+
+SCHED_RR: Round-robin scheduling
+Similar to SCHED_FIFO, except that each thread is allowed to run only for a maximum time
+quantum.
 
 ----------------------------------------------------------------------------------------
 - Capacity Aware Scheduling -
@@ -487,7 +607,7 @@ multiple architectures including ARM, MIPS, PowerPC and X86.
 
 $ echo 0 > /sys/devices/system/cpu/cpu0/online
 
-Once the CPU is shutdown, it will be removed from /proc/interrupts, /proc/cpuinfo and 
+Once the CPU is shutdown, it will be removed from /proc/interrupts, /proc/cpuinfo and
 should also not be shown visible by the top command.
 
 
@@ -526,4 +646,50 @@ p->on_cpu <- { 0, 1 } is set by prepare_task() and cleared by finish_task() such
 will be set before p is scheduled-in and cleared after p is scheduled-out, both under
 rq->lock. Non-zero indicates the task is running on its CPU.
 
+----------------------------------------------------------------------------------------
+The futex() system call provides a method for waiting until a certain condition becomes
+true.
+
+futex() @syscall
+  :
+  +- do_futex() [+] kernel/futex/syscalls.c
+         :cmd
+*--------------------------------------------------------------------*
+| FUTEX_WAIT_BITSET/FUTEX_WAIT               futex_wait()            |
+| FUTEX_WAKE_BITSET/FUTEX_WAKE               futex_wake()            |
+| FUTEX_REQUEUE                              futex_requeue()         |
+| FUTEX_CMP_REQUEUE                          futex_requeue()         |
+| FUTEX_WAKE_OP                              futex_wake_op()         |
+| FUTEX_LOCK_PI/FUTEX_LOCK_PI2               futex_lock_pi()         |--------
+| FUTEX_UNLOCK_PI                            futex_unlock_pi()       |PI futex
+| FUTEX_TRYLOCK_PI                           futex_lock_pi()         |--------
+| FUTEX_WAIT_REQUEUE_PI                      futex_wait_requeue_pi() |
+| FUTEX_CMP_REQUEUE_PI                       futex_requeue()         |
+*--------------------------------------------------------------------*
+
+The waiter reads the futex value in user space and calls futex_wait(). This function
+computes the hash bucket and acquires the hash bucket lock. After that it reads the
+futex user space value again and verifies that the data has not changed. If it has
+not changed it enqueues itself into the hash bucket, releases the hash bucket lock
+and schedules.
+
+The waker side modifies the user space value of the futex and calls futex_wake(). This
+function computes the hash bucket and acquires the hash bucket lock. Then it looks for
+waiters on that futex in the hash bucket and wakes them.
+
+futex_wake()
+futex_wait()
+
+Priority-Inheritance Futexes
+
+Priority inversion is the problem that occurs when a high-priority task is blocked
+waiting to acquire a lock held by a low-priority task, while tasks at an intermediate
+priority continuously preempt the low-priority task from the CPU.  Consequently, the
+low-priority task makes no progress toward releasing the lock, and the high-priority
+task remains blocked.
+
+futex_lock_pi()
+futex_unlock_pi()
+
+----------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------
