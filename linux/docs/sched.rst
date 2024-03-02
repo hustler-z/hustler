@@ -6,12 +6,11 @@
 execve() @syscall
    |
    +- do_execve()
-          |
-          +- do_execveat_common()
-            |
+        |
+        +- do_execveat_common()
             :
             +- alloc_bprm()
-            |   	|
+            |       |
            [x]      :
                     +- bprm_mm_init()
                            |
@@ -93,7 +92,7 @@ execve() @syscall
                              :
                              ▼
         vma_interval_tree_insert(vma, &mapping->i_mmap)
-        (interval tree - rbtree implemented)
+        (Interval tree - rbtree implemented)
         @note: mm->map_count++ in vma_link()
 
 [x]
@@ -180,30 +179,31 @@ c) # of timeslices run on this cpu
 
 @The main, per-CPU runqueue data structure
 
-struct rq {
-        ...
-        unsigned int		nr_running;
-        ...
-        call_single_data_t	nohz_csd;
-        ...
-        struct cfs_rq		cfs;
-        struct rt_rq		rt;
-        struct dl_rq		dl;
-        ...
-        struct task_struct __rcu	*curr;
-        struct task_struct	*idle;
-        struct task_struct	*stop;
-        unsigned long		next_balance;
-        struct mm_struct	*prev_mm;
-        ...
-        /* per rq */
-        struct rq		*core;
-        struct task_struct	*core_pick;
-        unsigned int		core_enabled;
-        unsigned int		core_sched_seq;
-        struct rb_root		core_tree;
-        ...
-}
+@struct rq
+
+*---------------------------------------*
+| ...                                   |
+| unsigned int          nr_running;     |
+| ...                                   |
+| call_single_data_t    nohz_csd;       |
+| ...                                   |
+| struct cfs_rq         cfs;            |
+| struct rt_rq          rt;             |
+| struct dl_rq          dl;             |
+| ...                                   |
+| struct task_struct __rcu      *curr;  |
+| struct task_struct    *idle;          |
+| struct task_struct    *stop;          |
+| unsigned long         next_balance;   |
+| struct mm_struct      *prev_mm;       |
+| ...                                   |
+| struct rq             *core;          |
+| struct task_struct    *core_pick;     |
+| unsigned int          core_enabled;   |
+| unsigned int          core_sched_seq; |
+| struct rb_root        core_tree;      |
+| ...                                   |
+*---------------------------------------*
 
 change the scheduling policy and/or RT priority of a thread
                                 |
@@ -211,38 +211,35 @@ change the scheduling policy and/or RT priority of a thread
 
 sched_setscheduler()
         :
-	+- _sched_setscheduler() with struct sched_attr initialization
+        +- _sched_setscheduler() with struct sched_attr initialization
                     :
                     +- __sched_setscheduler()
                                 :
 
-struct sched_attr {
-	__u32 size;
+@struct sched_attr
 
-	__u32 sched_policy;
-	__u64 sched_flags;
-
-	/* SCHED_NORMAL, SCHED_BATCH */
-	__s32 sched_nice;
-
-	/* SCHED_FIFO, SCHED_RR */
-	__u32 sched_priority;
-
-	/* SCHED_DEADLINE */
-	__u64 sched_runtime;
-	__u64 sched_deadline;
-	__u64 sched_period;
-
-	/* Utilization hints */
-	__u32 sched_util_min;
-	__u32 sched_util_max;
-
-};
+*---------------------------------------*
+| __u32 size;                           |
+|                                       |
+| __u32 sched_policy;                   |
+| __u64 sched_flags;                    |
+|                                       |
+| __s32 sched_nice;                     |
+|                                       |
+| __u32 sched_priority;                 |
+|                                       |
+| __u64 sched_runtime;                  |
+| __u64 sched_deadline;                 |
+| __u64 sched_period;                   |
+|                                       |
+| __u32 sched_util_min;                 |
+| __u32 sched_util_max;                 |
+*---------------------------------------*
 
 ----------------------------------------------------------------------------------------
 - Deadline Task Scheduling -
 
-SCHED_DEADLINE: Sporadic task model deadline scheduling
+@SCHED_DEADLINE: Sporadic task model deadline scheduling
 
 A sporadic task is one that has a sequence of jobs, where each job is activated at most
 once per period.  Each job also has a relative deadline, before which it should finish
@@ -322,26 +319,24 @@ as:
 ----------------------------------------------------------------------------------------
 - CFS (Completely Fair Scheduler) Scheduler -
 
-struct task_struct {
-	...
-	int				on_rq;
-	int				prio;
-	int				static_prio;
-	int				normal_prio;
-	unsigned int			rt_priority;
+@struct task_struct
 
-	struct sched_entity		se;
-	struct sched_rt_entity		rt;
-	struct sched_dl_entity		dl;
-	const struct sched_class	*sched_class;
-
-#ifdef CONFIG_SCHED_CORE
-	struct rb_node			core_node;
-	unsigned long			core_cookie;
-	unsigned int			core_occupation;
-#endif
-	...
-}
+*---------------------------------------*
+| ...                                   |
+| int                      on_rq;       |
+| int                      prio;        |
+| int                      static_prio; |
+| int                      normal_prio; |
+| unsigned int             rt_priority; |
+|                                       |
+| struct sched_entity      se;          |
+| struct sched_rt_entity   rt;          |
+| struct sched_dl_entity   dl;          |
+| const struct sched_class *sched_class;|
+| ...                                   |
+| struct rb_node           core_node;   |
+|                                       |
+*---------------------------------------*
 
 CFS's task picking logic is based on this p->se.vruntime value and it is thus very simple:
 it always tries to run the task with the smallest p->se.vruntime value (i.e., the task
@@ -476,7 +471,7 @@ scheduler_tick() => gets called by the timer code, with HZ frequency.
 
 SCHED_FIFO can be used only with static priorities higher than 0, which means that when
 a SCHED_FIFO thread becomes runnable, it will always immediately preempt any currently
-running SCHED_OTHER, SCHED_BATCH, or SCHED_IDLE thread.  SCHED_FIFO is a simple
+running SCHED_NORMAL, SCHED_BATCH, or SCHED_IDLE thread. SCHED_FIFO is a simple
 scheduling algorithm without time slicing.
 
 @SCHED_RR: Round-robin scheduling
@@ -597,10 +592,10 @@ schedule()
                                                       +- switch_mm()
                                                               |
                                                               +- if prev != next
-                                                                         |yes
-                                                                         +- __switch_mm()
-                                                                                   |
-                                                                                   :
+                                                                        |yes
+                                                                        +- __switch_mm()
+                                                                                |
+                                                                                :
                                                               |
                                                               +- update_saved_ttbr0()
                                           |
@@ -650,14 +645,14 @@ signal_pending_state()
 
 [+] arch/arm64/kernel/entry.S
 
-/*
- * Register switch for AArch64. The callee-saved registers need to be saved
- * and restored. On entry:
- *   x0 = previous task_struct (must be preserved across the switch)
- *   x1 = next task_struct
- * Previous and next are guaranteed not to be the same.
- *
- */
+*--------------------------------------------------------------------------*
+| Register switch for AArch64. The callee-saved registers need to be saved |
+| and restored. On entry:                                                  |
+| x0 = previous task_struct (must be preserved across the switch)          |
+| x1 = next task_struct                                                    |
+| Previous and next are guaranteed not to be the same.                     |
+*--------------------------------------------------------------------------*
+
 SYM_FUNC_START(cpu_switch_to)
 	mov	x10, #THREAD_CPU_CONTEXT
 	add	x8, x0, x10
