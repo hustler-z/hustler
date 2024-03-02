@@ -69,6 +69,29 @@ sched_setscheduler()
                     +- __sched_setscheduler()
                                 :
 
+struct sched_attr {
+	__u32 size;
+
+	__u32 sched_policy;
+	__u64 sched_flags;
+
+	/* SCHED_NORMAL, SCHED_BATCH */
+	__s32 sched_nice;
+
+	/* SCHED_FIFO, SCHED_RR */
+	__u32 sched_priority;
+
+	/* SCHED_DEADLINE */
+	__u64 sched_runtime;
+	__u64 sched_deadline;
+	__u64 sched_period;
+
+	/* Utilization hints */
+	__u32 sched_util_min;
+	__u32 sched_util_max;
+
+};
+
 ----------------------------------------------------------------------------------------
 - Deadline Task Scheduling -
 
@@ -689,7 +712,22 @@ low-priority task makes no progress toward releasing the lock, and the high-prio
 task remains blocked.
 
 futex_lock_pi()
+      :
+      +- futex_setup_timer()
+      |
+      :
+      +- __futex_queue(&q, hb)
+                |
+                ▼
+(struct futex_q) q              => The hashed futex queue entry, one per waiting task
+(struct futex_hash_bucket *) hb => Hash buckets are shared by all the futex_keys that
+                                   hash to the same location.  Each key may have
+                                   multiple futex_q structures, one for each task
+                                   waiting on a futex.
+
 futex_unlock_pi()
 
 ----------------------------------------------------------------------------------------
+udelay()
+
 ----------------------------------------------------------------------------------------

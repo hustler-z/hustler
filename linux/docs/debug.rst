@@ -2,6 +2,8 @@
 | Refer to Linux-6.1.63                                                                |
 +--------------------------------------------------------------------------------------+
 
+- KGDB -
+
 +-------------+                      +------------+
 | remote host |_____ connection _____|   Target   |
 |     GDB     |           |          |    KGDB    |
@@ -56,7 +58,7 @@ $ qemu-system-aarch64 \
 [Tip: qemu works properly so far]
 
 $ gdb vmlinux
-(gdb) target remote /dev/pts/[X]
+(gdb) target remote :5050
 (gdb) set debug-file-directory
 (gdb) b [func]
 (gdb) monitor ps
@@ -76,4 +78,9 @@ Enter the kernel debugger manually or by waiting for an oops or fault.
 CONFIG_MAGIC_SYSRQ=y.
 
 $ echo g > /proc/sysrq-trigger
+----------------------------------------------------------------------------------------
+- STRACE -
+
+$ strace -yy -vv -tt -f {-p [pid]}/{execution}
+
 ----------------------------------------------------------------------------------------

@@ -250,9 +250,11 @@ Hugetlb:               0 kB
        :
        +-
 
-khugepaged()
-     |
-     +-
+khugepaged() => kernel thread
+     :
+     +- khugepaged_do_scan()
+                 :
+                 +- khugepaged_scan_mm_slot() [+] mm/khugepaged.c
 
 2) Transparent HugePages (THP)
              |
@@ -609,6 +611,9 @@ __alloc_pages_bulk() - allocate a number of order-0 pages to a list or array.
                                                       vmap_pte_range      |
                                                                           v
                                                                         [END]
+
+----------------------------------------------------------------------------------------
+
 
 ----------------------------------------------------------------------------------------
 
@@ -1350,6 +1355,8 @@ cgroup.
 
 ----------------------------------------------------------------------------------------
 - PAGE SWAP -
+
+
 
 wakeup_kswapd() @mm/vmscan.c
       |
