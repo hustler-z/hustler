@@ -1,7 +1,153 @@
 +--------------------------------------------------------------------------------------+
 | LINUX KERNEL SCHEDULER                                                               |
 +--------------------------------------------------------------------------------------+
+- USERSPACE PROCESS EXECUTION -
 
+execve() @syscall
+   |
+   +- do_execve()
+          |
+          +- do_execveat_common()
+            |
+            :
+            +- alloc_bprm()
+            |   	|
+           [x]      :
+                    +- bprm_mm_init()
+                           |
+                           +- mm_alloc()
+                                 |
+                                 +- allocate_mm()
+                                         |
+                                         +- kmem_cache_alloc()
+                                                    |
+                                                    +-> SLAB cache for mm_struct
+                                                                (mm_cachep)
+                                 |
+                                 +- mm_init()
+
+                           :
+                           +- __bprm_mm_init()
+                                    |
+                                    : [+] kernel/fork.c
+                                    +- vm_area_alloc()
+                                            |
+                                            +- kmem_cache_alloc()
+                                                 |
+                                                 + SLAB cache for vm_area_struct
+                                                        (vm_area_cachep)
+                                            |
+                                            +- vma_init()
+                                                   |
+                                    +--------------------------------+
+                                    | Initialize the bprm->vma as    |
+                                    | anonymous vma, also initialize |
+                                    | [vm_start, vm_end] of vma, etc.|
+                                    +--------------------------------+
+
+                                    vm_end = STACK_TOP_MAX
+                                                    |
+                                                    +-> 1 << VA_BITS_MIN
+                                                                  |
+                                                               VA_BITS
+                                                                  |
+                                                        CONFIG_ARM64_VA_BITS
+                                                            (48 as default)
+
+                                    vm_start = vma->vm_end - PAGE_SIZE
+                                                :
+                                                |
+                                                v [+] mm/mmap.c
+                                        insert_vm_struct()
+                                                |
+                             +----------------------------------------+
+                             | Insert vm structure into process list  |
+                             | sorted by address and into the inode's |
+                             | i_mmap tree.  If vm_file is non-NULL   |
+                             | then i_mmap_rwsem is taken here.       |
+                             +----------------------------------------+
+                                                |
+                                                +- find_vma_intersection()
+                                                          |
+                                                +-----------------------------+
+                                                | Look up the first VMA which |
+                                                | intersects the interval.    |
+                                                +-----------------------------+
+                                                          |
+                                                          +- mt_find()
+                                                                |
+                                                                +-> mm->mm_mt
+                                                |
+                                                +- vma_link()
+                                                    |
+                                                    :
+                                                    +- if vma->vm_file
+                                                        |not NULL
+                                                        :
+                                                        +- vma->vm_file->f_mapping
+                                                                :
+                                                                |not NULL
+                                                                +- __vma_link_file()
+                                                                        |
+                             +<-----------------------------------------+
+                             :
+                             ▼
+        vma_interval_tree_insert(vma, &mapping->i_mmap)
+        (interval tree - rbtree implemented)
+        @note: mm->map_count++ in vma_link()
+
+[x]
+ :
+ +- bprm_execve()
+         |
+         :
+         +- sched_exec()
+         |
+         +- exec_binprm()
+
+@maple tree
+
+----------------------------------------------------------------------------------------
+- KERNEL THREAD -
+
+kthread_create() => create a kthread on the current node
+      |             and leave it in the stopped state.
+      |
+      +- kthread_create_on_node()
+                   |
+                   :
+                   +- __kthread_create_on_node()
+                      - Initialize *kthread_create_info* structure
+                      - Insert create->list to the tail of *kthread_create_list*
+                      - wake_up_process(kthreadd_task)
+
+kthread_bind() => bind a just-created kthread to a cpu.
+      |
+      +- __kthread_bind(p, cpu, TASK_UNINTERRUPTIBLE)
+                |
+                +- __kthread_bind_mask()
+                             |
+                             :
+                             +- do_set_cpus_allowed()
+                                        |
+                                        +- __do_set_cpus_allowed()
+
+kthread_run()
+     |
+     +- kthread_create()
+     |
+     +- wake_up_process()
+
+kthread_stop()
+
+When a new kernel thread is created, thread stack is allocated from virtually
+contiguous memory pages from the page level allocator. These pages are mapped
+into contiguous kernel virtual space with PAGE_KERNEL protections.
+
+alloc_thread_stack_node() calls __vmalloc_node_range() to allocate stack with
+PAGE_KERNEL protections.
+
+----------------------------------------------------------------------------------------
 SCHED INTRO
 
 Processes scheduled under one of the real-time policies (SCHED_FIFO, SCHED_RR) have a
@@ -60,8 +206,9 @@ struct rq {
 }
 
 change the scheduling policy and/or RT priority of a thread
-                                         |
-                                         +- (struct sched_param *) param->sched_priority
+                                |
+                                +- (struct sched_param *) param->sched_priority
+
 sched_setscheduler()
         :
 	+- _sched_setscheduler() with struct sched_attr initialization
@@ -114,7 +261,6 @@ by adding the relative deadline to the arrival time.
                 |<------- relative deadline ------>|
                 |<-------------- period ------------------->|
 
-
 The SCHED_DEADLINE policy contained inside the sched_dl scheduling class is basically an
 implementation of the Earliest Deadline First (EDF) scheduling algorithm, augmented with
 a mechanism (called Constant Bandwidth Server, CBS) that makes it possible to isolate the
@@ -125,7 +271,6 @@ schedule tasks. A SCHED_DEADLINE task should receive "runtime" microseconds of e
 time every "period" microseconds, and these "runtime" microseconds are available within
 "deadline" microseconds from the beginning of the period.
 
-
            arrival/wakeup                    absolute deadline
                 |    start time                    |
                 |        |                         |
@@ -134,7 +279,6 @@ time every "period" microseconds, and these "runtime" microseconds are available
                          |<-- Runtime ------->|
                 |<----------- Deadline ----------->|
                 |<-------------- Period ------------------->|
-
 
 Summing up, the CBS algorithm assigns scheduling deadlines to tasks so that each
 task runs for at most its runtime every period, avoiding any interference between
@@ -180,9 +324,7 @@ as:
 
 struct task_struct {
 	...
-
 	int				on_rq;
-
 	int				prio;
 	int				static_prio;
 	int				normal_prio;
@@ -235,14 +377,14 @@ leftmost task is picked and the current task is preempted.
 
 CFS implements three scheduling policies:
 
-SCHED_NORMAL: Default Linux time-sharing scheduling
+@SCHED_NORMAL: Default Linux time-sharing scheduling
 
 The thread to run is chosen from the static priority 0 list based on a dynamic priority
 that is determined only inside this list.  The dynamic priority is based on the nice
 value and is increased for each time quantum the thread is ready to run, but denied to
 run by the scheduler.
 
-SCHED_BATCH: Scheduling batch processes
+@SCHED_BATCH: Scheduling batch processes
 
 SCHED_BATCH can be used only at static priority 0. This policy is similar to SCHED_OTHER
 in that it schedules the thread according to its dynamic priority (based on the nice
@@ -255,7 +397,7 @@ This policy is useful for workloads that are noninteractive, but do not want to 
 their nice value, and for workloads that want a deterministic scheduling policy without
 interactivity causing extra preemptions (between the workload's tasks).
 
-SCHED_IDLE: Scheduling very low priority jobs
+@SCHED_IDLE: Scheduling very low priority jobs
 
 The  nice value is an attribute that can be used to influence the CPU scheduler to favor
 or disfavor a process in scheduling decisions. It affects the scheduling of SCHED_NORMAL
@@ -290,6 +432,7 @@ rebalance_domains()
                 |
                 +- find_busiest_queue()
                 :
+
       *
       |
 *-----+-----*
@@ -329,13 +472,15 @@ scheduler_tick() => gets called by the timer code, with HZ frequency.
 
 [+] kernel/sched/rt.c implements SCHED_FIFO and SCHED_RR semantics
 
-SCHED_FIFO: First in-first out scheduling
+@SCHED_FIFO: First in-first out scheduling
+
 SCHED_FIFO can be used only with static priorities higher than 0, which means that when
 a SCHED_FIFO thread becomes runnable, it will always immediately preempt any currently
 running SCHED_OTHER, SCHED_BATCH, or SCHED_IDLE thread.  SCHED_FIFO is a simple
 scheduling algorithm without time slicing.
 
-SCHED_RR: Round-robin scheduling
+@SCHED_RR: Round-robin scheduling
+
 Similar to SCHED_FIFO, except that each thread is allowed to run only for a maximum time
 quantum.
 
