@@ -756,10 +756,36 @@ remap memory (physical memory) to userspace (user vma)
 
 - REVERSE MAPPING (RMAP) -
 
+The purpose of reverse mapping is to find all points at which the physical page is used
+by reference to a given page instance.
+
  physical pages   PTEs
       |            |
  (struct page) --->+
 
+@struct page
+
+*---------------------------------------*
+|...                                    |
+|    atomic_t _mapcount                 |
+|...                                    |
+*---------------------------------------*
+
+(1) Anonymous Page
+
+page_add_anon_rmap()
+
+page_add_new_anon_rmap() => add mapping to a new anonymous page
+                  :                    no
+                  +- compound page ? -----> set page->_mapcount to 0 (atomic_set)
+                            |yes
+                            +-> set page[1].compound_mapcount to 0 (atomic_set)
+                                set page[1].compound_pincount to 0 (atomic_set)
+
+(2) Pages with a File-Based Mapping
+
+page_add_file_rmap() => add pte mapping to a file page
+         :
 
 ----------------------------------------------------------------------------------------
 
@@ -1352,11 +1378,23 @@ along the hierarchy in a controlled and configurable manner.
 cgroups form a tree structure and every process in the system belongs to one and only one
 cgroup.
 
+----------------------------------------------------------------------------------------
+- PAGE CACHE -
+
+page_cache_alloc()
+        |
+        +- __page_cache_alloc()
+                    |
+                    +- &filemap_alloc_folio(gfp, 0)->page [+] mm/filemap.c
+
+@struct folio - Represents a contiguous set of bytes
+
+
 
 ----------------------------------------------------------------------------------------
 - PAGE SWAP -
 
-
+$ cat /proc/swaps
 
 wakeup_kswapd() @mm/vmscan.c
       |
@@ -1878,11 +1916,7 @@ __do_fault()
 do_anonymous_page()
         :
         +- page_add_new_anon_rmap() => add mapping to a new anonymous page
-                  :                    no
-                  +- compound page ? -----> set page->_mapcount to 0 (atomic_set)
-                            |yes
-                            +-> set page[1].compound_mapcount to 0 (atomic_set)
-                                set page[1].compound_pincount to 0 (atomic_set)
+                  :
 
 ----------------------------------------------------------------------------------------
 - PAGE MIGRATION -

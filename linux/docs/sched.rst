@@ -101,10 +101,35 @@ execve() @syscall
          |
          :
          +- sched_exec()
+                 :
+                 +- dest_cpu = p->sched_class->select_task_rq()
          |
          +- exec_binprm()
 
 @maple tree
+
+----------------------------------------------------------------------------------------
+fork() @syscall
+  |
+  +- kernel_clone() => It copies the process, and if successful kick-starts it and waits
+         :             for it to finish using the VM if required.
+         |
+         +- copy_process()
+                  :
+                  +- dup_task_struct()
+                  :
+                  +- sched_fork()
+                          :
+                          +- __sched_fork() => Basic Setup
+         :
+         +- wake_up_new_task()
+         :        :
+                  +- activate_task()
+                  :
+                  +- check_preempt_curr()
+                  :
+                  +- p->sched_class->task_woken()
+                  :
 
 ----------------------------------------------------------------------------------------
 - KERNEL THREAD -
@@ -394,7 +419,9 @@ interactivity causing extra preemptions (between the workload's tasks).
 
 @SCHED_IDLE: Scheduling very low priority jobs
 
-The  nice value is an attribute that can be used to influence the CPU scheduler to favor
+----------------------------------------------------------------------------------------
+
+The nice value is an attribute that can be used to influence the CPU scheduler to favor
 or disfavor a process in scheduling decisions. It affects the scheduling of SCHED_NORMAL
 and SCHED_BATCH (see below) processes.
 
@@ -444,6 +471,8 @@ rebalance_domains()
 
 scheduler_tick() => gets called by the timer code, with HZ frequency.
       :
+      +- curr->sched_class->task_tick()
+      :
       +- trigger_load_balance() => Trigger the SCHED_SOFTIRQ if it is
                     :              time to do periodic load balancing.
                     |
@@ -453,7 +482,7 @@ scheduler_tick() => gets called by the timer code, with HZ frequency.
                     |
                     +- nohz_balancer_kick()
                                 :
-                                +- kick_ilb()
+                                +- kick_ilb() => Kick a CPU to do the nohz balancing.
                                        :
         smp_call_function_single_async(ilb_cpu, &cpu_rq(ilb_cpu)->nohz_csd)
                                        |
@@ -510,6 +539,8 @@ EAS operates only on heterogeneous CPU topologies (such as Arm big.LITTLE) becau
 is where the potential for saving energy through scheduling is the highest.
 
 ----------------------------------------------------------------------------------------
+- CORE SCHEDULER -
+
 [+] kernel/sched/core.c
 
 schedule()
@@ -566,7 +597,7 @@ schedule()
                                   v
                                   +- if !next->mm
                                           |yes => to kernel
-                                          +- enter_lazy_tlb()
+                                          +- enter_lazy_tlb() => Lazy TLB
                                                    |
                                                    +- update_saved_ttbr0()
 
@@ -810,62 +841,7 @@ will be set before p is scheduled-in and cleared after p is scheduled-out, both 
 rq->lock. Non-zero indicates the task is running on its CPU.
 
 ----------------------------------------------------------------------------------------
-The futex() system call provides a method for waiting until a certain condition becomes
-true.
 
-futex() @syscall
-  :
-  +- do_futex() [+] kernel/futex/syscalls.c
-         :cmd
-*--------------------------------------------------------------------*
-| FUTEX_WAIT_BITSET/FUTEX_WAIT               futex_wait()            |
-| FUTEX_WAKE_BITSET/FUTEX_WAKE               futex_wake()            |
-| FUTEX_REQUEUE                              futex_requeue()         |
-| FUTEX_CMP_REQUEUE                          futex_requeue()         |
-| FUTEX_WAKE_OP                              futex_wake_op()         |
-| FUTEX_LOCK_PI/FUTEX_LOCK_PI2               futex_lock_pi()         |--------
-| FUTEX_UNLOCK_PI                            futex_unlock_pi()       |PI futex
-| FUTEX_TRYLOCK_PI                           futex_lock_pi()         |--------
-| FUTEX_WAIT_REQUEUE_PI                      futex_wait_requeue_pi() |
-| FUTEX_CMP_REQUEUE_PI                       futex_requeue()         |
-*--------------------------------------------------------------------*
-
-The waiter reads the futex value in user space and calls futex_wait(). This function
-computes the hash bucket and acquires the hash bucket lock. After that it reads the
-futex user space value again and verifies that the data has not changed. If it has
-not changed it enqueues itself into the hash bucket, releases the hash bucket lock
-and schedules.
-
-The waker side modifies the user space value of the futex and calls futex_wake(). This
-function computes the hash bucket and acquires the hash bucket lock. Then it looks for
-waiters on that futex in the hash bucket and wakes them.
-
-futex_wake()
-futex_wait()
-
-Priority-Inheritance Futexes
-
-Priority inversion is the problem that occurs when a high-priority task is blocked
-waiting to acquire a lock held by a low-priority task, while tasks at an intermediate
-priority continuously preempt the low-priority task from the CPU.  Consequently, the
-low-priority task makes no progress toward releasing the lock, and the high-priority
-task remains blocked.
-
-futex_lock_pi()
-      :
-      +- futex_setup_timer()
-      |
-      :
-      +- __futex_queue(&q, hb)
-                |
-                ▼
-(struct futex_q) q              => The hashed futex queue entry, one per waiting task
-(struct futex_hash_bucket *) hb => Hash buckets are shared by all the futex_keys that
-                                   hash to the same location.  Each key may have
-                                   multiple futex_q structures, one for each task
-                                   waiting on a futex.
-
-futex_unlock_pi()
 
 ----------------------------------------------------------------------------------------
 udelay()

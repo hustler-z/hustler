@@ -2,8 +2,11 @@
 | LINUX KERNEL TIMERS                                                                  |
 +--------------------------------------------------------------------------------------+
 
-hrtimer base infrastructure
+- HRTIMER -
 
+@struct hrtimer - the basic hrtimer structure
+
+----------------------------------------------------------------------------------------
 timeofday and clock source management
 
 clock event management
