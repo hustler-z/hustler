@@ -179,6 +179,14 @@ sched_priority value in the range 1 (low) to 99 (high). For threads scheduled un
 of the normal scheduling policies (SCHED_OTHER, SCHED_IDLE, SCHED_BATCH), sched_priority
 is not used in scheduling decisions (it must be specified as 0).
 
+                                     -20          +19 (nice)
+*------------------------------------*-------------*
+| Realtime                           | Normal      |
+*------------------------------------*-------------*
+0                                  99 100         139
+
+Priority: RT processes > Normal processes > Idle processes
+
 ----------------------------------------------------------------------------------------
 rt_sigprocmask() @syscall [+] kernel/signal.c
       :
@@ -469,6 +477,9 @@ rebalance_domains()
       |
       ▼
 
+----------------------------------------------------------------------------------------
+- PERIODIC SCHEDULER -
+
 scheduler_tick() => gets called by the timer code, with HZ frequency.
       :
       +- curr->sched_class->task_tick()
@@ -545,7 +556,7 @@ is where the potential for saving energy through scheduling is the highest.
 
 schedule()
     |                       +-----------> tif_need_resched() checks thread info flags.
-    :                       |
+    :                       |              TIF_NEED_RESCHED => rescheduling necessary
     +- __schedule() if need_resched()
             |
             +- get the rq from current cpu with cpu_rq()
@@ -669,6 +680,24 @@ __switch_mm()
                             +- cpu_do_switch_mm() [+] arch/arm64/mm/context.c
                                reset ttbr1_el1, ttbr0_el1 with some masks
 
+preempt_schedule()
+        |
+        +- !preemptible() => check non-zero preempt_count or interrupts are disabled
+                |no
+                +- preempt_schedule_common()
+                        |
+                        +- if need_resched() <-----*
+                                  :yes             |
+                        __schedule(SM_PREEMPT)     |
+                                  :                |
+                                  +----------------*
+
+do_sched_yield()
+        :
+        +- current->sched_class->yield_task() => A process wants to relinquish control
+        :                                        of the processor voluntarily.
+        +- schedule()
+
 ----------------------------------------------------------------------------------------
 signal_pending_state()
 
@@ -775,6 +804,11 @@ complete() will wake up a single thread waiting on this completion. Threads will
     | Conceptually does: If (@state & @p->state) @p->state = TASK_RUNNING.   |
     | If the task was not queued/runnable, also place it back on a runqueue. |
     +------------------------------------------------------------------------+
+                                        :
+                                        +- select_task_rq()
+                                        :
+                                        +- ttwu_queue() {ttwu => try_to_wake_up}
+                                        :
 
 ----------------------------------------------------------------------------------------
 - workqueue -
