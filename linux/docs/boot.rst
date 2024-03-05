@@ -2,12 +2,13 @@
 | BOOTING PROCESS for Linux                                                    |
 +------------------------------------------------------------------------------+
 
-
+[+] arch/arm64/kernel/head.S
 
 --------------------------------------------------------------------------------
 - START KERNEL -
 
 [+] init/main.c
+
 asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 
 start_kernel()

@@ -198,11 +198,11 @@ do_bad_area()
      +- user_mode(regs) ------> set_thread_esr() ----> arm64_force_sig_fault()
               |no
               +- __do_kernel_fault()
-                         :
-                         |
+                        :
+                        |
           [Analysis on Exception reason]
-                         |
-                         v
+                        |
+                        ▼
      +---------------------------------------+
      | msg                                   |
      | 1) write to read-only memory          |
@@ -235,63 +235,20 @@ make_task_dead()
        +- do_exit(signr)
               :
               +- if tsk->mm (current task)
-                          |
-                          +- sync_mm_rss(tsk->mm)
-              |
+                        |
+                        +- sync_mm_rss(tsk->mm)
+              :
               +- if group_dead <- tsk->signal->live
-                         |
-                         +- if is_global_init(tsk)
+                        |
+                        +- if is_global_init(tsk)
                                     |yes
                                     +- panic()
               :
-              +- taskstats_exit()
-              |
-              +- exit_mm()
-              |
-              +- trace_sched_process_exit()
-              |
-              +- exit_sem()
-              |
-              +- exit_shm()
-              |
-              +- exit_files()
-              |
-              +- exit_fs()
-              |
-              +- exit_task_namespaces()
-              |
-              +- exit_task_work()
-              |
-              +- exit_thread()
-              |
-              +- perf_event_exit_task()
-              |
-              +- sched_autogroup_exit_task()
-              |
-              +- cgroup_exit()
-              |
-              +- flush_ptrace_hw_breakpoint()
-              |
-              +- exit_tasks_rcu_start()
-              |
-              +- exit_notify()
-              |
-              +- proc_exit_connector()
-              |
-              +- mpol_put_task_policy()
-              :
-              +- validate_creds_for_do_exit()
-              |
-              +- exit_task_stack_account()
-              |
-              +- exit_rcu()
-              |
-              +- exit_tasks_rcu_finish()
-              :
               +- do_task_dead()
-                      |
-                      :
-                      +- __schedule(SM_NONE)
+                        :
+                        +- __schedule(SM_NONE)
+                        |
+                        +- BUG()
 
 --------------------------------------------------------------------------------
 - Kernel Panic -
@@ -333,14 +290,15 @@ where exitcode defined in [+] include/uapi/asm-generic/signal.h
 #define SIGPROF		27
 #define SIGWINCH	28
 #define SIGIO		29
-#define SIGPOLL		SIGIO
-/*
-#define SIGLOST		29
-*/
-#define SIGPWR		30
+#define SIGPOLL         SIGIO
+
+#define SIGLOST         29
+
+#define SIGPWR          30
 #define SIGSYS		31
 #define	SIGUNUSED	31
 #define SIGRTMIN	32
+
 --------------------------
 
 panic() => halt the system [+] kernel/panic.c
@@ -356,7 +314,7 @@ panic() => halt the system [+] kernel/panic.c
   :
   +- kgdb_panic()
   :                                  yes
-  +- _crash_kexec_post_notifiers=0 ------> __crash_kexec() ------> crash kernel
+  +- _crash_kexec_post_notifiers=0 ------> __crash_kexec()
   :
   +- panic_other_cpus_shutdown()
                  :
@@ -383,8 +341,9 @@ panic() => halt the system [+] kernel/panic.c
 | panic_notifiers and dumping kmsg before kdump.     |
 *----------------------------------------------------*
   :                                   yes
-  +- _crash_kexec_post_notifiers!=0 ------> __crash_kexec() -----> crash kernel
+  +- _crash_kexec_post_notifiers!=0 ------> __crash_kexec()
   :
+  ▼
 
 --------------------------------------------------------------------------------
 - Crash Kernel -
@@ -410,7 +369,7 @@ trap_init() been called in start_kernel()
 BUG() will generate a Breakpoint Instruction Exception (EC 0x3C) via assembly
 code: brk BUG_BRK_IMM (0x800)
 
-    BUG() [ BUG_ON(),WARN(),WARN_ON() ]
+    BUG() [BUG_ON(),WARN(),WARN_ON()]
      |traps
      v
 bug_handler() [+] arch/arm64/kernel/traps.c
@@ -494,6 +453,6 @@ $ objdump -r -S -l --disassemble *.o
 
 syscall tracing:
 
-$ strace -yy -vv -tt -f [execution]
+$ strace -yy -vv -tt -f -o trace [execution]
 
 --------------------------------------------------------------------------------
