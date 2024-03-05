@@ -1,0 +1,19 @@
+
+STANDALONE_DIR := $SDK_DIR
+
+config USE_BAREMETAL
+    bool
+    default y
+
+source "$SDK_DIR/arch/arch.kconfig"
+source "$SDK_DIR/soc/soc.kconfig"
+source "$SDK_DIR/board/board.kconfig"
+source "$SDK_DIR/common/common.kconfig"
+source "$SDK_DIR/drivers/drivers.kconfig"
+source "$SDK_DIR/third-party/third-party.kconfig"
+source "$SDK_DIR/tools/build/build.kconfig"
+
+
+
+
+

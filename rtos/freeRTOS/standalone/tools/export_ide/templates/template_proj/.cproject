@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?fileVersion 4.0.0?><cproject storage_type_id="org.eclipse.cdt.core.XmlProjectDescriptionStorage">
+	<storageModule moduleId="org.eclipse.cdt.core.settings">
+		<cconfiguration id="com.phytium.studio.managedbuild.core.config.elf.debug.933675337">
+			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.phytium.studio.managedbuild.core.config.elf.debug.933675337" moduleId="org.eclipse.cdt.core.settings" name="Debug">
+				<externalSettings/>
+				<extensions>
+					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GLDErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+				</extensions>
+			</storageModule>
+			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug" cleanCommand="rm -rf" description="" errorParsers="org.eclipse.cdt.core.GASErrorParser;org.eclipse.cdt.core.GmakeErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.CWDLocator;org.eclipse.cdt.core.GCCErrorParser" id="com.phytium.studio.managedbuild.core.config.elf.debug.933675337" name="Debug" parent="com.phytium.studio.managedbuild.core.config.elf.debug" prebuildStep="${cross_prefix}${cross_c}${cross_suffix} -E -P -x c &quot;${workspace_loc:/${ProjName}/linkscripts/${cross_aarch}_ram.ld}&quot; -o linkscript.ld -I&quot;${workspace_loc:/${ProjName}}&quot; -I&quot;${workspace_loc:/${ProjName}}\src&quot; -I&quot;${workspace_loc:/${ProjName}}\inc&quot;">
+					<folderInfo id="com.phytium.studio.managedbuild.core.config.elf.debug.933675337." name="/" resourcePath="">
+						<toolChain id="com.phytium.studio.managedbuild.core.toolchain.elf.debug.305344947" name="Phytium Arm Cross GCC" superClass="com.phytium.studio.managedbuild.core.toolchain.elf.debug">
+							<option id="com.phytium.studio.managedbuild.core.option.addtools.createflash.1274331454" name="Create flash image" superClass="com.phytium.studio.managedbuild.core.option.addtools.createflash" value="true" valueType="boolean"/>
+							<option id="com.phytium.studio.managedbuild.core.option.addtools.createlisting.1944198382" name="Create extended listing" superClass="com.phytium.studio.managedbuild.core.option.addtools.createlisting"/>
+							<option id="com.phytium.studio.managedbuild.core.option.addtools.printsize.8476064" name="Print size" superClass="com.phytium.studio.managedbuild.core.option.addtools.printsize" value="true" valueType="boolean"/>
+							<option id="com.phytium.studio.managedbuild.core.option.optimization.level.2009069727" name="Optimization Level" superClass="com.phytium.studio.managedbuild.core.option.optimization.level" value="com.phytium.studio.managedbuild.core.option.optimization.level.none" valueType="enumerated"/>
+							<option id="com.phytium.studio.managedbuild.core.option.optimization.messagelength.254924646" name="Message length (-fmessage-length=0)" superClass="com.phytium.studio.managedbuild.core.option.optimization.messagelength" value="true" valueType="boolean"/>
+							<option id="com.phytium.studio.managedbuild.core.option.optimization.signedchar.1884202463" name="'char' is signed (-fsigned-char)" superClass="com.phytium.studio.managedbuild.core.option.optimization.signedchar" value="true" valueType="boolean"/>
+							<option id="com.phytium.studio.managedbuild.core.option.optimization.functionsections.771647896" name="Function sections (-ffunction-sections)" superClass="com.phytium.studio.managedbuild.core.option.optimization.functionsections" value="true" valueType="boolean"/>
+							<option id="com.phytium.studio.managedbuild.core.option.optimization.datasections.502565370" name="Data sections (-fdata-sections)" superClass="com.phytium.studio.managedbuild.core.option.optimization.datasections" value="true" valueType="boolean"/>
+							<option id="com.phytium.studio.managedbuild.core.option.debugging.level.1937412958" name="Debug level" superClass="com.phytium.studio.managedbuild.core.option.debugging.level" value="com.phytium.studio.managedbuild.core.option.debugging.level.max" valueType="enumerated"/>
+							<option id="com.phytium.studio.managedbuild.core.option.debugging.format.583895573" name="Debug format" superClass="com.phytium.studio.managedbuild.core.option.debugging.format"/>
+							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="com.phytium.studio.managedbuild.core.targetPlatform.569577649" isAbstract="false" osList="all" superClass="com.phytium.studio.managedbuild.core.targetPlatform"/>
+							<builder buildPath="${workspace_loc:/template_proj}/Debug" id="com.phytium.studio.managedbuild.core.builder.1917168407" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="Gnu Make Builder" superClass="com.phytium.studio.managedbuild.core.builder"/>
+							<tool id="com.phytium.studio.managedbuild.core.tool.assembler.1072740118" name="GNU Arm Cross Assembler" superClass="com.phytium.studio.managedbuild.core.tool.assembler">
+								<option id="com.phytium.studio.managedbuild.core.option.assembler.usepreprocessor.883725891" name="Use preprocessor" superClass="com.phytium.studio.managedbuild.core.option.assembler.usepreprocessor" value="true" valueType="boolean"/>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.assembler.include.paths.1493446126" name="Include paths (-I)" superClass="com.phytium.studio.managedbuild.core.option.assembler.include.paths" valueType="includePath">
+									
+								</option>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.assembler.defs.1994929755" name="Defined symbols (-D)" superClass="com.phytium.studio.managedbuild.core.option.assembler.defs" valueType="definedSymbols">
+									<listOptionValue builtIn="false" value="GUEST"/>
+								</option>
+								<inputType id="com.phytium.studio.managedbuild.core.tool.assembler.input.1507264771" superClass="com.phytium.studio.managedbuild.core.tool.assembler.input"/>
+							</tool>
+							<tool id="com.phytium.studio.managedbuild.core.tool.c.compiler.742981330" name="GNU Arm Cross C Compiler" superClass="com.phytium.studio.managedbuild.core.tool.c.compiler">
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.c.compiler.include.paths.1645359967" name="Include paths (-I)" superClass="com.phytium.studio.managedbuild.core.option.c.compiler.include.paths" useByScannerDiscovery="true" valueType="includePath">
+									
+								</option>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.c.compiler.defs.1609161800" name="Defined symbols (-D)" superClass="com.phytium.studio.managedbuild.core.option.c.compiler.defs" useByScannerDiscovery="true" valueType="definedSymbols">
+									<listOptionValue builtIn="false" value="GUEST"/>
+								</option>
+								<inputType id="com.phytium.studio.managedbuild.core.tool.c.compiler.input.2042005761" superClass="com.phytium.studio.managedbuild.core.tool.c.compiler.input"/>
+							</tool>
+							<tool id="com.phytium.studio.managedbuild.core.tool.cpp.compiler.1587762113" name="GNU Arm Cross C++ Compiler" superClass="com.phytium.studio.managedbuild.core.tool.cpp.compiler">
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.cpp.compiler.include.paths.1212595249" name="Include paths (-I)" superClass="com.phytium.studio.managedbuild.core.option.cpp.compiler.include.paths" useByScannerDiscovery="true" valueType="includePath">
+									
+								</option>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.cpp.compiler.defs.1470033306" name="Defined symbols (-D)" superClass="com.phytium.studio.managedbuild.core.option.cpp.compiler.defs" useByScannerDiscovery="true" valueType="definedSymbols">
+									<listOptionValue builtIn="false" value="GUEST"/>
+								</option>
+								<inputType id="com.phytium.studio.managedbuild.core.tool.cpp.compiler.input.788550400" superClass="com.phytium.studio.managedbuild.core.tool.cpp.compiler.input"/>
+							</tool>
+							<tool id="com.phytium.studio.managedbuild.core.tool.c.linker.1796611162" name="GNU Arm Cross C Linker" superClass="com.phytium.studio.managedbuild.core.tool.c.linker">
+								<option id="com.phytium.studio.managedbuild.core.option.c.linker.gcsections.634063108" name="Remove unused sections (-Xlinker --gc-sections)" superClass="com.phytium.studio.managedbuild.core.option.c.linker.gcsections" value="true" valueType="boolean"/>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.c.linker.scriptfile.1436021304" name="Script files (-T)" superClass="com.phytium.studio.managedbuild.core.option.c.linker.scriptfile" valueType="stringList">
+									<listOptionValue builtIn="false" value="&quot;${CWD}/linkscript.ld&quot;"/>
+								</option>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.c.linker.sdklib.1936396737" name="SDK Libraries" superClass="com.phytium.studio.managedbuild.core.option.c.linker.sdklib" valueType="userObjs">
+									
+								</option>
+								<inputType id="com.phytium.studio.managedbuild.core.tool.c.linker.input.664341974" superClass="com.phytium.studio.managedbuild.core.tool.c.linker.input">
+									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
+									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
+								</inputType>
+							</tool>
+							<tool id="com.phytium.studio.managedbuild.core.tool.cpp.linker.407182248" name="GNU Arm Cross C++ Linker" superClass="com.phytium.studio.managedbuild.core.tool.cpp.linker">
+								<option id="com.phytium.studio.managedbuild.core.option.cpp.linker.gcsections.1011772199" name="Remove unused sections (-Xlinker --gc-sections)" superClass="com.phytium.studio.managedbuild.core.option.cpp.linker.gcsections" value="true" valueType="boolean"/>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.cpp.linker.sdklib.639877613" name="SDK Libraries" superClass="com.phytium.studio.managedbuild.core.option.cpp.linker.sdklib" valueType="userObjs">
+									
+								</option>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.cpp.linker.scriptfile.1192514193" name="Script files (-T)" superClass="com.phytium.studio.managedbuild.core.option.cpp.linker.scriptfile" valueType="stringList">
+									<listOptionValue builtIn="false" value="&quot;${CWD}/linkscript.ld&quot;"/>
+								</option>
+								<inputType id="com.phytium.studio.managedbuild.core.tool.cpp.linker.input.1735808547" superClass="com.phytium.studio.managedbuild.core.tool.cpp.linker.input">
+									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
+									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
+								</inputType>
+							</tool>
+							<tool id="com.phytium.studio.managedbuild.core.tool.archiver.773382399" name="GNU Arm Cross Archiver" superClass="com.phytium.studio.managedbuild.core.tool.archiver"/>
+							<tool id="com.phytium.studio.managedbuild.core.tool.createflash.1572200370" name="GNU Arm Cross Create Flash Image" superClass="com.phytium.studio.managedbuild.core.tool.createflash"/>
+							<tool id="com.phytium.studio.managedbuild.core.tool.createlisting.1231718880" name="GNU Arm Cross Create Listing" superClass="com.phytium.studio.managedbuild.core.tool.createlisting">
+								<option id="com.phytium.studio.managedbuild.core.option.createlisting.source.720982466" name="Display source (--source|-S)" superClass="com.phytium.studio.managedbuild.core.option.createlisting.source" value="true" valueType="boolean"/>
+								<option id="com.phytium.studio.managedbuild.core.option.createlisting.allheaders.1489427713" name="Display all headers (--all-headers|-x)" superClass="com.phytium.studio.managedbuild.core.option.createlisting.allheaders" value="true" valueType="boolean"/>
+								<option id="com.phytium.studio.managedbuild.core.option.createlisting.demangle.515693037" name="Demangle names (--demangle|-C)" superClass="com.phytium.studio.managedbuild.core.option.createlisting.demangle" value="true" valueType="boolean"/>
+								<option id="com.phytium.studio.managedbuild.core.option.createlisting.linenumbers.190323789" name="Display line numbers (--line-numbers|-l)" superClass="com.phytium.studio.managedbuild.core.option.createlisting.linenumbers" value="true" valueType="boolean"/>
+								<option id="com.phytium.studio.managedbuild.core.option.createlisting.wide.1317501430" name="Wide lines (--wide|-w)" superClass="com.phytium.studio.managedbuild.core.option.createlisting.wide" value="true" valueType="boolean"/>
+							</tool>
+							<tool id="com.phytium.studio.managedbuild.core.tool.printsize.1682448366" name="GNU Arm Cross Print Size" superClass="com.phytium.studio.managedbuild.core.tool.printsize">
+								<option id="com.phytium.studio.managedbuild.core.option.printsize.format.1049737403" name="Size format" superClass="com.phytium.studio.managedbuild.core.option.printsize.format"/>
+							</tool>
+						</toolChain>
+					</folderInfo>
+				</configuration>
+			</storageModule>
+			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+		</cconfiguration>
+		<cconfiguration id="com.phytium.studio.managedbuild.core.config.elf.release.1163931576">
+			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.phytium.studio.managedbuild.core.config.elf.release.1163931576" moduleId="org.eclipse.cdt.core.settings" name="Release">
+				<externalSettings/>
+				<extensions>
+					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GLDErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+				</extensions>
+			</storageModule>
+			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release" cleanCommand="rm -rf" description="" errorParsers="org.eclipse.cdt.core.GASErrorParser;org.eclipse.cdt.core.GmakeErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.CWDLocator;org.eclipse.cdt.core.GCCErrorParser" id="com.phytium.studio.managedbuild.core.config.elf.release.1163931576" name="Release" parent="com.phytium.studio.managedbuild.core.config.elf.release" prebuildStep="aarch64-none-elf-gcc -E -P -x c &quot;${workspace_loc:/${ProjName}/linkscripts/aarch64_ram.ld}&quot; -o linkscript.ld -I&quot;${workspace_loc:/${ProjName}}&quot; -I&quot;${workspace_loc:/${ProjName}}\src&quot; -I&quot;${workspace_loc:/${ProjName}}\inc&quot;">
+					<folderInfo id="com.phytium.studio.managedbuild.core.config.elf.release.1163931576." name="/" resourcePath="">
+						<toolChain id="com.phytium.studio.managedbuild.core.toolchain.elf.release.622313467" name="Phytium Arm Cross GCC" superClass="com.phytium.studio.managedbuild.core.toolchain.elf.release">
+							<option id="com.phytium.studio.managedbuild.core.option.addtools.createflash.673960661" name="Create flash image" superClass="com.phytium.studio.managedbuild.core.option.addtools.createflash" value="true" valueType="boolean"/>
+							<option id="com.phytium.studio.managedbuild.core.option.addtools.createlisting.841475348" name="Create extended listing" superClass="com.phytium.studio.managedbuild.core.option.addtools.createlisting"/>
+							<option id="com.phytium.studio.managedbuild.core.option.addtools.printsize.286089123" name="Print size" superClass="com.phytium.studio.managedbuild.core.option.addtools.printsize" value="true" valueType="boolean"/>
+							<option id="com.phytium.studio.managedbuild.core.option.optimization.level.1535817740" name="Optimization Level" superClass="com.phytium.studio.managedbuild.core.option.optimization.level" value="com.phytium.studio.managedbuild.core.option.optimization.level.size" valueType="enumerated"/>
+							<option id="com.phytium.studio.managedbuild.core.option.optimization.messagelength.2052560299" name="Message length (-fmessage-length=0)" superClass="com.phytium.studio.managedbuild.core.option.optimization.messagelength" value="true" valueType="boolean"/>
+							<option id="com.phytium.studio.managedbuild.core.option.optimization.signedchar.1380162301" name="'char' is signed (-fsigned-char)" superClass="com.phytium.studio.managedbuild.core.option.optimization.signedchar" value="true" valueType="boolean"/>
+							<option id="com.phytium.studio.managedbuild.core.option.optimization.functionsections.271776871" name="Function sections (-ffunction-sections)" superClass="com.phytium.studio.managedbuild.core.option.optimization.functionsections" value="true" valueType="boolean"/>
+							<option id="com.phytium.studio.managedbuild.core.option.optimization.datasections.156455820" name="Data sections (-fdata-sections)" superClass="com.phytium.studio.managedbuild.core.option.optimization.datasections" value="true" valueType="boolean"/>
+							<option id="com.phytium.studio.managedbuild.core.option.debugging.level.2071974017" name="Debug level" superClass="com.phytium.studio.managedbuild.core.option.debugging.level"/>
+							<option id="com.phytium.studio.managedbuild.core.option.debugging.format.1629841246" name="Debug format" superClass="com.phytium.studio.managedbuild.core.option.debugging.format"/>
+							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="com.phytium.studio.managedbuild.core.targetPlatform.1851027785" isAbstract="false" osList="all" superClass="com.phytium.studio.managedbuild.core.targetPlatform"/>
+							<builder buildPath="${workspace_loc:/template_proj}/Release" id="com.phytium.studio.managedbuild.core.builder.1799431752" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="Gnu Make Builder" superClass="com.phytium.studio.managedbuild.core.builder"/>
+							<tool id="com.phytium.studio.managedbuild.core.tool.assembler.1503106640" name="GNU Arm Cross Assembler" superClass="com.phytium.studio.managedbuild.core.tool.assembler">
+								<option id="com.phytium.studio.managedbuild.core.option.assembler.usepreprocessor.1782688678" name="Use preprocessor" superClass="com.phytium.studio.managedbuild.core.option.assembler.usepreprocessor" value="true" valueType="boolean"/>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.assembler.include.paths.1899962004" name="Include paths (-I)" superClass="com.phytium.studio.managedbuild.core.option.assembler.include.paths" valueType="includePath">
+								
+								</option>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.assembler.defs.53080399" name="Defined symbols (-D)" superClass="com.phytium.studio.managedbuild.core.option.assembler.defs" valueType="definedSymbols">
+									<listOptionValue builtIn="false" value="GUEST"/>
+								</option>
+								<inputType id="com.phytium.studio.managedbuild.core.tool.assembler.input.326239281" superClass="com.phytium.studio.managedbuild.core.tool.assembler.input"/>
+							</tool>
+							<tool id="com.phytium.studio.managedbuild.core.tool.c.compiler.329423414" name="GNU Arm Cross C Compiler" superClass="com.phytium.studio.managedbuild.core.tool.c.compiler">
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.c.compiler.include.paths.1819959488" name="Include paths (-I)" superClass="com.phytium.studio.managedbuild.core.option.c.compiler.include.paths" useByScannerDiscovery="true" valueType="includePath">
+									
+								</option>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.c.compiler.defs.1053652673" name="Defined symbols (-D)" superClass="com.phytium.studio.managedbuild.core.option.c.compiler.defs" useByScannerDiscovery="true" valueType="definedSymbols">
+									<listOptionValue builtIn="false" value="GUEST"/>
+								</option>
+								<inputType id="com.phytium.studio.managedbuild.core.tool.c.compiler.input.1565101069" superClass="com.phytium.studio.managedbuild.core.tool.c.compiler.input"/>
+							</tool>
+							<tool id="com.phytium.studio.managedbuild.core.tool.cpp.compiler.2100816990" name="GNU Arm Cross C++ Compiler" superClass="com.phytium.studio.managedbuild.core.tool.cpp.compiler">
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.cpp.compiler.include.paths.539757815" name="Include paths (-I)" superClass="com.phytium.studio.managedbuild.core.option.cpp.compiler.include.paths" useByScannerDiscovery="true" valueType="includePath">
+									
+								</option>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.cpp.compiler.defs.1999590799" name="Defined symbols (-D)" superClass="com.phytium.studio.managedbuild.core.option.cpp.compiler.defs" useByScannerDiscovery="true" valueType="definedSymbols">
+									<listOptionValue builtIn="false" value="GUEST"/>
+								</option>
+								<inputType id="com.phytium.studio.managedbuild.core.tool.cpp.compiler.input.1367970727" superClass="com.phytium.studio.managedbuild.core.tool.cpp.compiler.input"/>
+							</tool>
+							<tool id="com.phytium.studio.managedbuild.core.tool.c.linker.551403774" name="GNU Arm Cross C Linker" superClass="com.phytium.studio.managedbuild.core.tool.c.linker">
+								<option id="com.phytium.studio.managedbuild.core.option.c.linker.gcsections.1546655466" name="Remove unused sections (-Xlinker --gc-sections)" superClass="com.phytium.studio.managedbuild.core.option.c.linker.gcsections" value="true" valueType="boolean"/>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.c.linker.scriptfile.641519966" name="Script files (-T)" superClass="com.phytium.studio.managedbuild.core.option.c.linker.scriptfile" valueType="stringList">
+									<listOptionValue builtIn="false" value="&quot;${CWD}/linkscript.ld&quot;"/>
+								</option>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.c.linker.sdklib.1936396737" name="SDK Libraries" superClass="com.phytium.studio.managedbuild.core.option.c.linker.sdklib" valueType="userObjs">
+									
+								</option>
+								<inputType id="com.phytium.studio.managedbuild.core.tool.c.linker.input.1963097650" superClass="com.phytium.studio.managedbuild.core.tool.c.linker.input">
+									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
+									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
+								</inputType>
+							</tool>
+							<tool id="com.phytium.studio.managedbuild.core.tool.cpp.linker.957441522" name="GNU Arm Cross C++ Linker" superClass="com.phytium.studio.managedbuild.core.tool.cpp.linker">
+								<option id="com.phytium.studio.managedbuild.core.option.cpp.linker.gcsections.1067068280" name="Remove unused sections (-Xlinker --gc-sections)" superClass="com.phytium.studio.managedbuild.core.option.cpp.linker.gcsections" value="true" valueType="boolean"/>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.cpp.linker.sdklib.725576184" name="SDK Libraries" superClass="com.phytium.studio.managedbuild.core.option.cpp.linker.sdklib" valueType="userObjs">
+									
+								</option>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.phytium.studio.managedbuild.core.option.cpp.linker.scriptfile.182182008" name="Script files (-T)" superClass="com.phytium.studio.managedbuild.core.option.cpp.linker.scriptfile" valueType="stringList">
+									<listOptionValue builtIn="false" value="&quot;${CWD}/linkscript.ld&quot;"/>
+								</option>
+								<inputType id="com.phytium.studio.managedbuild.core.tool.cpp.linker.input.92658619" superClass="com.phytium.studio.managedbuild.core.tool.cpp.linker.input">
+									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
+									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
+								</inputType>
+							</tool>
+							<tool id="com.phytium.studio.managedbuild.core.tool.archiver.1080679843" name="GNU Arm Cross Archiver" superClass="com.phytium.studio.managedbuild.core.tool.archiver"/>
+							<tool id="com.phytium.studio.managedbuild.core.tool.createflash.1807861271" name="GNU Arm Cross Create Flash Image" superClass="com.phytium.studio.managedbuild.core.tool.createflash"/>
+							<tool id="com.phytium.studio.managedbuild.core.tool.createlisting.754402302" name="GNU Arm Cross Create Listing" superClass="com.phytium.studio.managedbuild.core.tool.createlisting">
+								<option id="com.phytium.studio.managedbuild.core.option.createlisting.source.1184422249" name="Display source (--source|-S)" superClass="com.phytium.studio.managedbuild.core.option.createlisting.source" value="true" valueType="boolean"/>
+								<option id="com.phytium.studio.managedbuild.core.option.createlisting.allheaders.354667196" name="Display all headers (--all-headers|-x)" superClass="com.phytium.studio.managedbuild.core.option.createlisting.allheaders" value="true" valueType="boolean"/>
+								<option id="com.phytium.studio.managedbuild.core.option.createlisting.demangle.493246786" name="Demangle names (--demangle|-C)" superClass="com.phytium.studio.managedbuild.core.option.createlisting.demangle" value="true" valueType="boolean"/>
+								<option id="com.phytium.studio.managedbuild.core.option.createlisting.linenumbers.2038006051" name="Display line numbers (--line-numbers|-l)" superClass="com.phytium.studio.managedbuild.core.option.createlisting.linenumbers" value="true" valueType="boolean"/>
+								<option id="com.phytium.studio.managedbuild.core.option.createlisting.wide.462077317" name="Wide lines (--wide|-w)" superClass="com.phytium.studio.managedbuild.core.option.createlisting.wide" value="true" valueType="boolean"/>
+							</tool>
+							<tool id="com.phytium.studio.managedbuild.core.tool.printsize.674357059" name="GNU Arm Cross Print Size" superClass="com.phytium.studio.managedbuild.core.tool.printsize">
+								<option id="com.phytium.studio.managedbuild.core.option.printsize.format.1319350232" name="Size format" superClass="com.phytium.studio.managedbuild.core.option.printsize.format"/>
+							</tool>
+						</toolChain>
+					</folderInfo>
+				</configuration>
+			</storageModule>
+			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+		</cconfiguration>
+	</storageModule>
+	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+		<project id="template_proj.com.phytium.studio.managedbuild.core.target.elf.1446109859" name="Executable" projectType="com.phytium.studio.managedbuild.core.target.elf"/>
+	</storageModule>
+	<storageModule moduleId="scannerConfiguration">
+		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		<scannerConfigBuildInfo instanceId="com.phytium.studio.managedbuild.core.config.elf.debug.933675337;com.phytium.studio.managedbuild.core.config.elf.debug.933675337.;com.phytium.studio.managedbuild.core.tool.c.compiler.742981330;com.phytium.studio.managedbuild.core.tool.c.compiler.input.2042005761">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.phytium.studio.managedbuild.core.config.elf.release.1163931576;com.phytium.studio.managedbuild.core.config.elf.release.1163931576.;com.phytium.studio.managedbuild.core.tool.c.compiler.329423414;com.phytium.studio.managedbuild.core.tool.c.compiler.input.1565101069">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
+	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
+</cproject>

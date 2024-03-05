@@ -1,0 +1,135 @@
+//下载psioniq File Header插件以及koroFileHeader插件，编辑setting.json中psi-header.* 等字段(自由选择修改工作区还是用户对应的配置)，将下面{}之间的代码复制到setting.json{}之间
+{ 
+"fileheader.cursorMode":{ // 此字段 用于 koroFileHeader 生成函数注释 ，具体如何配置请参考插件文档
+        "name": "",
+        "msg": "",
+        "return": "",
+        "note": ""
+         },  
+"psi-header.config": { // 此字段以及之后的字段 用于 psioniq File Header 生成文件头注释 ，具体如何配置请参考插件文档
+        "forceToTop": true,
+        "blankLinesAfter": 0,
+        "license": "Custom"
+    },
+"psi-header.changes-tracking": {
+        "isActive": true,
+        "modAuthor": "Modified By: ",
+        "modDate": "Last Modified: ",
+        "modDateFormat": "date",
+        "include": [],
+        "exclude": [
+            "markdown",
+            "json"
+        ],
+        "excludeGlob": [
+            "out/**",
+            "src/**/*.xyz",
+            "components/**/*.mk",
+        ],
+        "autoHeader": "manualSave"
+    },
+    "psi-header.license-text": [
+        "May the force be with you."
+    ],
+    "psi-header.variables": [
+        ["company", "Phytium Information Technology, Inc."],
+        ["author", "Simon Liu"],
+        ["authoremail", "xxxxx@gmail.com"]
+    ],
+    "psi-header.lang-config": [
+        {
+            "language": "lua",
+            "begin": "--[[",
+            "prefix": "--",
+            "end": "--]]",
+            "blankLinesAfter": 0
+        },
+        {
+            "language": "python",
+            "begin": "###",
+            "prefix": "# ",
+            "end": "###",
+            "blankLinesAfter": 0,
+            "beforeHeader": [
+                "#!/usr/bin/env python",
+                "# -*- coding:utf-8 -*-"
+            ]
+        },
+        {
+            "language": "javascript",
+            "begin": "/**",
+            "prefix": " * ",
+            "end": " */",
+            "blankLinesAfter": 2,
+            "forceToTop": false
+        },
+        {
+            "language": "typescript",
+            "mapTo": "javascript"
+        }
+    ],
+    "psi-header.templates": [
+        {
+            "language": "c",
+            "template": [
+                "Copyright : (C) <<year>> <<company>>",
+                "All Rights Reserved.",
+                "",
+                "This program is OPEN SOURCE software: you can redistribute it and/or modify it",
+                "under the terms of the Phytium Public License as published by the Phytium Technology Co.,Ltd,",
+                "either version 1.0 of the License, or (at your option) any later version.",
+                "",
+                "This program is distributed in the hope that it will be useful,but WITHOUT ANY WARRANTY;",
+                "without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
+                "See the Phytium Public License for more details.",
+                "",
+                "",
+                "FilePath: <<filename>>",
+                "Created Date: <<filecreated('YYYY-MM-DD HH:mm:ss')>>",
+                "Last Modified: <<dateformat('YYYY-MM-DD HH:mm:ss')>>",
+                "Description:  This file is for",
+                "",
+                "Modify History:",
+                " Ver      Who        Date               Changes",
+                "-----  ----------  --------  ---------------------------------",
+            ],
+            "changeLogCaption": "HISTORY:",
+            "changeLogHeaderLineCount": 2,
+            "changeLogEntryTemplate": [
+                "<<dateformat('YYYY-MM-DD')>>\t<<initials>>\t"
+            ]
+        },
+        {
+            "language": "*",
+            "mapTo": "h",
+            "template": [
+                "Copyright : (C) <<year>> <<company>>",
+                "All Rights Reserved.",
+                "",
+                "This program is OPEN SOURCE software: you can redistribute it and/or modify it",
+                "under the terms of the Phytium Public License as published by the Phytium Technology Co.,Ltd,",
+                "either version 1.0 of the License, or (at your option) any later version.",
+                "",
+                "This program is distributed in the hope that it will be useful,but WITHOUT ANY WARRANTY;",
+                "without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
+                "See the Phytium Public License for more details.",
+                "",
+                "",
+                "FilePath: <<filename>>",
+                "Created Date: <<filecreated('YYYY-MM-DD HH:mm:ss')>>",
+                "Last Modified: <<dateformat('YYYY-MM-DD HH:mm:ss')>>",
+                "Description:  This file is for",
+                "",
+                "Modify History:",
+                " Ver      Who        Date               Changes",
+                "-----  ----------  --------  ---------------------------------",
+            ],
+            "changeLogCaption": "HISTORY:",
+            "changeLogHeaderLineCount": 2,
+            "changeLogEntryTemplate": [
+                "<<dateformat('YYYY-MM-DD')>>\t<<initials>>\t"
+            ]
+        }     
+
+    ]
+}

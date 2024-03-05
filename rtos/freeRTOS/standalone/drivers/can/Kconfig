@@ -1,0 +1,7 @@
+config USE_FCAN
+    bool
+    prompt "Use FCAN"
+    default n
+    help
+        Include FCAN driver component
+

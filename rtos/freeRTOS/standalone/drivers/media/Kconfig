@@ -1,0 +1,10 @@
+
+menu "Media Configuration"
+
+    config ENABLE_FDC_DP_USE_LIB
+      bool
+      prompt "USE FMEDIA LIB TO LINK"
+      
+endmenu
+
+
