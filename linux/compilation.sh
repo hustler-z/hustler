@@ -62,6 +62,18 @@ build() {
 			echo "Done generating tags in $(($total/60)) min $(($total%60)) sec"
 			echo "--------------------------------------------------------------------------------"
 			;;
+		llvm)
+			cd $KPATH
+
+			echo "-------------------------------- Start CLANG -----------------------------------"
+			start=$(date +%s)
+			make -j88 CC=clang-15 defconfig
+			end=$(date +%s)
+			total=$(($end-$start))
+			echo "--------------------------------------------------------------------------------"
+			echo "Done generating clang in $(($total/60)) min $(($total%60)) sec"
+			echo "--------------------------------------------------------------------------------"
+			;;
 		mrp)
 			echo "------------------------ Remove Previous Configuration -------------------------"
 			cd $KPATH
@@ -97,6 +109,7 @@ build() {
 			echo "[3] mrproper:           ./compilation.sh mrp  [path]"
 			echo "[4] clean:              ./compilation.sh cln  [path]"
 			echo "[5] disassmble *.o:     ./compilation.sh dsm  [path]"
+			echo "[6] clang kernel:       ./compilation.sh llvm [path]"
 			echo "--------------------------------------------------------------------------------"
 			;;
 	esac

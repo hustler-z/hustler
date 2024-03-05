@@ -62,7 +62,7 @@ start_kernel()
      :
      +- kmem_cache_init_late()
      :
-     +- setup_per_cpu_pageset()
+     +- setup_per_cpu_pageset() => Allocate per cpu pagesets and initialize them
      :
      +- sched_clock_init()
      :
@@ -124,5 +124,7 @@ kernel_init_freeable()
           +- do_basic_setup()
           :         :
                     +- driver_init()
+                    :
+                    ▼
 
 --------------------------------------------------------------------------------

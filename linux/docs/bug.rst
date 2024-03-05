@@ -443,16 +443,5 @@ Code: 52800000 32110042 b9003e62 94222456 (d4210000)
 Kernel panic - not syncing:
 Oops - BUG: Fatal exception
 
---------------------------------------------------------------------------------
-To debug a kernel, use objdump and look for the hex offset from the crash output
-to find the valid line of code/assembler.
-
-$ objdump -r -S -l --disassemble *.o
-			[-d]
-@ -t => display static symbol table vs. -T dynamic symbol table
-
-syscall tracing:
-
-$ strace -yy -vv -tt -f -o trace [execution]
 
 --------------------------------------------------------------------------------

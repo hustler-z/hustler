@@ -3,10 +3,28 @@ export TOOLCHAIN_GCC_PATH=/opt/buildtools/gcc-arm-10.3-2021.07-x86_64-aarch64-no
 # export ALL="task-switch task-preempt semaphore-shuffle interrupt-latency deadlock-break message-latency"
 export ALL="rk3568_jailhouse"
 
+PROJPATH=/os/oscope/rtos/UniProton
+DEMOPATH=/os/oscope/rtos/UniProton/demos/rk3568_jailhouse
+
 sh ./build_static.sh rk3568_jailhouse
 sh ./build_openamp.sh $TOOLCHAIN_PATH
 
-pushd ./../../../src/component/lua-5.3.4/src
+# pushd ./../../../src/component/lua-5.3.4/src
+#     make posix
+#     make echo
+#     cp ./liblua.a ./../../../../demos/rk3568_jailhouse/libs/
+#     cp ./lua.h ./../../../../demos/rk3568_jailhouse/include/
+#     cp ./luaconf.h ./../../../../demos/rk3568_jailhouse/include/
+#     cp ./lualib.h ./../../../../demos/rk3568_jailhouse/include/
+#     cp ./lauxlib.h ./../../../../demos/rk3568_jailhouse/include/
+#     cp ./lua.hpp ./../../../../demos/rk3568_jailhouse/include/
+
+#     # 临时拷贝，用于排查lua依赖
+#     cp ./lprefix.h ./../../../../demos/rk3568_jailhouse/include/
+#     cp ./lua.c ./../../../../demos/rk3568_jailhouse/apps/ivshmem/
+# popd
+
+cd $PROJPATH/src/component/lua-5.3.4/src
     make posix
     make echo
     cp ./liblua.a ./../../../../demos/rk3568_jailhouse/libs/
@@ -19,7 +37,7 @@ pushd ./../../../src/component/lua-5.3.4/src
     # 临时拷贝，用于排查lua依赖
     cp ./lprefix.h ./../../../../demos/rk3568_jailhouse/include/
     cp ./lua.c ./../../../../demos/rk3568_jailhouse/apps/ivshmem/
-popd
+cd $DEMOPATH
 
 function build()
 {
@@ -27,9 +45,11 @@ function build()
     export TMP_DIR=$APP
 
     cmake -S .. -B $TMP_DIR -DAPP:STRING=$APP -DTOOLCHAIN_PATH:STRING=$TOOLCHAIN_PATH -DCPU_TYPE:SRTING="rk3568_jailhouse"
-    pushd $TMP_DIR
+    # pushd $TMP_DIR
+    cd $TMP_DIR
     make $APP
-    popd
+    # popd
+    cd -
 
     cp ./$TMP_DIR/$APP $APP.elf
 

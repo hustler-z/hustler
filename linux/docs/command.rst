@@ -43,9 +43,17 @@ $ git push origin [branch name]
 
 -------------------------------------------------------------------------------
 
-+----------------+
+                                fdisk => manipulate disk partition table
++----------------+               |
 | storage device | -> parted -> mkfs -> mount
 +----------------+               |
-                                fsck
+                                fsck => check and repair a Linux filesystem
+
+-------------------------------------------------------------------------------
+
+$ cat /proc/sys/kernel/printk => log level
+
+4         4         1         7
+current | default | minimum | boot-time-default
 
 -------------------------------------------------------------------------------

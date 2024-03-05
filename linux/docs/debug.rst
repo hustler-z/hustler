@@ -1,16 +1,15 @@
-+--------------------------------------------------------------------------------------+
-| Refer to Linux-6.1.63                                                                |
-+--------------------------------------------------------------------------------------+
-
++------------------------------------------------------------------------------+
+| Refer to Linux-6.1.63                                                        |
++------------------------------------------------------------------------------+
 - KGDB -
 
-+-------------+                      +------------+
+*-------------*                      *------------*
 | remote host |_____ connection _____|   Target   |
 |     GDB     |           |          |    KGDB    |
-+-------------+           |          +------------+
+*-------------*           |          *------------*
                    serial/ethernet
 
-----------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 [1] Configuration to enable/disable kdb
 
 # CONFIG_STRICT_KERNEL_RWX is not set
@@ -27,13 +26,14 @@ CONFIG_RANDOMIZE_BASE=n
 
 [2] kgdboc (kgdb over console)
 
-For kgdb/gdb, kgdboc is designed to work with a single serial port. The Kernel command
-line option kgdbwait makes kgdb wait for a debugger connection during booting of a 
-kernel. The kgdbcon feature allows you to see printk() messages inside gdb while gdb
-is connected to the kernel.
+For kgdb/gdb, kgdboc is designed to work with a single serial port. The Kernel
+command line option kgdbwait makes kgdb wait for a debugger connection during
+booting of a kernel. The kgdbcon feature allows you to see printk() messages
+inside gdb while gdb is connected to the kernel.
 
 [3] kgdboe (kgdb over ethernet)
-----------------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
 On AArch64 Linux:
 
 $ lkvm run -k Image -d rootfs.ext4 -c 6 -m 512 -n disk --debug \
@@ -73,19 +73,29 @@ $ gdb vmlinux
 (gdb) c
 (gdb) s
 (gdb) l [func]
-----------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 Enter the kernel debugger manually or by waiting for an oops or fault.
 CONFIG_MAGIC_SYSRQ=y.
 
 $ echo g > /proc/sysrq-trigger
-----------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 - STRACE -
 
-$ strace -yy -vv -tt -f {-p [pid]}/{execution}
+$ strace -yy -vv -tt -f -o trace {-p [pid]}/{execution}
 
-----------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+To debug a kernel, use objdump and look for the hex offset from the crash output
+to find the valid line of code/assembler.
+
+$ objdump -r -S -l -d *.o
+@ -t => display static symbol table vs. -T dynamic symbol table
+@ -d => disassemble
+@ -S => intermix source code with disassembly
+@ -r => relocation entries in the file
+
+--------------------------------------------------------------------------------
 - FTRACE -
 
 
 
-----------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
