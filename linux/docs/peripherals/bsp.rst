@@ -4,10 +4,10 @@
 
 Driver Binding
 
-+--------+                  +---------------+
+*--------*                  *---------------*
 | Device |<----- BUS ------>| Device Driver |
-+--------+        |         +---------------+
-                  |
+*--------*        |         *---------------*
+                  :
                   +-> The bus type structure contains a list of all devices that
                       are on that bus type in the system.
 

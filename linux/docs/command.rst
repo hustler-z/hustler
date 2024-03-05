@@ -13,11 +13,11 @@ $ diff -ruN [previous source] [current source] > [patch name].patch
 
 (2) apply a patch:
 
-$ patch -pl < path/to/[patch name].patch
+$ patch -p1 < path/to/[patch name].patch
 
 (3) revert a patch:
 
-$ patch -R -pl < path/to/[patch name].patch
+$ patch -R -p1 < path/to/[patch name].patch
 
 -------------------------------------------------------------------------------
 - GIT USAGE -
