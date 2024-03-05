@@ -26,14 +26,14 @@ build() {
 		out)
 			cd $KPATH
 
-			echo "------------------------------- Start Compalition ------------------------------"
+			echo "------------------------------- Start Compilation ------------------------------"
 			start=$(date +%s)
 			make -j88 O=out/
 			end=$(date +%s)
 			total=$(($end-$start))
 			echo "--------------------------------------------------------------------------------"
 			echo "Done compiling kernel in $(($total/60)) min $(($total%60)) sec"
-			echo "------------------------------- Done Compalition -------------------------------"
+			echo "------------------------------- Done Compilation -------------------------------"
 			;;
 		tags)
 			cd $KPATH
