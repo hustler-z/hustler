@@ -416,8 +416,8 @@ run by the scheduler.
 
 SCHED_BATCH can be used only at static priority 0. This policy is similar to SCHED_OTHER
 in that it schedules the thread according to its dynamic priority (based on the nice
-value).  The difference is  that  this  policy will cause the scheduler to always assume
-that the thread is CPU-intensive.  Consequently, the scheduler will apply a small
+value). The difference is that this policy will cause the scheduler to always assume
+that the thread is CPU-intensive. Consequently, the scheduler will apply a small
 scheduling penalty with respect to wakeup behavior, so that this thread is mildly
 disfavored in scheduling decisions.
 
@@ -518,6 +518,13 @@ scheduling algorithm without time slicing.
 
 Similar to SCHED_FIFO, except that each thread is allowed to run only for a maximum time
 quantum.
+
+----------------------------------------------------------------------------------------
+- STOP TASKS -
+
+The stop task is the highest priority task in the system, it preempts everything and
+will be preempted by nothing.
+
 
 ----------------------------------------------------------------------------------------
 - Capacity Aware Scheduling -

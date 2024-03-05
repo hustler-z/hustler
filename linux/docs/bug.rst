@@ -16,6 +16,51 @@ IL (Instruction Length) [25] - For synchronous exception
 ISS (Instruction Specific Syndrome) [24:0]
 
 --------------------------------------------------------------------------------
+- MEM ABORT -
+
+Unable to handle kernel NULL pointer dereference at virtual address
+  0000000000000788
+Mem abort info:
+  ESR = 0x96000005
+  EC = 0x25: DABT (current EL), IL = 32 bits
+  SET = 0, FnV = 0
+  EA = 0, S1PTW = 0
+Data abort info:
+  ISV = 0, ISS = 0x00000005
+  CM = 0, WnR = 0
+user pgtable: 4k pages, 39-bit VAs, pgdp=000000088298d000
+[0000000000000788] pgd=0000000000000000, p4d=0000000000000000,
+  pud=0000000000000000
+Internal error: Oops: 96000005 [#1] PREEMPT SMP
+Modules linked in: sys_sched_bug sja1110(O)
+CPU: 0 PID: 293 Comm: mast Tainted: G    O    5.10.145-rt74+g1594b25154a2 #1
+Hardware name: NXP S32G274A-RDB2 (DT)
+pstate: 40000005 (nZcv daif -PAN -UAO -TCO BTYPE=--)
+pc : cpuacct_charge_systest+0x64/0xed4 [sys_sched_bug]
+lr : cpuacct_charge_systest+0x50/0xed4 [sys_sched_bug]
+sp : ffffffc013c5bde0
+x29: ffffffc013c5bde0 x28: 0000000000000000
+x27: ffffff8800c06ec8 x26: ffffffc010d248a8
+x25: 0000000000000000 x24: ffffff88016aa380
+x23: ffffffc008879000 x22: ffffffc013c03cb8
+x21: ffffff88016aa380 x20: ffffffc008877030
+x19: ffffffc008877038 x18: ffffffc010c98eb0
+x17: 0000000000000000 x16: 0000000000000000
+x15: 0000000000000040 x14: 0000000000000000
+x13: 00000000000002fc x12: fffffffffffe6377
+x11: ffffffc010c98ec8 x10: ffffffc010ca11d0
+x9 : ffffffc013c5bde0 x8 : 2d2d2d2d2d2d2d2d
+x7 : 2d2d2d2d2d2d2d2d x6 : 00000000fffff97d
+x5 : 0000000000000000 x4 : ffffff885f885888
+x3 : ffffff885f8887c0 x2 : b7c06261e2d09500
+x1 : 0000000000000000 x0 : ffffffc008877080
+Call trace:
+  cpuacct_charge_systest+0x64/0xed4 [sys_sched_bug]
+  kthread+0x178/0x180
+  ret_from_fork+0x10/0x30
+Code: aa0003f7 f941a001 b0000000 91020000 (f943c421)
+---[ end trace 64fb1cfff6404773 ]---
+
 <a> arch/arm64/kernel/entry-common.c
 
 el1h_64_sync_handler() branch based on EC
@@ -78,29 +123,42 @@ do_mem_abort()
      +- (struct fault_info *)inf->fn(far, esr, regs)
                                    |
 Registration on fault_info[] <-----+ callback
-                                   |!=0                 yes
-                                   +- user_mode(regs) ------> die_kernel_fault()
-                                            |no
-                                            +- arm64_notify_die()
-                                               For an unrecognized fault type.
+                     |             |!=0                 yes
+                     |             +- user_mode(regs) ------> die_kernel_fault()
+                     |                    |no
+                     |                    +- arm64_notify_die()
+                     |                       For an unrecognized fault type.
+                     ▼
+        *------------------------*
+        | do_bad()               |
+        | ...                    |
+        | do_translation_fault() |
+        | ...                    |
+        | do_page_fault()        |
+        | ...                    |
+        | do_sea()               |
+        | ...                    |
+        | do_tag_check_fault()   |
+        | ...                    |
+        | do_alignment_fault()   |
+        | ...                    |
+        *------------------------*
 
-Functions includes:
-
-- do_bad()
+(a) do_bad()
      |
      +- Unimpletmented
 
-- do_translation_fault()
+(b) do_translation_fault()
            |                        yes
            +- is_ttbr0_addr(far) --------> do_page_fault()
                      |no
                      +- do_bad_area()
 
-- do_page_fault()
+(c) do_page_fault()
 
 [Synchronous External Abort]
 
-- do_sea()
+(d) do_sea()
      |                                               yes
      +-> In user state, apei_claim_sea(regs) == 0 --------> <return>
 				|no
@@ -112,11 +170,11 @@ Functions includes:
                          |no
                          +- die()
 
-- do_tag_check_fault()
+(e) do_tag_check_fault()
            |
            +- do_bad_area()
 
-- do_alignment_fault()
+(f) do_alignment_fault()
            |
            +- compact_user_mode(regs)                       yes
               && CONFIG_COMPACT_ALIGNMENT_FIXUPS enabled --------+
@@ -433,5 +491,9 @@ to find the valid line of code/assembler.
 $ objdump -r -S -l --disassemble *.o
 			[-d]
 @ -t => display static symbol table vs. -T dynamic symbol table
+
+syscall tracing:
+
+$ strace -yy -vv -tt -f [execution]
 
 --------------------------------------------------------------------------------
