@@ -14,29 +14,30 @@ set(AS_OPTION "-g -Wl,--build-id=none -fno-builtin -fno-PIE -Wall -fno-dwarf2-cf
 set(LD_OPTION "-static -no-pie -Wl,--wrap=memset -Wl,--wrap=memcpy")
 set(CMAKE_C_FLAGS "${CC_OPTION} ${POSIX_OPTION}")
 set(CMAKE_ASM_FLAGS "${AS_OPTION} ${POSIX_OPTION}")
-set(CMAKE_LINK_FLAGS "${LD_OPTION} -T ${CMAKE_CURRENT_SOURCE_DIR}/build/rk3568_jailhouse.ld")
-set(CMAKE_EXE_LINKER_FLAGS "${LD_OPTION} -T ${CMAKE_CURRENT_SOURCE_DIR}/build/rk3568_jailhouse.ld")
+set(CMAKE_LINK_FLAGS "${LD_OPTION} -T ${CMAKE_CURRENT_SOURCE_DIR}/build/rk3566_rz3w.ld")
+set(CMAKE_EXE_LINKER_FLAGS "${LD_OPTION} -T ${CMAKE_CURRENT_SOURCE_DIR}/build/rk3566_rz3w.ld")
 
 include(${HOME_PATH}/cmake/functions/uniproton_functions.cmake)
 import_kconfig(${HOME_PATH}/build/uniproton_config/config_armv8_rk3568_jailhouse/defconfig)
+
+message("------------------------- CURRENT PATH: ${CMAKE_CURRENT_SOURCE_DIR} -------------------------")
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/config
     ${CMAKE_CURRENT_SOURCE_DIR}/bsp
-    ${CMAKE_CURRENT_SOURCE_DIR}/bsp/rk3568_jailhouse
+    ${CMAKE_CURRENT_SOURCE_DIR}/bsp/rk3566_rz3w
     ${CMAKE_CURRENT_SOURCE_DIR}/bsp/uart
     ${CMAKE_CURRENT_SOURCE_DIR}/apps/ivshmem
-    ${HOME_PATH}/output/libc/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/build/open-amp/output/usr/local/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/build/libmetal/output/usr/local/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/libc/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/component/openamp/output/usr/local/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/component/libmetal/output/usr/local/include
 )
 
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/libs)
 link_libraries(
     -Wl,--start-group
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/libCortexMXsec_c.lib"
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/libRK3568_JAILHOUSE.a"
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/liblua.a"
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/libmetal.a"
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/libopen_amp.a"

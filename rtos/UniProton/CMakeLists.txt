@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.14.1) #cmake最低版本要求
 
 project(UniProton LANGUAGES C ASM) #项目名字为UniProton
 
-
 ############################## 外部传入变量 ##############################
 set(CPU_TYPE "$ENV{CPU_TYPE}" )
 set(PLAM_TYPE "$ENV{PLAM_TYPE}" )
@@ -129,10 +128,10 @@ else()
 endif()
 
 add_compile_options(
-        -ffreestanding 
-        -nostdinc 
-        -Wno-undef 
-        -Wno-strict-prototypes 
+        -ffreestanding
+        -nostdinc
+        -Wno-undef
+        -Wno-strict-prototypes
         -Wno-redundant-decls
         -Wno-cast-qual
         -Wno-parentheses

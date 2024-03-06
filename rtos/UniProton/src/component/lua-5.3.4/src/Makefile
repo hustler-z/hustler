@@ -7,7 +7,7 @@
 PLAT= none
 
 CC= $(TOOLCHAIN_GCC_PATH) -std=gnu99
-CFLAGS= -O2 -Wall -Wextra -DLUA_COMPAT_5_2 -nostdinc -nostdlib $(SYSCFLAGS) $(MYCFLAGS) -I../../../../output/libc/include
+CFLAGS= -O2 -Wall -Wextra -DLUA_COMPAT_5_2 -nostdinc -nostdlib $(SYSCFLAGS) $(MYCFLAGS) -I../../../../demos/rk3566_rz3w/include/libc/include
 LDFLAGS= -nostdinc -nostdlib $(SYSLDFLAGS) $(MYLDFLAGS)
 LIBS= $(SYSLIBS) $(MYLIBS)
 
