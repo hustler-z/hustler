@@ -19,10 +19,10 @@ cpus_ = {'all': ['clean', 'm4', 'raspi4', 'hi3093', 'atlasa1', 'kp920', 'x86_64'
          'kp920': ['kp920'],
          'x86_64': ['x86_64'],
          'rk3568_jailhouse': ['rk3568_jailhouse'],
-         'rk3566_rz3w': ['rk3566_rz3w'],
          'ascend310b': ['ascend310b'],
          'uvp': ['uvp'],
-         'rv64virt': ['rv64virt']
+         'rv64virt': ['rv64virt'],
+         'rk3566_rz3w': ['rk3566_rz3w']
          }
 
 cpu_plat = {'m4': ['cortex'],
@@ -32,8 +32,8 @@ cpu_plat = {'m4': ['cortex'],
             'kp920': ['armv8'],
             'x86_64': ['x86_64'],
             'rk3568_jailhouse': ['armv8'],
-            'rk3566_rz3w': ['armv8'],
             'ascend310b': ['armv8'],
             'uvp': ['x86_64'],
-            'rv64virt': ['riscv64']
+            'rv64virt': ['riscv64'],
+            'rk3566_rz3w': ['armv8']
            }

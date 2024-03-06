@@ -49,7 +49,7 @@ add_subdirectory(bsp)
 add_subdirectory(config)
 add_subdirectory(apps)
 
-if (${APP} STREQUAL "UniPorton_test_posix_time_interface" OR 
+if (${APP} STREQUAL "UniPorton_test_posix_time_interface" OR
     ${APP} STREQUAL "UniPorton_test_posix_thread_sem_interface" OR
     ${APP} STREQUAL "UniPorton_test_posix_thread_pthread_interface" OR
     ${APP} STREQUAL "UniPorton_test_posix_signal_interface")

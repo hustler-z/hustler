@@ -11,7 +11,7 @@ import logging
 import globle
 
 
-logging.basicConfig(stream=sys.stdout, level=logging.NOTSET) 
+logging.basicConfig(stream=sys.stdout, level=logging.NOTSET)
 
 class BuilderNolog():
 
@@ -25,7 +25,7 @@ class BuilderNolog():
             with open(self.log_file) as file_handle:
                 for line in file_handle.readlines():
                     logging.info(line)
-            logging.info("\n--[INFO] more message in logfile [%s] env: [%s]" ,self.log_file, env)
+            logging.info("\n[INFO] more message in logfile [%s] env: [%s]" ,self.log_file, env)
         return exit_code
 
     def log_format(self):
@@ -61,4 +61,4 @@ class BuilderNolog():
 
 
 def log_msg(level,msg):
-    logging.info('[%s] %s %s %s', level.upper(),'#'*20,msg,'#'*20)
+    logging.info('[%s] %s %s %s', level.upper(),'-'*20,msg,'-'*20)

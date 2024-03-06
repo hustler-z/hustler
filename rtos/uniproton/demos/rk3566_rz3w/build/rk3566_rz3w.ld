@@ -16,12 +16,12 @@ SECTIONS
         __text_start = .;
         KEEP(*(.text.bspinit))
     } > IMU_SRAM
-    
+
     .start_text :
     {
         KEEP(*(.text.startup))
     } > IMU_SRAM
-    
+
     .text :
     {
         *(.text)
@@ -32,7 +32,7 @@ SECTIONS
     } > IMU_SRAM
     . = ALIGN(8);
     data_copy_start = .;
-    
+
     .rodata :
     {
         . = ALIGN(8);
@@ -42,7 +42,7 @@ SECTIONS
         . = ALIGN(8);
         __rodata_end = .;
     } > IMU_SRAM
-    
+
     .eh_frame :
     {
         . = ALIGN(8);
@@ -50,7 +50,7 @@ SECTIONS
         *(.eh_frame)
         __os_unwind_table_end = .;
     } > IMU_SRAM
-    
+
     .heap (NOLOAD) :
     {
         . = ALIGN(8);
@@ -59,7 +59,7 @@ SECTIONS
         . = ALIGN(8);
         PROVIDE (__HEAP_END = .);
     } > IMU_SRAM
-    
+
     .stack (NOLOAD) :
     {
         . = ALIGN(8);
@@ -69,7 +69,7 @@ SECTIONS
         PROVIDE (__os_sys_sp_end = .);
     } > IMU_SRAM
     end = .;
-    
+
     .percpu.data :
     {
         __os_per_cpu_start = .;
@@ -77,7 +77,7 @@ SECTIONS
         __os_per_cpu_end = .;
         LONG (ALIGNOF(.percpu.data))
     } > IMU_SRAM
-    
+
     .data :
     {
         . = ALIGN(8);
@@ -91,7 +91,7 @@ SECTIONS
         __os_text_end = .;
         __data_end = .;
     } > IMU_SRAM
-    
+
     .llt.bss :
     {
         _llt_bss_start = .;
@@ -99,7 +99,7 @@ SECTIONS
         *__code_measure_stub*.o(.bss.*)
         _llt_bss_end = .;
     } > IMU_SRAM
-    
+
     .bss (NOLOAD) :
     {
         . = ALIGN(8);

@@ -190,7 +190,7 @@ def kconfig2macro(in_file, out_file, flag):
     ret = write_c_external_tail(out_file)
     if ret != 0:
         return ret
-    
+
     if header_type == HEADER_TYPE_BUILD:
         ret_code = wirte_buildef_header(out_file)
         if ret_code != 0:

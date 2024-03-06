@@ -18,7 +18,7 @@ function(import_kconfig config_file)##.config文件转换为cmake命名空间的
       ## 获取匹配值
       set(conf_value ${CMAKE_MATCH_1})##获取匹配值
       ##匹配CONFIG_OS_HARDWARE_PLATFORM="OS_ARM7" 这种有""的情形
-      if("${conf_value}" MATCHES "^\"(.*)\"$") 
+      if("${conf_value}" MATCHES "^\"(.*)\"$")
         ##设置环境变量值
         set(conf_value ${CMAKE_MATCH_1})##设置环境变量值
       ##定义结束

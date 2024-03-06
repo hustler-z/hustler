@@ -85,6 +85,17 @@
         </project>
     </projects>
     <projects>
+        <project cpu_type="rk3566_rz3w">
+            <lib_type>SRE</lib_type>
+            <platform plat_name="armv8">
+                <name>armv8</name>
+                <compile_path_x86>/os/toolchains/armcc-bm-64/bin</compile_path_x86>
+                <compile_path_arm64>/os/toolchains/armcc-bm-64/bin</compile_path_arm64>
+                <kconf_dir>armv8_rk3566_rz3w</kconf_dir>
+            </platform>
+        </project>
+    </projects>
+    <projects>
         <project cpu_type="ascend310b">
             <lib_type>SRE</lib_type>
             <platform plat_name="armv8">

@@ -3,12 +3,12 @@ export TOOLCHAIN_GCC_PATH=/os/toolchains/armcc-bm-64-uniproton/bin/aarch64-none-
 # export ALL="task-switch task-preempt semaphore-shuffle interrupt-latency deadlock-break message-latency"
 export ALL="rk3566_rz3w"
 
-PROJPATH=/os/oscope/rtos/UniProton
+PROJPATH=/os/oscope/rtos/uniproton
 export RPROTON_BINARY_DIR=$PROJPATH
-DEMOPATH=/os/oscope/rtos/UniProton/demos/rk3566_rz3w
+DEMOPATH=/os/oscope/rtos/uniproton/demos/rk3566_rz3w
 export CPU_TYPE=$ALL
 
-sh ./build_static.sh rk3566_rz3w
+sh ./build_static.sh $CPU_TYPE
 sh ./build_openamp.sh $TOOLCHAIN_PATH
 
 cd $PROJPATH/src/component/lua-5.3.4/src

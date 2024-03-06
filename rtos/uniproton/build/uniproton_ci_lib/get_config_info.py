@@ -9,7 +9,7 @@ import globle
 from logs import BuilderNolog, log_msg
 
 
-logging.basicConfig(stream=sys.stdout, level=logging.NOTSET) 
+logging.basicConfig(stream=sys.stdout, level=logging.NOTSET)
 logging.info(globle.config_dir)
 config_tree = xml.dom.minidom.parse(globle.config_dir)
 EXCEPTION_LIST = (AssertionError, AttributeError, IOError,
@@ -50,7 +50,7 @@ def get_cpu_info(cpu_type, cpu_plat, os_plat):
     except EXCEPTION_LIST:
         log_msg('error', "get cpu {} config info error:{} {}".format(cpu_type, cpu_plat, os_plat))
         sys.exit(0)
-    
+
     system, core = "None", "None"
     try:
         for cpu in cpu_list:

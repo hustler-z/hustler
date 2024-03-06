@@ -1,5 +1,5 @@
-PROJPATH=/os/oscope/rtos/UniProton
-DEMOPATH=/os/oscope/rtos/UniProton/demos/rk3566_rz3w
+PROJPATH=/os/oscope/rtos/uniproton
+DEMOPATH=/os/oscope/rtos/uniproton/demos/rk3566_rz3w
 
 if [ ! -d $DEMOPATH/component/libmetal ];then
     echo "################# git clone libmetal #################"
