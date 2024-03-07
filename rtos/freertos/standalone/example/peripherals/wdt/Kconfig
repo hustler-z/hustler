@@ -1,4 +1,0 @@
-mainmenu "Phytium Baremetal Configuration"
-
-source "$(SDK_DIR)/standalone.kconfig"
-
