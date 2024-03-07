@@ -1,6 +1,0 @@
-set(CMAKE_ASM_COMPILER_ID "ARMASM")
-add_library_ex(prt_hw.S)
-add_library_ex(prt_hw_exc.S)
-add_library_ex(prt_dispatch.S)
-add_library_ex(prt_vector.S)
-add_library_ex(prt_div64.c)
