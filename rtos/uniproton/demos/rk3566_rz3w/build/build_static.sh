@@ -1,15 +1,16 @@
 PROJPATH=/os/oscope/rtos/uniproton
 DEMOPATH=$PROJPATH/demos/$1
 
-if [ ! -d $PROJPATH/platform/libboundscheck ];then
-    git clone https://gitee.com/openeuler/libboundscheck.git
+git clone https://gitee.com/openeuler/libboundscheck.git
+if [ ! -d $PROJPATH/platform/libboundscheck/include ] && [ ! -d $PROJPATH/platform/libboundscheck/src ];then
     mkdir -p $PROJPATH/platform/libboundscheck/include
     mkdir -p $PROJPATH/platform/libboundscheck/src
-    cp libboundscheck/include/* ../../../platform/libboundscheck/include
-    cp libboundscheck/include/* ../include
-    cp libboundscheck/src/* ../../../platform/libboundscheck/src
-    rm -rf libboundscheck
 fi
+
+cp libboundscheck/include/* ../../../platform/libboundscheck/include
+cp libboundscheck/include/* ../include
+cp libboundscheck/src/* ../../../platform/libboundscheck/src
+rm -rf libboundscheck
 
 echo ""
 echo "----------------------------------- COMPILE UNIPROTON KERNEL -----------------------------------"
@@ -21,20 +22,28 @@ echo ""
 # UniProton kernel lib
 if [ -d $PROJPATH/output/UniProton/lib/$1 ];then
     cp $PROJPATH/output/UniProton/lib/$1/* $DEMOPATH/libs
+else
+    echo "[warning] --------------------------------------------------------------------------------------"
 fi
 
 # UniProton secure c lib
 if [ -d $PROJPATH/output/libboundscheck/lib/$1 ];then
     cp $PROJPATH/output/libboundscheck/lib/$1/* $DEMOPATH/libs
+else
+    echo "[warning] --------------------------------------------------------------------------------------"
 fi
 
 # libc
 if [ -d $PROJPATH/output/libc ];then
     cp -r $PROJPATH/output/libc $DEMOPATH/include
+else
+    echo "[warning] --------------------------------------------------------------------------------------"
 fi
 
 if [ -d $DEMOPATH/include/libc/include ];then
     rm -rf $DEMOPATH/include/libc
+else
+    echo "[warning] --------------------------------------------------------------------------------------"
 fi
 
 mkdir -p $DEMOPATH/include/libc/include

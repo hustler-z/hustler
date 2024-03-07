@@ -40,7 +40,7 @@ link_libraries(
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/libCortexMXsec_c.lib"
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/liblua.a"
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/libmetal.a"
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/libopen_amp.a"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/libopenamp.a"
     -Wl,--end-group
     -lgcc
 )
