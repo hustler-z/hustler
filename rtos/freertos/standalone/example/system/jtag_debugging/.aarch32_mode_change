@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+
+import telnetlib
+import time
+# 参数
+host = "127.0.0.1"
+port = 4444
+timeout = 10
+
+# 建立 Telnet 连接
+tn = telnetlib.Telnet(host, port, timeout)
+time.sleep(1)  # 等待2秒，确保命令被处理
+# 发送命令
+tn.write(b"halt\n")
+
+tn.write(b"aarch64 aarch32\n")
+time.sleep(2)
+
+tn.write(b"exit\n")
+
+# 关闭连接
+tn.close()
+ 

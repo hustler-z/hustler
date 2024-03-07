@@ -1,0 +1,43 @@
+#
+# For a description of the syntax of this configuration file,
+# see tools/kconfiglib/kconfig-language.txt.
+#
+
+
+mainmenu "Phytium Baremetal Configuration"
+
+	menu "Project Configuration"
+
+
+	config SHM_BASE_ADDR
+		hex "Share memory address set"
+		default 0xc0000000
+				
+
+
+
+	menu "AMP Config"
+
+		config IPI_IRQ_NUM
+			int "Communication interruption number between multiple cores"
+			default 0
+		
+		config IPI_IRQ_NUM_PRIORITY
+			int "Priority of internuclear communication interruption"
+			default 16
+		
+		config SPIN_MEM
+			hex "Spin-lock shared memory"
+			default 0x80000000
+
+		config TARGET_CPU_ID
+			int "Destination CPU communication id"
+			default 1
+
+	endmenu
+endmenu
+
+
+
+source "$(SDK_DIR)/standalone.kconfig"
+

@@ -1,0 +1,17 @@
+menu "Master project Configuration"
+
+config SPIN_MEM
+	hex "Spin-lock shared memory"
+	default 0x80000000
+
+config SHARE_BUFFER_BASE
+	hex "Shared buffer base address"
+	default 0xc0000000
+
+config FGIC_SPI_UART_INSTANCE_ADDRESS
+	hex "Share buffer address uart address"
+	default 0xc1000000  
+
+
+endmenu
+
