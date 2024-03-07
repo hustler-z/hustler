@@ -21,11 +21,17 @@ class BuilderNolog():
 
     def run(self, cmd, cwd=os.getcwd(), env=None):
         exit_code = os.system('cd %s && %s' % (cwd, cmd))
+        print('%s: %s [exit %d]' % (cwd, cmd, exit_code))
         if exit_code != 0:
             with open(self.log_file) as file_handle:
                 for line in file_handle.readlines():
                     logging.info(line)
-            logging.info("\n[INFO] more message in logfile [%s] env: [%s]" ,self.log_file, env)
+
+        if exit_code == 0:
+            with open(self.log_file) as file_handle:
+                for line in file_handle.readlines():
+                    logging.info(line)
+            # logging.info("\n[INFO] more message in logfile [%s] env: [%s]" ,self.log_file, env)
         return exit_code
 
     def log_format(self):

@@ -51,8 +51,8 @@ cmake $DEMOPATH/component/openamp -DCMAKE_TOOLCHAIN_FILE=$DEMOPATH/component/ope
     -DTOOLCHAIN_PATH:STRING=$1
 make VERBOSE=1 DESTDIR=../output install
 if [ $? -ne 0 ];then
-        echo "make openamp failed!"
-        exit 1
+    echo "make openamp failed!"
+    exit 1
 fi
 
 cd $DEMOPATH/component

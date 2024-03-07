@@ -53,13 +53,29 @@ class Compile:
         os.environ["CORE"] = self.core
         os.environ["OBJCOPY_PATH"] = self.objcopy_path
         os.environ['PATH'] = '%s:%s' % (self.hcc_path, os.getenv('PATH'))
+        print('----------------------------------------- CMAKE ENVIRON ----------------------------------------')
+        print('CPU_TYPE: %s' % self.cpu_type)
+        print('PLAM_TYPE: %s' % self.plam_type)
+        print('COMPILE_OPTION: %s' % self.compile_option)
+        print('HCC_PATH: %s' % self.hcc_path)
+        print('UNIPROTON_PACKING_PATH: %s' % self.UniProton_packing_path)
+        print('CONFIG_FILE_PATH: %s' % self.config_file_path)
+        print('LIB_RUN_TYPE: %s' % self.lib_run_type)
+        print('HOME_PATH: %s' % self.home_path)
+        print('COMPILE_MODE: %s' % self.compile_mode)
+        print('BUILD_MACHINE_PLATFORM: %s' % self.build_machine_platform)
+        print('SYSTEM: %s' % self.system)
+        print('CORE: %s' % self.core)
+        print('OBJCOPY_PATH: %s' % self.objcopy_path)
+        print('PATH: %s:%s' % (self.hcc_path, os.getenv('PATH')))
+        print('----------------------------------------- CMAKE ENVIRON ----------------------------------------')
 
     # 环境准备，准备执行cmake，make，makebuildfile，CmakeList需要的环境
     # 每次compile之前请调用该函数
     def prepare_env(self, cpu_type, choice):
         # makebuildfile需要的环境kconf_dir
         # cmake需要的环境cmake_env_path，home_path（cmakelist所在的路径）,home_path,
-        # make cmd拼接需要的环境：home_path,UniProton_make_jx,log_dir,log_file，build_time_tag， UniProton_make_jx
+        # make cmd拼接需要的环境：home_path, UniProton_make_jx, log_dir, log_file，build_time_tag
 
         #根据cpu_type, choice从config文件中获取并初始化初始化hcc_path， plam_type, kconf_dir
         #根据输入分支获取
@@ -124,7 +140,8 @@ class Compile:
         if not os.path.exists(self.log_dir):
             os.makedirs(self.log_dir)
 
-        log_msg('info', 'BUILD_TIME_TAG %s' % self.build_time_tag)
+        print('------------------------------------ CMAKE GENERATES MAKEFILES ---------------------------------')
+        # log_msg('info', 'BUILD_TIME_TAG %s' % self.build_time_tag)
         self.builder = BuilderNolog(os.path.join(self.log_dir, self.log_file))
         if self.make_phase in ['CREATE_CMAKE_FILE', 'ALL']:
             real_path = os.path.realpath(self.build_tmp_dir)
@@ -135,7 +152,7 @@ class Compile:
             if self.compile_option == 'fortify':
                 cmd = '%s/cmake %s -DCMAKE_TOOLCHAIN_FILE=%s/cmake/tool_chain/uniproton_tool_chain.cmake ' \
                       '-DCMAKE_C_COMPILER_LAUNCHER="sourceanalyzer;-b;%sproject" ' \
-                      '-DCMAKE_INSTALL_PREFIX=%s &> %s/%s' % (
+                      '-DCMAKE_INSTALL_PREFIX=%s > %s/%s' % (
                 self.cmake_env_path, self.home_path, self.home_path, self.cpu_type,
                 self.UniProton_packing_path, self.log_dir, self.log_file)
             elif self.compile_option == 'hllt':
@@ -144,14 +161,15 @@ class Compile:
                 self.cmake_env_path, self.home_path, self.home_path, self.UniProton_packing_path, self.log_dir, self.log_file)
             else:
                 cmd = '%s/cmake %s -DCMAKE_TOOLCHAIN_FILE=%s/cmake/tool_chain/uniproton_tool_chain.cmake ' \
-                      '-DCMAKE_INSTALL_PREFIX=%s &> %s/%s' % (
+                      '-DCMAKE_INSTALL_PREFIX=%s > %s/%s' % (
                 self.cmake_env_path, self.home_path, self.home_path, self.UniProton_packing_path, self.log_dir, self.log_file)
             #执行cmake命令
             if self.builder.run(cmd, cwd=self.build_tmp_dir, env=None):
                 log_msg('error', 'generate makefile failed!')
                 return False
 
-        log_msg('info', 'generate makefile succeed.')
+        # log_msg('info', 'generate makefile succeed.')
+        print('------------------------------------ CMAKE GENERATES MAKEFILES ---------------------------------')
         return True
 
     def UniProton_clean(self):
@@ -174,25 +192,26 @@ class Compile:
             shutil.rmtree('%s/build/prepare/__pycache__'%self.home_path)
         return True
 
-
     def make(self):
+        print('-------------------------------------- COMPILATION KICKS IN ------------------------------------')
         if self.make_phase in ['EXECUTING_MAKE', 'ALL']:
             self.builder.run('make clean', cwd=self.build_tmp_dir, env=None)
             tmp = sys.argv
-            if self.builder.run(
-                    'make all %s &>> %s/%s' % (
-                    self.UniProton_make_jx, self.log_dir, self.log_file), cwd=self.build_tmp_dir, env=None):
+            cmd = 'make all %s >> %s/%s' % (self.UniProton_make_jx, self.log_dir, self.log_file)
+            if self.builder.run(cmd, cwd=self.build_tmp_dir, env=None):
                 log_msg('error', 'make %s %s  failed!' % (self.cpu_type, self.plam_type))
                 return False
             sys.argv = tmp
             if self.compile_option in ['normal', 'coverity', 'single']:
-                if self.builder.run('make install %s &>> %s/%s' % (self.UniProton_make_jx, self.log_dir, self.log_file), cwd=self.build_tmp_dir, env=None):
+                cmd = 'make install %s >> %s/%s' % (self.UniProton_make_jx, self.log_dir, self.log_file)
+                if self.builder.run(cmd, cwd=self.build_tmp_dir, env=None):
                     log_msg('error', 'make install failed!')
                     return False
             if os.path.exists('%s/%s' % (self.log_dir, self.log_file)):
                 self.builder.log_format()
-        
-        log_msg('info', 'make %s %s succeed.' % (self.cpu_type, self.plam_type))
+
+        # log_msg('info', 'make %s %s succeed.' % (self.cpu_type, self.plam_type))
+        print('-------------------------------------- COMPILATION KICKS IN ------------------------------------')
         return True
 
     def SdkCompaile(self)->bool:
@@ -202,10 +221,10 @@ class Compile:
 
         self.MakeBuildef()
         if self.CMake() and self.make():
-            log_msg('info', 'make %s %s lib succeed!' % (self.cpu_type, self.make_choice))
+            # log_msg('info', 'make %s %s lib succeed!' % (self.cpu_type, self.make_choice))
             return True
         else:
-            log_msg('info', 'make %s %s lib failed!' % (self.cpu_type, self.make_choice))
+            # log_msg('info', 'make %s %s lib failed!' % (self.cpu_type, self.make_choice))
             return False
 
     # 对外函数，调用后根据类初始化时的值进行编译
@@ -230,12 +249,12 @@ class Compile:
 
         if not make_buildef(globle.home_path,self.kconf_dir,"CREATE"):
             sys.exit(1)
-        log_msg('info', 'make_buildef_file.sh %s successfully.' % self.kconf_dir)
+        # log_msg('info', 'make_buildef_file.sh %s successfully.' % self.kconf_dir)
 
 # argv[1]: cpu_plat 表示要编译的平台：
 # argv[2]: compile_option 控制编译选项，调用不同的cmake参数，目前只有normal coverity hllt fortify single(是否编译安全c，组件化独立构建需求)
 # argv[3]: lib_run_type lib库要跑的平台 faga sim等
-# argv[4]: make_choice 
+# argv[4]: make_choice
 # argv[5]: make_phase 全量构建选项
 # argv[6]: UniProton_packing_path lib库的安装位置
 if __name__ == "__main__":
@@ -256,4 +275,3 @@ if __name__ == "__main__":
         if not UniProton_build.UniProtonCompile():
             sys.exit(1)
     sys.exit(0)
-
