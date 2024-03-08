@@ -19,9 +19,9 @@ execve() @syscall
                                  +- allocate_mm()
                                          |
                                          +- kmem_cache_alloc()
-                                                    |
-                                                    +-> SLAB cache for mm_struct
-                                                                (mm_cachep)
+                                                |
+                                                +-> SLAB cache for mm_struct
+                                                          (mm_cachep)
                                  |
                                  +- mm_init()
 
@@ -32,8 +32,8 @@ execve() @syscall
                                     +- vm_area_alloc()
                                             |
                                             +- kmem_cache_alloc()
-                                                 |
-                                                 + SLAB cache for vm_area_struct
+                                                |
+                                                + SLAB cache for vm_area_struct
                                                         (vm_area_cachep)
                                             |
                                             +- vma_init()
@@ -123,6 +123,33 @@ fork() @syscall
                   +- sched_fork()
                           :
                           +- __sched_fork() => Basic Setup
+
+                  :
+                  +- copy_thread() [+] arch/arm64/kernel/process.c
+
+                *----------------------------------------------------*
+                | if (struct kernel_clone_args *)args->fn != NULL    |
+                | p->thread.cpu_context.x19 => args->fn              |
+                | p->thread.cpu_context.x20 => args->fn_arg          |
+                | p->thread.cpu_context.pc  => ret_from_fork         |
+                | p->thread.cpu_context.sp  => childregs             |
+                | p->thread.cpu_context.fp  => childregs->stackframe |
+                *----------------------------------------------------*
+
+@kernel assembly:
+
+SYM_CODE_START(ret_from_fork)
+	bl	schedule_tail
+	cbz	x19, 1f	    => not a kernel thread
+	mov	x0, x20
+	blr	x19         => kthread()
+1:	get_current_task tsk
+	mov	x0, sp
+	bl	asm_exit_to_user_mode
+	b	ret_to_user
+SYM_CODE_END(ret_from_fork)
+NOKPROBE(ret_from_fork)
+
          :
          +- wake_up_new_task()
          :        :
@@ -146,6 +173,35 @@ kthread_create() => create a kthread on the current node
                       - Initialize *kthread_create_info* structure
                       - Insert create->list to the tail of *kthread_create_list*
                       - wake_up_process(kthreadd_task)
+
+@kthread_create_list - global kthread list
+
+kthreadd() will constantly check the *kthread_create_list*. If it's not empty,
+then create_kthread().
+
+                                kthreadd
+                                    |
+                                    ▼
+        create_kthread() <----------+--------- [*]
+                |                               |
+               [0]                 (struct kthread_create_info)
+                                                ▲
+                                                |
+                                       newly created kthread
+                                        (struct task_struct)
+               [0]
+                :
+                +- kernel_thread()
+                        :
+                        +- kernel_clone() [see above]
+
+kthread()
+    :
+    +- sched_setscheduler_nocheck() {SCHED_NORMAL thread}
+    :
+    +- set_cpus_allowed_ptr()
+    :
+    +- create->threadfn() => The thread function created early
 
 kthread_bind() => bind a just-created kthread to a cpu.
       |

@@ -380,7 +380,7 @@ bug_handler() [+] arch/arm64/kernel/traps.c
                       |
               @BUG_TRAP_TYPE_BUG
                       |
-     |________________|
+     |<---------------|
      |
      +- die("Oops - BUG", regs, esr)
                 :
