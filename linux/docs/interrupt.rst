@@ -69,7 +69,6 @@ separation of EL3 from the rest of Secure state.
 		Vector Catch exceptions
 		Software Step exceptions
 
-
 2) Asynchronous exceptions
     • Physical interrupts
         • SError

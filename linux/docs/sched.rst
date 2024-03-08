@@ -179,16 +179,16 @@ kthread_create() => create a kthread on the current node
 kthreadd() will constantly check the *kthread_create_list*. If it's not empty,
 then create_kthread().
 
-                                kthreadd
+                                kthreadd() wakes up (kthreadd_task)
                                     |
                                     ▼
-        create_kthread() <----------+--------- [*]
-                |                               |
-               [0]                 (struct kthread_create_info)
-                                                ▲
-                                                |
-                                       newly created kthread
-                                        (struct task_struct)
+        create_kthread() <----------+---- [*]
+                |                          |
+               [0]           (struct kthread_create_info)
+                                           ▲
+                                           |                       ➊           
+                                 newly created kthread ◀--- kthread_create()
+                                  (struct task_struct)
                [0]
                 :
                 +- kernel_thread()
@@ -922,7 +922,25 @@ complete() will wake up a single thread waiting on this completion. Threads will
                                         +- select_task_rq()
                                         :
                                         +- ttwu_queue() {ttwu => try_to_wake_up}
-                                        :
+                                        :       :
+                                                +- ttwu_queue_wakelist()
+                                                :
+                                                +- ttwu_do_activate()
+                                                           :
+                                                           +- activate_task()
+                                                           :
+                                                           +- ttwu_do_wakeup()
+
+ttwu_queue_wakelist()
+         :
+         +- __ttwu_queue_wakelist()
+                      :
+*-----------------------------------------------------------------------*
+| Queue a task on the target CPUs wake_list and wake the CPU via IPI if |
+| necessary. The wakee CPU on receipt of the IPI will queue the task    |
+| via sched_ttwu_wakeup() for activation so the wakee incurs the cost   |
+| of the wakeup instead of the waker.                                   |
+*-----------------------------------------------------------------------*
 
 --------------------------------------------------------------------------------
 - workqueue -
