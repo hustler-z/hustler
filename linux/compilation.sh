@@ -40,22 +40,32 @@ build() {
 
 			echo "--------------------------- Start Generating tags ------------------------------"
 			start=$(date +%s)
-			ctags=$(command -v ctags)
-			if [ -z $ctags ];then
-				echo "ctags ain't installed yet"
+			_ctags=$(command -v ctags)
+			if [ -z $_ctags ];then
+				echo "ctags ain't installed yet, [sudo] apt install exuberant-ctags"
 				TAGS=
 			else
 				TAGS=tags
 			fi
-			cscope=$(command -v cscope)
-			if [ -z $cscope ];then
-				echo "cscope ain't installed yet"
+
+			_cscope=$(command -v cscope)
+			if [ -z $_cscope ];then
+				echo "cscope ain't installed yet, [sudo] apt install cscope"
 				CSCOPE=
 			else
 				CSCOPE=cscope
 			fi
+
+			_gtags=$(command -v gtags)
+			if [ -z $_gtags ] || [ ! -z $_cscope ];then
+				# echo "gtags ain't installed yet, [sudo] apt install global"
+				GTAGS=
+			else
+				GTAGS=gtags
+			fi
+
 			echo "--------------------------------------------------------------------------------"
-			make -j88 $TAGS $CSCOPE
+			make -j88 $TAGS $CSCOPE $GTAGS
 			end=$(date +%s)
 			total=$(($end-$start))
 			echo "--------------------------------------------------------------------------------"
