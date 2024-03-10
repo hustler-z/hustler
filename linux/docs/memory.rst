@@ -60,7 +60,39 @@ read the translation tables in memory. The newly loaded translation can then
 be cached in the TLB for possible reuse if the translation table walk does
 not result in a page fault.
 
-TLB Invalidate Instruction
+flush_tlb_range()
+       |
+       +- __flush_tlb_range()
+                   :
+                   +- flush_tlb_mm()
+                            :
+                            +- __tlbi(aside1is, asid)
+                            :
+                            +- __tlbi_user(aside1is, asid)
+       :                                      |
+       |                    *----------------------------------*
+       ▼                    | ASIDE1IS TLB invalidate by ASID, |
+                            | EL1, Inner Shareable             |
+                            *----------------------------------*
+
+flush_tlb_kernel_range()
+       :
+       +- __tlbi(vaale1is, addr) for a range of virtual address
+
+--------------------------------------------------------------------------------
+= FLUSH TLB -
+
+The following code shows a sequence for writes to translation tables backed by
+inner shareable memory:
+
+<< Writes to Translation Tables >>
+DSB ISHST       => ensure write has completed
+TLBI ALLE1      => invalidate all TLB entries
+DSB ISH         => ensure completion of TLB invalidation
+ISB             => synchronize context and ensure that no instructions
+                   are fetched using the old translation
+
+TLB Invalidate Instruction is the key:
 
 TLBI <tlbi_op> {, <Xt>}
 
@@ -68,8 +100,10 @@ For a change of a single TLB entry:
 
 tlbi vae1, <Xt>
 
-which invalidates an entry associated with the address specified in the
-register Xt.
+which invalidates an entry associated with the address specified in the register
+Xt.
+
+--------------------------------------------------------------------------------
 
 [VA]
 
@@ -134,6 +168,8 @@ typically kernel space.
 
 TTBR0_EL1 -> Userspace
 TTBR1_EL1 -> Kernelspace
+
+@check linux/docs/sched.rst for more details on context switching.
 
 --------------------------------------------------------------------------------
 
@@ -225,6 +261,7 @@ HugePages_Rsvd:        0
 HugePages_Surp:        0
 Hugepagesize:       2048 kB
 Hugetlb:               0 kB
+
 -----------------------------------------------------
 
 [+] mm/hugetlb.c
@@ -1516,7 +1553,7 @@ try_to_compact_pages() for high-order allocation
                                        [0]
                                         |
                                         +- fragmentation_index()
-                                                | @mm/vmstat.c
+                                                | [+] mm/vmstat.c
                                                 +- __fragmentation_index()
                                                         |
         +<------------------------------------- Possible outcomes
@@ -1979,6 +2016,25 @@ $ cat /proc/slabinfo
 
 KSM is a memory-saving de-duplication feature, enabled by CONFIG_KSM=y. KSM
 maintains reverse mapping information for KSM pages in the stable tree.
+
+ksm_scan_thread() => "ksmd" kthread
+       :
+       +- ksm_do_scan()
+               :
+               +- scan_get_next_rmap_item()
+               :
+               +- cmp_and_merge_page()
+                           |
+                           ▼
+        *--------------------------------------*
+        | first see if page can be merged into |
+        | the stable tree; if not, compare     |
+        | checksum to previous and if it's the |
+        | same, see if page can be inserted    |
+        | into the unstable tree, or merged    |
+        | with a page already there and both   |
+        | transferred to the stable tree.      |
+        *--------------------------------------*
 
 --------------------------------------------------------------------------------
 - MEMFD -

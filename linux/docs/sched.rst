@@ -173,16 +173,13 @@ kthread_create() => create a kthread on the current node
                       - Initialize *kthread_create_info* structure
                       - Insert create->list to the tail of *kthread_create_list*
                       - wake_up_process(kthreadd_task)
-
-@kthread_create_list - global kthread list
-
-kthreadd() will constantly check the *kthread_create_list*. If it's not empty,
-then create_kthread().
-
-                                kthreadd() wakes up (kthreadd_task)
+                                              :
+                                              | created during rest_init()
+                                              :
+                                kthreadd() ◀--*
                                     |
                                     ▼
-        create_kthread() <----------+---- [*]
+        create_kthread() <----------+---- [*] <= {global: kthread_create_list}
                 |                          |
                [0]           (struct kthread_create_info)
                                            ▲
@@ -194,6 +191,9 @@ then create_kthread().
                 +- kernel_thread()
                         :
                         +- kernel_clone() [see above]
+
+kthreadd() will constantly check the *kthread_create_list*. If it's not empty,
+then create_kthread().
 
 kthread()
     :
