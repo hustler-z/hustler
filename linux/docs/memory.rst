@@ -60,6 +60,9 @@ read the translation tables in memory. The newly loaded translation can then
 be cached in the TLB for possible reuse if the translation table walk does
 not result in a page fault.
 
+--------------------------------------------------------------------------------
+- FLUSH TLB -
+
 flush_tlb_range()
        |
        +- __flush_tlb_range()
@@ -78,9 +81,6 @@ flush_tlb_range()
 flush_tlb_kernel_range()
        :
        +- __tlbi(vaale1is, addr) for a range of virtual address
-
---------------------------------------------------------------------------------
-= FLUSH TLB -
 
 The following code shows a sequence for writes to translation tables backed by
 inner shareable memory:
@@ -767,18 +767,32 @@ ttbr1_el1 --------------------------->*
 
 --------------------------------------------------------------------------------
 
+mremap() @syscall => expands (or shrinks) an existing memory mapping,
+                     potentially moving it at the same time.
+
+   :
+   +- if (MREMAP_FIXED | MREMAP_DONTUNMAP)
+                |
+                +- mremap_to() [+] mm/mremap.c
+
+   :
+   +- if old_len >= new_len
+                :
+                +- do_mas_munmap()
+   :
+   +- if above fails
+                :
+                +- vma_to_resize()
+
 remap memory (physical memory) to userspace (user vma)
           |
           v
    vm_iomap_memory()
-          |
           :
           +- io_remap_pfn_range()
                       |
                       +- remap_pfn_range()
-                                 |
-                                 +- track_pfn_remap()
-                                 |
+                                 :
                                  +- remap_pfn_range_notrack()
 
 
@@ -823,7 +837,7 @@ page_add_file_rmap() => add pte mapping to a file page
    |                                                                  User Space
 ---*----------------------------------------------------------------------------
    |                                                                Kernel Space
-  brk() - syscall @mm/mmap.c
+  brk() - @syscall [+] mm/mmap.c
    |
    +- if brk <= mm->brk
              |
@@ -894,6 +908,17 @@ __get_user_pages()
 	| page that would be accessed if a user thread accesses    |
 	| the given user virtual address at that instant.          |
 	*----------------------------------------------------------*
+
+--------------------------------------------------------------------------------
+- MLOCK -
+
+mlock() @syscall => lock part or all of the calling process's virtual address
+                    space into RAM, preventing that memory from being paged to
+                    the swap area.
+  :
+  +- do_mlock()
+        :
+        +- __mm_populate()
 
 --------------------------------------------------------------------------------
 - IOREMAP -

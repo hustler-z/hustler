@@ -60,7 +60,9 @@ low-power state and remain there until a wakeup event occurs.
 #define wfit(val)  asm volatile("msr s0_3_c1_c0_1, %0" : : "r" (val) : "memory")
 
 Instruction Synchronization Barrier flushes the pipeline in the PE and is a
-context synchronization event.
+context synchronization event. i.e., it flushes the CPU pipeline and
+prefetch buffers, causing instructions after the ISB to be fetched (or
+re-fetched) from cache or memory.
 
 #define isb()      asm volatile("isb" : : : "memory")
 
@@ -70,7 +72,9 @@ observations of memory accesses.
 #define dmb(opt)   asm volatile("dmb " #opt : : : "memory")
 
 Data Synchronization Barrier is a memory barrier that ensures the completion
-of memory accesses.
+of memory accesses. All pending loads and stores, cache maintenance
+instructions, and all TLB maintenance instructions, are completed before
+program execution continues.
 
 #define dsb(opt)   asm volatile("dsb " #opt : : : "memory")
 

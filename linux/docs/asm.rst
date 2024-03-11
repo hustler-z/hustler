@@ -40,6 +40,9 @@ w0           x0         Function Identifier
 
 --------------------------------------------------------------------------------
 
+Note: The 32-bit W register forms the lower half of the corresponding 64-bit X
+      register.
+
 Software Delegated Exception Interface (SDEI) provides a mechanism for
 registering and servicing system events from system firmware.
 
@@ -75,5 +78,59 @@ sdei_smccc_hvc()
                 +- __arm_smccc_hvc() [+] arch/arm64/kernel/smccc-call.S
                            :
                            +- hvc #0 => cause an exception to EL2
+
+--------------------------------------------------------------------------------
+- Cache Maintenance -
+
+<cache> <operation>{, <Xt>}
+
+IC <ic_op>{, <Xt>}
+DC <dc_op>{, <Xt>}
+
+--------------------------------------------------------------------------------
+- Conditional Branch Instructions -
+
+CBZ Rt, label          => Compare and branch if zero
+CBNZ Rt, label         => Compare and branch if not zero
+TBZ Rt, bit, label     => Test and branch if Rt<bit> zero
+TBNZ Rt, bit, label    => Test and branch if Rt<bit> is not zero
+
+--------------------------------------------------------------------------------
+
+YIELD
+Hint that the current thread is performing a task that can be swapped out.
+
+--------------------------------------------------------------------------------
+- Basic Data Types -
+
+*---------------------------------------------------------------------------*
+| Type            A32       A64        Description                          |
+*---------------------------------------------------------------------------*
+| int/long        32-bit    32-bit     integer                              |
+| short           16-bit    16-bit     integer                              |
+| char            8-bit     8-bit      byte                                 |
+| long long       64-bit    64-bit     integer                              |
+| float           32-bit    32-bit     single-precision IEEE floating-point |
+| double          64-bit    64-bit     double-precision IEEE floating-point |
+| bool            8-bit     8-bit      Boolean                              |
+| void* pointer   32-bit    64-bit     addresses to data or code            |
+*---------------------------------------------------------------------------*
+
+Byte                8 bits
+Halfword            16 bits
+Word                32 bits
+Doubleword          64 bits
+Quadword            128 bits
+
+--------------------------------------------------------------------------------
+The Multi-Processor Affinity Register (MPIDR_EL1) enables software to determine
+on which core it is executing, both within a cluster and in a system with
+multiple clusters, where it determines on which core and in which cluster it is
+executing.
+
+--------------------------------------------------------------------------------
+Symmetric Multi-Processing (SMP) is a software architecture that dynamically
+determines the roles of individual cores. Each core in the cluster has the same
+view of memory and of shared hardware.
 
 --------------------------------------------------------------------------------

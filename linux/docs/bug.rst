@@ -369,6 +369,12 @@ trap_init() been called in start_kernel()
 BUG() will generate a Breakpoint Instruction Exception (EC 0x3C) via assembly
 code: brk BUG_BRK_IMM (0x800)
 
+(a) BRK #imm16
+Enters monitor mode debug, where there is on-chip debug monitor code.
+
+(b) HLT #imm16
+Enters halt mode debug, where external debug hardware is connected.
+
     BUG() [BUG_ON(),WARN(),WARN_ON()]
      |traps
      v
