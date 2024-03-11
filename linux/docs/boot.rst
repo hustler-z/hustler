@@ -110,6 +110,13 @@ kernel_init_freeable()
           :
           +- workqueue_init()
           :
+          +- init_mm_internals() =▶ (struct workqueue_struct *) mm_percpu_wq
+
+                        ◀-------------------------[*]--------------- (CPU n)
+                                                   ▲
+                                                   |
+
+          :
           +- smp_init()
           :
           +- sched_init_smp()

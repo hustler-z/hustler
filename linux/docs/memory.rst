@@ -43,6 +43,10 @@ ordering, and cache policies for each region of memory.
                                                 | Translation Tables |
                                                 *--------------------*
 
+For each memory access performed by the processor, the MMU checks whether the
+translation is cached in the TLB. If the requested address translation causes
+a hit within the TLB, the translation of the address is immediately available.
+
 The Translation Lookaside Buffer (TLB) is a cache of recently accessed page
 translations in the MMU. For each memory access performed by the processor,
 the MMU checks whether the translation is cached in the TLB. If the requested
@@ -62,6 +66,9 @@ not result in a page fault.
 
 --------------------------------------------------------------------------------
 - FLUSH TLB -
+
+If the OS modifies translation entries that may have been cached in the TLB, it
+is then the responsibility of the OS to invalidate the stale TLB entries.
 
 flush_tlb_range()
        |

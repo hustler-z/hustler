@@ -156,6 +156,16 @@ Registration on fault_info[] <-----+ callback
 
 (c) do_page_fault()
 
+--------------------------------------------------------------------------------
+- PAGE FAULT -
+
+do_page_fault() => for userspace memory
+      :
+      +-
+
+
+--------------------------------------------------------------------------------
+
 [Synchronous External Abort]
 
 (d) do_sea()

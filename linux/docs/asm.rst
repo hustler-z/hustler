@@ -100,6 +100,8 @@ TBNZ Rt, bit, label    => Test and branch if Rt<bit> is not zero
 YIELD
 Hint that the current thread is performing a task that can be swapped out.
 
+yield()
+
 --------------------------------------------------------------------------------
 - Basic Data Types -
 
