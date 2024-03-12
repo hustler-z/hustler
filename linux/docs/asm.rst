@@ -136,3 +136,29 @@ determines the roles of individual cores. Each core in the cluster has the same
 view of memory and of shared hardware.
 
 --------------------------------------------------------------------------------
+- KERNEL INLINE ASSEMBLY -
+
+__asm__ __volatile__ ();
+
+OR
+        *------------------▶ it tells compiler that the assembly has an effect,
+        |                    so that can avoid being optimized out.
+        :
+asm [volatile] (
+        "<assembly string>"
+        [ : <output operands> ---------▶ [<name>] "<constraint>" (<value>)
+        [ : <intput operands>
+        [ : <clobbers>  ] ] ]
+);              |
+                :
+                ▼
+        To prevent the compiler from using a register for a template
+        string in an inline assembly string, add the register to the
+        clobber list.
+        also (a) "memory" => tell the compiler that the assembly code
+                             might modify any memory.
+             (b) "cc"     => tell the compiler that the assembly code
+                             might modify any of the condition flags,
+                             in NZCV (aarch64) / CPSR (aarch32).
+
+--------------------------------------------------------------------------------

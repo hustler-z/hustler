@@ -183,7 +183,7 @@ kthread_create() => create a kthread on the current node
                 |                          |
                [0]           (struct kthread_create_info)
                                            ▲
-                                           |                       ➊           
+                                           |                       ➊
                                  newly created kthread ◀--- kthread_create()
                                   (struct task_struct)
                [0]
@@ -423,8 +423,8 @@ checks if:
              *------------------------------------------------*
 
 if scheduling_deadline < current_time
-     |yes
-     +-> scheduling deadline = current time + deadline remaining runtime = runtime
+   |yes
+   +-> scheduling deadline = current time + deadline remaining runtime = runtime
 
 When a SCHED_DEADLINE task executes for an amount of time t, its remaining
 runtime is decreased as:
@@ -618,7 +618,17 @@ SCHED_FIFO is a simple scheduling algorithm without time slicing.
 @SCHED_RR: Round-robin scheduling
 
 Similar to SCHED_FIFO, except that each thread is allowed to run only for a
-maximum time quantum.
+maximum time quantum. If a SCHED_RR thread has been running for  a  time  period
+equal to or longer than the time quantum, it will be put at the end of the list
+for its priority.
+
+               |<--- maximum time quantum --->|
+               |                              |
+        ◀------|-------------[x]--------------|---[*]--------
+               |                              |             ▲
+               @SCHED_RR                                    |
+               |                                            :
+               *- - - - - - - - - - - - - - - - - - - - - - *
 
 --------------------------------------------------------------------------------
 - STOP TASKS -
