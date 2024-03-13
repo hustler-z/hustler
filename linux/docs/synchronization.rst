@@ -200,3 +200,68 @@ The list is guaranteed to be private and per-thread at do_exit() time, so it can
 be accessed by the kernel in a lockless way.
 
 --------------------------------------------------------------------------------
+- MUTEX -
+
+struct mutex
+
+mutex_lock() => Lock the mutex exclusively for this task. If the mutex is not
+    :           available right now, it will sleep until it can get it.
+    |
+    +- (a) __mutex_trylock_fast()
+       (b) __mutex_lock_slowpath()
+             |
+             +- __mutex_lock()
+                  |
+                  +- __mutex_lock_common()
+                        :
+                        +- mutex_acquire_nest()
+                        :
+                        +- if __mutex_trylock() or mutex_optimistic_spin()
+                                |
+                                : (failed)
+                                |
+                                +- raw_spin_lock(&lock->wait_lock)
+                                   then __mutex_trylock() again.
+                                     |
+                                     : (failed)
+                                     |               no
+                                     +- use_ww_ctx ------▶ __mutex_add_waiter()
+                                           |yes
+                                           +- __ww_mutex_add_waiter()
+
+                    *---▶| [infinite loop]
+                    ▲    :
+                    |    +- __mutex_waiter_is_first()
+                    |       => Check if current is the first waiter
+                    |    :
+                    |    +- __mutex_trylock_or_handoff() ------------------*
+                    |    :                                                 |
+                    |    +- if current is the first waiter then            |
+                    |       mutex_optimistic_spin()      ------------------*
+                    |    :                                                 |
+                    *◀---|                                              (break)
+
+mutex_optimistic_spin() => Optimistic spinning
+
+We try to spin for acquisition when we find that the lock owner is currently
+running on a (different) CPU and while we don't need to reschedule. The
+rationale is that if the lock owner is running, it is likely to release the
+lock soon.
+
+The mutex spinners are queued up using MCS lock so that only one spinner can
+compete for the mutex. However, if mutex spinning isn't going to happen, there
+is no point in going through the lock/unlock overhead.
+
+Returns true when the lock was taken, otherwise false, indicating that we need
+to jump to the slowpath and sleep. The waiter flag is set to true if the spinner
+is a waiter in the wait queue. The waiter-spinner will spin on the lock directly
+and concurrently with the spinner at the head of the OSQ, if present, until the
+owner is changed to itself.
+
+mutex_unlock()
+
+--------------------------------------------------------------------------------
+- RCU -
+
+
+--------------------------------------------------------------------------------

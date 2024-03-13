@@ -962,7 +962,7 @@ the worker begins executing again.
 
                      *--------*
            (*) <---- | worker | <---- (*) <---- (*) ---- workqueue
-                     *--------*        |
+                     *--------*        ▲
                                        |
                                  (work item N)
                                        |
