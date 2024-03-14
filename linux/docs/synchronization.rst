@@ -263,5 +263,51 @@ mutex_unlock()
 --------------------------------------------------------------------------------
 - RCU -
 
+(a) Remove pointers to a data structure, so that subsequent readers cannot gain
+    a reference to it.
+
+(b) Wait for all previous readers to complete their RCU read-side critical
+    sections.
+
+(c) At this point, there cannot be any readers who hold references  to the data
+    structure, so it now may safely be reclaimed (e.g., kfree()d).
+
+        rcu_assign_pointer()
+                                +--------+
+            *------------------▶| reader |---------+
+            |                   +--------+         |
+            |                       |              |
+            |                       |              | Protect:
+            |                       |              | rcu_read_lock()
+            |                       |              | rcu_read_unlock()
+            |    rcu_dereference()  |              |
+        +---------+                 |              |
+        | updater |◀----------------+              |
+        +---------+                                ▼
+            |                                +-----------+
+            *-------------------------------▶| reclaimer |
+                                             +-----------+
+        Defer:
+        synchronize_rcu() & call_rcu()
+
+-   Use rcu_read_lock() and rcu_read_unlock() to guard RCU read-side critical
+    sections.
+
+-   Within an RCU read-side critical section, use rcu_dereference() to
+    dereference RCU-protected pointers.
+
+-   Use some solid scheme (such as locks or semaphores) to keep concurrent
+    updates from interfering with each other.
+
+-   Use rcu_assign_pointer() to update an RCU-protected pointer. This primitive
+    protects concurrent readers from the updater, **not** concurrent updates
+    from each other!  You therefore still need to use locking (or something
+    similar) to keep concurrent rcu_assign_pointer() primitives from interfering
+    with each other.
+
+-   Use synchronize_rcu() **after** removing a data element from an
+    RCU-protected data structure, but **before** reclaiming/freeing the data
+    element, in order to wait for the completion of all RCU read-side critical
+    sections that might be referencing that data item.
 
 --------------------------------------------------------------------------------

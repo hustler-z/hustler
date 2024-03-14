@@ -11,13 +11,13 @@ code_tracker() {
         start=$(date +%s)
         _ctags=$(command -v ctags)
         if [ -z _ctags ];then
-            echo "ctags ain't installed yet, sudo apt install exuberant-ctags"
+            echo "ctags ain't installed yet, apt install universal-ctags"
         else
             ctags --languages=Asm,c -R
         fi
         _cscope=$(command -v cscope)
         if [ -z _cscope ];then
-            echo "cscope ain't installed yet, sudo apt install cscope"
+            echo "cscope ain't installed yet, apt install cscope"
         else
             find . -name "*.c" -o -name "*.cpp" -o -name "*.h" \
                 -o -name "*.hpp" -o -name "*.S" > cscope.files

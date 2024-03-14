@@ -57,3 +57,11 @@ $ cat /proc/sys/kernel/printk => log level
 current | default | minimum | boot-time-default
 
 -------------------------------------------------------------------------------
+
+Check which cpu the processes run on:
+
+$ top -> press 'f' -> scroll down to 'p', press <space> -> press 'q' exit
+            |
+            +- Display other supported FIELDS / Columns
+
+-------------------------------------------------------------------------------

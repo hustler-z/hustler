@@ -12,7 +12,7 @@ Driver Binding
                       are on that bus type in the system.
 
 --------------------------------------------------------------------------------
-- CHAR DEVICES -
+
 
 
 

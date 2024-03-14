@@ -631,6 +631,13 @@ for its priority.
                *- - - - - - - - - - - - - - - - - - - - - - *
 
 --------------------------------------------------------------------------------
+$ cat /proc/<pid>/schedstat
+
+(a) time spent on the cpu (in nanoseconds)
+(b) time spent waiting on a runqueue (in nanoseconds)
+(c) # of timeslices run on this cpu
+
+--------------------------------------------------------------------------------
 - STOP TASKS -
 
 The stop task is the highest priority task in the system, it preempts everything

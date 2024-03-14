@@ -1,15 +1,35 @@
 #!/bin/sh
 
-# Change the toolchain path if necessary
-TOOLCHAIN=/os/toolchains/armcc-64/bin/aarch64-none-linux-gnu-
-
-OBJDUMP=($TOOLCHAIN)objdump
-export CROSS_COMPILE=$TOOLCHAIN
-export ARCH=arm64
-
 KPATH=$2
+OBJDUMP=
+
+# Change the toolchain path if necessary
+
+envset() {
+
+    Host=$(uname -m)
+
+    echo "--------------------------------------------------------------------------------"
+    if [ "$Host" = "x86_64" ];then
+        TOOLCHAIN=/os/toolchains/armcc-64/bin/aarch64-none-linux-gnu
+        OBJDUMP=$TOOLCHAIN-objdump
+        export CROSS_COMPILE=$TOOLCHAIN-
+        export ARCH=arm64
+    fi
+
+    if [ "$Host" = "aarch64" ];then
+        OBJDUMP=objdump
+    fi
+
+    echo -n 'Host machine: ' && echo $(uname -m)
+    echo "--------------------------------------------------------------------------------"
+}
 
 build() {
+
+    # set up compilation evironment
+    envset
+
     case $1 in
         cfg)
             cd $KPATH
@@ -42,30 +62,31 @@ build() {
             start=$(date +%s)
             _ctags=$(command -v ctags)
             if [ -z $_ctags ];then
-                echo "ctags ain't installed yet, [sudo] apt install exuberant-ctags"
+                echo "ctags ain't installed yet, [sudo] apt install universal-ctags"
                 TAGS=
             else
                 TAGS=tags
             fi
-
+            # Current drop cscope
             _cscope=$(command -v cscope)
             if [ -z $_cscope ];then
                 echo "cscope ain't installed yet, [sudo] apt install cscope"
                 CSCOPE=
             else
-                CSCOPE=cscope
+                # CSCOPE=cscope
+                CSCOPE=
             fi
 
             _gtags=$(command -v gtags)
-            if [ -z $_gtags ] || [ ! -z $_cscope ];then
-                # echo "gtags ain't installed yet, [sudo] apt install global"
+            if [ -z $_gtags ];then
+                echo "gtags ain't installed yet, [sudo] apt install global && pip3 install pygments"
                 GTAGS=
             else
                 GTAGS=gtags
             fi
 
             echo "--------------------------------------------------------------------------------"
-            make -j$(nproc) $TAGS $CSCOPE $GTAGS V=1
+            make -j$(nproc) $TAGS $CSCOPE $GTAGS
             end=$(date +%s)
             total=$(($end-$start))
             echo "--------------------------------------------------------------------------------"
