@@ -22,9 +22,9 @@ endchoice
 
 menu "Compiler configuration"
 
-choice 
+choice
 	prompt "Toolchain selection"
-	default ARM_GCC_SELECT 
+	default ARM_GCC_SELECT
 
 config ARM_GCC_SELECT
 	bool "Gcc"
@@ -38,21 +38,14 @@ config TOOLCHAIN_NAME
 	string
 	default "gcc" if ARM_GCC_SELECT
 	default "clang" if ARM_CLANG_SELECT
-	
 
+config TARGET_ARMV8_AARCH32
+    bool
+    default y if ARCH_ARMV8_AARCH32
 
-
-
-    config TARGET_ARMV8_AARCH32
-        bool
-        default y if ARCH_ARMV8_AARCH32
-    
-    config TARGET_ARMV8_AARCH64
-        bool
-        default y if ARCH_ARMV8_AARCH64
-
-
-
+config TARGET_ARMV8_AARCH64
+    bool
+    default y if ARCH_ARMV8_AARCH64
 
 config ARCH_EXECUTION_STATE
 	string
@@ -66,7 +59,7 @@ if ARCH_ARMV8_AARCH32
 
 menu "Fpu configuration"
 
-choice 
+choice
 	prompt "mfpu config"
 	default CRYPTO_NEON_FP_ARMV8
 	help
@@ -106,7 +99,6 @@ config ARM_MFPU
     default "vfpv4-d16"                if VFPV4_D16
     default "vfpv3"                    if VFPV3
     default "vfpv3-d16"                if VFPV3_D16
-	
 
 choice
 	prompt "mfloat-abi config"
@@ -117,7 +109,7 @@ choice
 config MFLOAT_ABI_HARD
 	bool "hard"
 	help
-		Use hardware implementation of the floating-point ABI. 
+		Use hardware implementation of the floating-point ABI.
 
 config MFLOAT_ABI_SOFTFP
 	bool "softfp"
@@ -129,7 +121,7 @@ config ARM_MFLOAT_ABI
 	string
 	default "hard"     if MFLOAT_ABI_HARD
 	default "softfp"   if MFLOAT_ABI_SOFTFP
-    
+
 endmenu
 
 endif
@@ -192,7 +184,7 @@ config USE_CACHE
     default n
     help
         Activate the MMU and TLB functions
-    
+
     if USE_CACHE
         config USE_L3CACHE
             bool
@@ -200,7 +192,7 @@ config USE_CACHE
             depends on TARGET_FT2004 || TARGET_D2000
             default n
             help
-                Include L3 Cache and enable 
+                Include L3 Cache and enable
 
         config USE_MMU
             bool
@@ -236,9 +228,9 @@ endif
 config MMU_DEBUG_PRINTS
     bool
     prompt "MMU debug"
-    default n
+    default y
     depends on TARGET_ARMV8_AARCH64
     help
-        Enable MMU debug printing 
+        Enable MMU debug printing
 
 endmenu

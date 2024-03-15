@@ -129,7 +129,7 @@ extern "C"
 #define FSCMI_MEM_RX_OFSET  0x1000
 #define FSCMI_SHR_MEM_SIZE  0x400
 
-#define FSCMI_MSG_SIZE			128	
+#define FSCMI_MSG_SIZE			128
 #define FSCMI_MAX_STR_SIZE		16
 #define FSCMI_MAX_NUM_SENSOR	16
 #define FSCMI_MAX_PROTOCOLS_IMP	16
@@ -142,20 +142,20 @@ extern "C"
 
 #define FUART0_ID 0U
 #define FUART0_IRQ_NUM (85 + 30)
-#define FUART0_BASE_ADDR 0x2800c000U
+#define FUART0_BASE_ADDR 0xfe650000U /* hustler did */
 #define FUART0_CLK_FREQ_HZ 100000000U
 
 #define FUART1_ID 1U
 #define FUART1_IRQ_NUM (86 + 30)
-#define FUART1_BASE_ADDR 0x2800d000U
+#define FUART1_BASE_ADDR 0xfe660000U /* hustler did */
 #define FUART1_CLK_FREQ_HZ 100000000U
 
 #define FUART2_ID 2U
 #define FUART2_IRQ_NUM (87 + 30)
-#define FUART2_BASE_ADDR 0x2800e000U
+#define FUART2_BASE_ADDR 0xfe670000U /* hustler did */
 #define FUART2_CLK_FREQ_HZ 100000000U
 
-#define FUART3_BASE_ADDR 0x2800f000U
+#define FUART3_BASE_ADDR 0xfe680000U /* hustler did */
 #define FUART3_ID 3U
 #define FUART3_IRQ_NUM (88 + 30)
 #define FUART3_CLK_FREQ_HZ 100000000U
@@ -183,7 +183,7 @@ extern "C"
 #define PPI_START_INT_NUM 16U /* PPI start at ID16        */
 #define GIC_INT_MAX_NUM 1020U /* GIC max interrupts count */
 
-#define GICV3_BASE_ADDR 0x30800000U
+#define GICV3_BASE_ADDR 0xfd400000U /* hustler did */
 #define GICV3_DISTRIBUTOR_BASE_ADDR (GICV3_BASE_ADDR + 0)
 #define GICV3_RD_BASE_ADDR (GICV3_BASE_ADDR + 0x80000U)
 #define GICV3_RD_OFFSET (2U << 16)
@@ -192,7 +192,7 @@ extern "C"
 /* GPIO */
 #define FGPIO0_ID   0
 #define FGPIO1_ID   1
-#define FGPIO2_ID   2   
+#define FGPIO2_ID   2
 #define FGPIO3_ID   3
 #define FGPIO4_ID   4
 #define FGPIO5_ID   5

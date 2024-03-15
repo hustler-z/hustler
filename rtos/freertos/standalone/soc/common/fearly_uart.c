@@ -54,7 +54,8 @@ void FEarlyUartProbe(void)
     FInitializePrintf(&OutByte);
     config = *FPl011LookupConfig(EARLY_UART_CTRL_ID);
     FPl011CfgGeneralInitialize(&early_uart, &config);
-    FPl011SetOptions(&early_uart, FPL011_OPTION_UARTEN | FPL011_OPTION_RXEN | FPL011_OPTION_TXEN | FPL011_OPTION_FIFOEN);
+    FPl011SetOptions(&early_uart, FPL011_OPTION_UARTEN |
+            FPL011_OPTION_RXEN | FPL011_OPTION_TXEN | FPL011_OPTION_FIFOEN);
     return;
 }
 /************************** Constant Definitions *****************************/

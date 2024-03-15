@@ -20,28 +20,28 @@ menu "IO mux configuration when board start up"
         default n
         help
             Include can iopad running functions
-    
+
     config USE_QSPI_IOPAD
         bool
         prompt "Use Qspi"
         default n
         help
             Include qspi iopad running functions
-    
+
     config USE_PWM_IOPAD
         bool
         prompt "Use Pwm"
         default n
         help
             Include pwm iopad running functions
-    
+
     config USE_MIO_IOPAD
         bool
         prompt "Use Mio"
         default n
         help
             Include mio iopad running functions
-    
+
     config USE_TACHO_IOPAD
         bool
         prompt "Use Tacho"
@@ -64,7 +64,7 @@ menu "IO mux configuration when board start up"
             Include third-party iopad running functions
         if USE_THIRD_PARTY_IOPAD
             menu "Third_party iopad Configuration"
-                
+
             endmenu
         endif
 endmenu

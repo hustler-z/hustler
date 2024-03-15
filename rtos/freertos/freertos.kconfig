@@ -13,7 +13,7 @@ source "$(SDK_DIR)/board/board.kconfig"
 source "$(SDK_DIR)/common/common.kconfig"
 source "$(SDK_DIR)/drivers/drivers.kconfig"
 source "$(SDK_DIR)/tools/build/build.kconfig"
-menu "Component Configuration"  
+menu "Component Configuration"
     source "$(FREERTOS_SDK_DIR)/drivers/Kconfig"
 endmenu
 

@@ -50,7 +50,7 @@ config USE_DEFAULT_INTERRUPT_CONFIG
     bool
     prompt "Use default interrupt configuration"
     default y
-    help 
+    help
         "If this option is not selected, core0 is used as the main core by default and all interrupt driver modules are initialized. Non-0 core initializes only the necessary interrupt driver modules.  If this option is selected, the developer needs to initiate each module independently  "
     if USE_DEFAULT_INTERRUPT_CONFIG
         choice INTERRUPT_ROLE_SELECT
@@ -60,8 +60,8 @@ config USE_DEFAULT_INTERRUPT_CONFIG
             "Select Interrupt role"
 
         config INTERRUPT_ROLE_MASTER
-            bool "Use master role"    
-        
+            bool "Use master role"
+
         config INTERRUPT_ROLE_SLAVE
             bool "Use slave role"
 
