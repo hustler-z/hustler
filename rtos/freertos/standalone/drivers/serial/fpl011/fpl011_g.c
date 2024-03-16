@@ -45,14 +45,14 @@ const FPl011Config FPl011ConfigTable[FUART_NUM] =
         .base_address = FUART0_BASE_ADDR,
         .ref_clock_hz = FUART0_CLK_FREQ_HZ,
         .irq_num = FUART0_IRQ_NUM,
-        .baudrate = 115200
+        .baudrate = 1500000
     },
     {
         .instance_id = FUART1_ID,
         .base_address = FUART1_BASE_ADDR,
         .ref_clock_hz = FUART1_CLK_FREQ_HZ,
         .irq_num = FUART1_IRQ_NUM,
-        .baudrate = 115200
+        .baudrate = 1500000
     },
 
 #if defined(FUART2_ID)
@@ -61,7 +61,7 @@ const FPl011Config FPl011ConfigTable[FUART_NUM] =
         .base_address = FUART2_BASE_ADDR,
         .ref_clock_hz = FUART2_CLK_FREQ_HZ,
         .irq_num = FUART2_IRQ_NUM,
-        .baudrate = 115200
+        .baudrate = 1500000
     },
 #endif
 
@@ -71,8 +71,8 @@ const FPl011Config FPl011ConfigTable[FUART_NUM] =
         .base_address = FUART3_BASE_ADDR,
         .ref_clock_hz = FUART3_CLK_FREQ_HZ,
         .irq_num = FUART3_IRQ_NUM,
-        .baudrate = 115200
+        .baudrate = 1500000
     }
-#endif 
+#endif
 
 };

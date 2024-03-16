@@ -143,10 +143,10 @@ extern "C"
 #define MMU_REGION_ENTRY(_name, _base_pa, _base_va, _size, _attrs) \
     {                                                              \
         .name = _name,                                             \
-                .base_pa = _base_pa,                                       \
-                           .base_va = _base_va,                                       \
-                                      .size = _size,                                             \
-                                              .attrs = _attrs,                                           \
+        .base_pa = _base_pa,                                       \
+        .base_va = _base_va,                                       \
+        .size = _size,                                             \
+        .attrs = _attrs,                                           \
     }
 
 #define MMU_REGION_FLAT_ENTRY(name, adr, sz, attrs) \

@@ -25,32 +25,23 @@
 
 #ifdef __aarch64__
 
+/* memory[0]	[0x200000-0x3fffffff], 0x3fe00000 bytes flags: 0
+ * reserved.cnt = 0x2 / max = 0x10
+ * reserved[0]	[0x3cebc000-0x3fffffff], 0x03144000 bytes flags: 0
+ * reserved[1]	[0x3debc070-0x3fffffff], 0x02143f90 bytes flags: 0
+ *
+ * When modify the mapping range, ensure that mmu region size is
+ * page aligned - Hustler did.
+ */
 const struct ArmMmuRegion mmu_regions[] =
 {
+    MMU_REGION_FLAT_ENTRY("DDR_REGION",
+                          0x00200000, 0x20000000,
+                          MT_NORMAL | MT_RW | MT_NS),
+
     MMU_REGION_FLAT_ENTRY("DEVICE_REGION",
-                          0x00, 0x40000000,
+                          0x20200000, 0x20000000,
                           MT_DEVICE_NGNRE | MT_RW | MT_NS),
-
-    MMU_REGION_FLAT_ENTRY("PCIE_CONFIG_REGION",
-                          0x40000000, 0x10000000,
-                          MT_DEVICE_NGNRNE | MT_RW | MT_NS),
-
-    MMU_REGION_FLAT_ENTRY("PCIE_REGION",
-                          0x50000000, 0x30000000,
-                          MT_DEVICE_NGNRE | MT_RW | MT_NS),
-
-
-    MMU_REGION_FLAT_ENTRY("DDR_2G_REGION",
-                          0x80000000, 0x80000000,
-                          MT_NORMAL | MT_RW | MT_NS),
-
-    MMU_REGION_FLAT_ENTRY("PCIE_REGION",
-                          0x1000000000, 0x1000000000,
-                          MT_DEVICE_NGNRE | MT_RW | MT_NS),
-
-    MMU_REGION_FLAT_ENTRY("DDR_EXTEND_REGION",
-                          0x2000000000, 0x2000000000,
-                          MT_NORMAL | MT_RW | MT_NS),
 };
 
 const struct ArmMmuConfig mmu_config =
@@ -62,35 +53,5 @@ const struct ArmMmuConfig mmu_config =
 #else
 
 #define DDR_MEM NORMAL_MEM
-
-struct mem_desc platform_mem_desc[] =
-{
-    {
-        0x00U,
-        0x00U + 0x40000000U,
-        0x00U,
-        DEVICE_MEM
-    },
-    {
-        0x40000000U,
-        0x40000000U + 0x10000000U,
-        0x40000000U,
-        DEVICE_MEM
-    },
-    {
-        0x50000000U,
-        0x50000000U + 0x30000000U,
-        0x50000000U,
-        DEVICE_MEM
-    },
-    {
-        0x80000000U,
-        0xffffffffU,
-        0x80000000U,
-        DDR_MEM
-    },
-};
-
-const u32 platform_mem_desc_size = sizeof(platform_mem_desc) / sizeof(platform_mem_desc[0]);
-
+/* TO-DO */
 #endif

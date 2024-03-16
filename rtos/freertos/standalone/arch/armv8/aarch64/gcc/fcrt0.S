@@ -30,7 +30,7 @@
 
     .text
 
-    .align 4	
+    .align 4
 .LsbssStart:
     .quad __sbss_start__
 
@@ -55,6 +55,13 @@
     .quad __rom_end__
 
     .globl _startup
+
+.macro before_main_info ch
+    mov x1, #0xfe660000
+    mov x2, \ch
+    str x2, [x1]
+.endm
+
 _startup:
     TLBI    VMALLE1
     ic      IALLU   /* Invalidate I cache to PoU */
@@ -63,16 +70,16 @@ _startup:
 	isb
 
 	/* Disable MMU first */
-	mov	x1,#0x0
-	msr     SCTLR_EL1, x1
+	mov	x1, #0x0
+	msr SCTLR_EL1, x1
 	isb
 
     mov x0,#0
 
-/* clear sbss */
+    /* clear sbss */
 
-ldr x1,.LsbssStart
-ldr x2,.LsbssEnd
+    ldr x1,.LsbssStart
+    ldr x2,.LsbssEnd
 
 .LloopsBss:
 	cmp	x1,x2
@@ -99,39 +106,52 @@ ldr x2,.LsbssEnd
     ldr x2,.LdataEnd
 
 .LdataCopy:
-    cmp x1,x2
-    ldp x10,x11,[x0],#16 /* copy from source address [x1] */
-    stp x10,x11,[x1],#16 /* copy from source address [x1] */
+    cmp x1, x2
+    ldp x10, x11, [x0],#16 /* copy from source address [x1] */
+    stp x10, x11, [x1],#16 /* copy from source address [x1] */
     blt .LdataCopy
 
 .LendataCopy:
+    before_main_info #'F'
+
     /* flush dcache first */
 	bl MmuInit
 
-    /* Enable SError Exception for asynchronous abort */
-	mrs 	x1,DAIF
-    bic	x1,x1,#(0x1<<8) /* clear SError interrupt mask bit */
-	bic	x1,x1,#(0x1<<7)	/* clear IRQ mask bit */
-    msr	DAIF,x1
+    before_main_info #'G'
 
-    /*Enable MMU */ 
-	mov	x1,#0x0
-	orr     x1, x1, #(1 << 18)     /* Set WFE non trapping */
-	orr     x1, x1, #(1 << 17)     /* Set WFI non trapping */
-	orr     x1, x1, #(1 << 5)      /* Set CP15 barrier enabled */
-	orr     x1, x1, #(1 << 14)     /* This control does not cause any instructions to be trapped. */
-	orr     x1, x1, #(1 << 12)     /* Set I bit */
-	orr     x1, x1, #(1 << 2)      /* Set C bit */
-	orr     x1, x1, #(1 << 0)      /* Set M bit */
-	msr     SCTLR_EL1, x1
+    /* Enable SError Exception for asynchronous abort */
+	mrs x1, DAIF
+    bic	x1, x1, #(0x1<<8) /* clear SError interrupt mask bit */
+	bic	x1, x1, #(0x1<<7)	/* clear IRQ mask bit */
+    msr	DAIF, x1
+
+    before_main_info #'H'
+
+    /*Enable MMU */
+	mov	x1, #0x0
+	orr x1, x1, #(1 << 18)     /* Set WFE non trapping */
+	orr x1, x1, #(1 << 17)     /* Set WFI non trapping */
+	orr x1, x1, #(1 << 5)      /* Set CP15 barrier enabled */
+	orr x1, x1, #(1 << 14)     /* This control does not cause any instructions to be trapped. */
+	orr x1, x1, #(1 << 12)     /* Set I bit */
+	orr x1, x1, #(1 << 2)      /* Set C bit */
+	orr x1, x1, #(1 << 0)      /* Set M bit */
+	msr SCTLR_EL1, x1
 	isb
 
+    before_main_info #'I'
 
-#ifdef CONFIG_USE_AMP    
+#ifdef CONFIG_USE_AMP
     bl SpinInit               /* init spin lock init */
 #endif
+    before_main_info #'J'
+
     bl FEarlyUartProbe        /* init early uart */
+    before_main_info #'K'
+
 	bl InterruptEarlyInit
+    before_main_info #'L'
+
     bl FPsciInit
 #ifdef CONFIG_ENABLE_CXX
     /* Call constructors of all cpp global objects */
@@ -139,11 +159,12 @@ ldr x2,.LsbssEnd
 #endif
 
 	bl FTraceCEntry
-	
+
     /* make sure argc and argv are valid */
 	mov	x0, #0
 	mov	x1, #0
-	
+
+    before_main_info #'M'
     bl main
 
 #ifdef CONFIG_ENABLE_CXX
@@ -168,7 +189,7 @@ InvalidateFlushDcacheLevel:
     mrs    x6, ccsidr_el1        /* read the new cssidr_el1 */
     and    x2, x6, #7            /* x2 <- log2(cache line size)-4 */
     add    x2, x2, #4            /* x2 <- log2(cache line size) */
-    mov    x3, #0x3ff			 
+    mov    x3, #0x3ff
     and    x3, x3, x6, lsr #3    /* x3 <- max number of #ways, ccsidr_el1[12:3] */
     clz    w5, w3                /* bit position of #ways */
     mov    x4, #0x7fff
@@ -180,18 +201,20 @@ InvalidateFlushDcacheLevel:
     /* x5 <- bit position of #ways */
 
 InvalidateFlushCacheSet:
-    mov    x6, x3            /* x6 <- working copy of #ways */	
+    mov    x6, x3            /* x6 <- working copy of #ways */
 
 InvalidateFlushCacheWay:
     lsl    x7, x6, x5		  /* x7 = x6 << x5 */
     orr    x9, x12, x7        /* x9 = x12 | x7,  map way and level to cisw value */
     lsl    x7, x4, x2
-    orr    x9, x9, x7        /* map set number to cisw value */
-    tbz    w1, #0, 1f		 /* x1 = 0f, flush cache */
-    dc    isw, x9			 /* invalidate dcache */
+    orr    x9, x9, x7         /* map set number to cisw value */
+    tbz    w1, #0, 1f		  /* x1 = 0f, flush cache */
+    dc    isw, x9			  /* invalidate dcache */
     b    2f
-1:    dc    cisw, x9         /* clean & invalidate by set/way */
-2:    subs    x6, x6, #1        /* decrement the way */
+1:
+    dc    cisw, x9            /* clean & invalidate by set/way */
+2:
+    subs    x6, x6, #1        /* decrement the way */
     b.ge    InvalidateFlushCacheWay
     subs    x4, x4, #1        /* decrement the set */
     b.ge    InvalidateFlushCacheSet

@@ -29,7 +29,7 @@
 #include "fatomic.h"
 
 
-typedef struct  
+typedef struct
 {
 	int v;
 }FCpuLock;
@@ -55,7 +55,7 @@ void SpinLock(void)
     {
 
     }
-   
+
 }
 
 void SpinInit(void)

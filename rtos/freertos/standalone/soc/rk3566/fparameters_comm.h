@@ -155,9 +155,9 @@ extern "C"
 #define FUART2_BASE_ADDR 0xfe670000U /* hustler did */
 #define FUART2_CLK_FREQ_HZ 100000000U
 
-#define FUART3_BASE_ADDR 0xfe680000U /* hustler did */
 #define FUART3_ID 3U
 #define FUART3_IRQ_NUM (88 + 30)
+#define FUART3_BASE_ADDR 0xfe680000U /* hustler did */
 #define FUART3_CLK_FREQ_HZ 100000000U
 
 #define FT_STDOUT_BASE_ADDR FUART1_BASE_ADDR

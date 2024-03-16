@@ -30,26 +30,22 @@
 /* end of Compiler configuration */
 #define CONFIG_USE_CACHE
 #define CONFIG_USE_MMU
-/* CONFIG_BOOT_WITH_FLUSH_CACHE is not set */
+#define CONFIG_BOOT_WITH_FLUSH_CACHE
 /* CONFIG_MMU_DEBUG_PRINTS is not set */
 /* end of Arm architecture configuration */
 /* end of Arch configuration */
 
 /* Soc configuration */
 
-#define CONFIG_TARGET_PHYTIUMPI
+/* CONFIG_TARGET_PHYTIUMPI is not set */
 /* CONFIG_TARGET_E2000Q is not set */
 /* CONFIG_TARGET_E2000D is not set */
 /* CONFIG_TARGET_E2000S is not set */
 /* CONFIG_TARGET_FT2004 is not set */
 /* CONFIG_TARGET_D2000 is not set */
-#define CONFIG_SOC_NAME "phytiumpi"
+#define CONFIG_TARGET_RK3566
+#define CONFIG_SOC_NAME "rk3566"
 #define CONFIG_SOC_CORE_NUM 4
-#define CONFIG_F32BIT_MEMORY_ADDRESS 0x80000000
-#define CONFIG_F32BIT_MEMORY_LENGTH 0x80000000
-#define CONFIG_F64BIT_MEMORY_ADDRESS 0x2000000000
-#define CONFIG_F64BIT_MEMORY_LENGTH 0x800000000
-#define CONFIG_TARGET_E2000
 /* CONFIG_USE_SPINLOCK is not set */
 #define CONFIG_DEFAULT_DEBUG_PRINT_UART1
 /* CONFIG_DEFAULT_DEBUG_PRINT_UART0 is not set */
@@ -58,7 +54,7 @@
 
 /* Board Configuration */
 
-#define CONFIG_BOARD_NAME "firefly"
+#define CONFIG_BOARD_NAME "rk3566_rz3w"
 /* CONFIG_USE_SPI_IOPAD is not set */
 /* CONFIG_USE_GPIO_IOPAD is not set */
 /* CONFIG_USE_CAN_IOPAD is not set */
@@ -68,7 +64,7 @@
 /* CONFIG_USE_TACHO_IOPAD is not set */
 /* CONFIG_USE_UART_IOPAD is not set */
 /* CONFIG_USE_THIRD_PARTY_IOPAD is not set */
-#define CONFIG_FIREFLY_DEMO_BOARD
+#define CONFIG_RK3566_RZ3W_BOARD
 
 /* IO mux configuration when board start up */
 
@@ -84,13 +80,13 @@
 /* Sdk common configuration */
 
 /* CONFIG_LOG_VERBOS is not set */
-/* CONFIG_LOG_DEBUG is not set */
+#define CONFIG_LOG_DEBUG
 /* CONFIG_LOG_INFO is not set */
 /* CONFIG_LOG_WARN is not set */
-#define CONFIG_LOG_ERROR
+/* CONFIG_LOG_ERROR is not set */
 /* CONFIG_LOG_NONE is not set */
-/* CONFIG_LOG_EXTRA_INFO is not set */
-/* CONFIG_LOG_DISPALY_CORE_NUM is not set */
+#define CONFIG_LOG_EXTRA_INFO
+#define CONFIG_LOG_DISPALY_CORE_NUM
 /* CONFIG_BOOTUP_DEBUG_PRINTS is not set */
 #define CONFIG_USE_DEFAULT_INTERRUPT_CONFIG
 #define CONFIG_INTERRUPT_ROLE_MASTER
@@ -139,7 +135,7 @@
 
 /* Build setup */
 
-#define CONFIG_CHECK_DEPS
+/* CONFIG_CHECK_DEPS is not set */
 #define CONFIG_OUTPUT_BINARY
 
 /* Optimization options */
@@ -179,7 +175,7 @@
 
 #define CONFIG_DEFAULT_LINKER_SCRIPT
 /* CONFIG_USER_DEFINED_LD is not set */
-#define CONFIG_IMAGE_LOAD_ADDRESS 0x80100000
+#define CONFIG_IMAGE_LOAD_ADDRESS 0x00200000
 #define CONFIG_IMAGE_MAX_LENGTH 0x1000000
 #define CONFIG_HEAP_SIZE 1
 #define CONFIG_STACK_SIZE 0x400

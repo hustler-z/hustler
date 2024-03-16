@@ -4,7 +4,7 @@ SRC_PATH=$1
 
 find_sources() {
     find . -name "*.[chS]" -o -name "*.cpp" -o -name "*.hpp" \
-        -o -name "Kconfig*" -o -name "Makefile" -o -name "*.ld" \
+        -o -name "Kconfig" -o -name "Makefile" -o -name "*.ld" \
         -o -name "*.mk" -o -name "*.kconfig"
 }
 
@@ -12,9 +12,31 @@ code_tracker() {
     echo "----------------------- CODE TRACKER -----------------------"
     cd $SRC_PATH
 
-    if [ -f GTAGS ] || [ -f GPATH ] || [ -f GRTAGS ] || [ -f tags ] || [ -f cscope* ];then
-        rm -rf GTAGS GPATH GRTAGS tags cscope*
+    find_sources
+
+    # Remove previous tags
+
+    if [ -f GTAGS ];then
+        rm -f GTAGS
     fi
+
+    if [ -f GPATH ];then
+        rm -f GPATH
+    fi
+
+    if [ -f GRTAGS ];then
+        rm -f GRTAGS
+    fi
+
+    if [ -f tags ];then
+        rm -f tags
+    fi
+
+    # if [ -f cscope* ];then
+    #     rm -f cscope*
+    # fi
+
+    # Now build new tags
 
     if [ -z $SRC_PATH ];then
         echo "source code root directory required"

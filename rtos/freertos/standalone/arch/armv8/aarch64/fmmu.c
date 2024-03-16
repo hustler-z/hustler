@@ -37,6 +37,36 @@
 
 /***************** Macros (Inline Functions) Definitions *********************/
 
+void mmu_outc(char ch)
+{
+    unsigned long address = 0xfe660000;
+
+    __asm__ __volatile(
+            "mov x1, %0\n"
+            "mov x2, %1\n"
+            "str x2, [x1]"
+            : :"r"(address), "r"(ch)
+            );
+}
+
+void line_breaker(void)
+{
+    mmu_outc('\r');
+    mmu_outc('\n');
+}
+
+void mmu_info(char ch)
+{
+    mmu_outc(ch);
+    line_breaker();
+}
+
+void mmu_pin(char ch)
+{
+    mmu_outc(ch);
+    mmu_outc(')');
+    line_breaker();
+}
 /******************************
  *  mmu config define
  ******************************/
@@ -410,6 +440,8 @@ static int SetMapping(struct ArmMmuPtables *ptables,
     unsigned int level = BASE_XLAT_LEVEL;
     int ret = 0;
 
+    mmu_pin('a');
+
     while (size)
     {
         FASSERT_MSG(level <= XLAT_LAST_LEVEL,
@@ -496,6 +528,7 @@ move_on:
         MMU_DEBUG("virt %p \r\n", virt);
     }
 
+    mmu_pin('b');
     return ret;
 }
 
@@ -606,6 +639,7 @@ static inline void AddArmMmuRegion(struct ArmMmuPtables *ptables,
                                    const struct ArmMmuRegion *region,
                                    u32 extra_flags)
 {
+    mmu_pin('X');
     if (region->size || region->attrs)
     {
         /* MMU not yet active: must use unlocked version */
@@ -620,12 +654,15 @@ static void SetupPageTables(struct ArmMmuPtables *ptables)
     const struct ArmMmuRegion *region;
     uintptr max_va = 0, max_pa = 0;
 
+    mmu_pin('A');
+
     MMU_DEBUG("xlat tables:\r\n");
     for (index = 0U; index < CONFIG_MAX_XLAT_TABLES; index++)
     {
-        MMU_DEBUG("%d: %x\r\n", index, xlat_tables + index * LN_XLAT_NUM_ENTRIES);
+        MMU_DEBUG("%d: %x\r\n", index, xlat_tables
+                + index * LN_XLAT_NUM_ENTRIES);
     }
-
+    mmu_pin('B');
     /* 从不同的board 中获取，内存映射表中地址范围 */
     for (index = 0U; index < mmu_config.num_regions; index++)
     {
@@ -633,19 +670,20 @@ static void SetupPageTables(struct ArmMmuPtables *ptables)
         max_va = max(max_va, region->base_va + region->size);
         max_pa = max(max_pa, region->base_pa + region->size);
     }
-
+    mmu_pin('C');
     FASSERT_MSG(max_va <= (1ULL << CONFIG_ARM64_VA_BITS),
                 "Maximum VA not supported\r\n");
     FASSERT_MSG(max_pa <= (1ULL << CONFIG_ARM64_PA_BITS),
                 "Maximum PA not supported\r\n");
-
+    mmu_pin('D');
     /* setup translation table for execution regions */
     for (index = 0U; index < mmu_config.num_regions; index++)
     {
         region = &mmu_config.mmu_regions[index];
         AddArmMmuRegion(ptables, region, 0);
     }
-
+    mmu_pin('F');
+    /* TLBI for current el */
     AsmInvalidateTlbAll();
 }
 
@@ -727,27 +765,40 @@ void MmuInit(void)
 {
     unsigned int flags = 0U;
     u64 val = 0U;
+
     /* 增加粒度判断 */
+    line_breaker();
+    mmu_info('a');
+
     val = AARCH64_READ_SYSREG(ID_AA64MMFR0_EL1);
 
 
-    FASSERT_MSG((CONFIG_MMU_PAGE_SIZE == KB(4)) && (!(val & ID_AA64MMFR0_EL1_4K_NO_SURPOORT)),
+    FASSERT_MSG((CONFIG_MMU_PAGE_SIZE == KB(4))
+            && (!(val & ID_AA64MMFR0_EL1_4K_NO_SURPOORT)),
                 "Only 4K page size is supported\r\n");
 
     /* Current MMU code supports only EL1 */
     val = AARCH64_READ_SYSREG(CurrentEL);
 
-    FASSERT_MSG(GET_EL(val) == MODE_EL1, "Exception level not EL1, MMU not enabled!\n");
+    FASSERT_MSG(GET_EL(val) == MODE_EL1,
+            "Exception level not EL1, MMU not enabled!\n");
 
     /* Ensure that MMU is already not enabled */
     val = AARCH64_READ_SYSREG(sctlr_el1);
     FASSERT_MSG((val & SCTLR_ELx_M) == 0, "MMU is already enabled\n");
+    mmu_info('b');
 
     kernel_ptables.base_xlat_table = NewTable();
+    mmu_info('c');
+
     SetupPageTables(&kernel_ptables);
+    mmu_info('d');
+
     FCacheL3CacheFlush();
     FCacheL3CacheDisable();
     /* currently only EL1 is supported */
+    mmu_info('e');
+
     EnableMmuEl1(&kernel_ptables, flags);
 
 }
