@@ -56,7 +56,6 @@ extern "C"
 #define CNTV_CTL_ISTATUS (1 << 2) /* The status of the timer interrupt. This bit is read-only */
 
 /* AArch64 Memory Model Feature Register 0  */
-
 #define ID_AA64MMFR0_EL1_4K_NO_SURPOORT (0xFULL << 28)
 
 /*
@@ -188,7 +187,7 @@ extern "C"
 })
 
 #define MTCPSR(v) __asm__ __volatile__( \
-                                        "msr	DAIF,%0\n"                     \
+                                        "msr DAIF,%0\n"                     \
                                         :                                   \
                                         : "r"(v)                            \
                                         : "cc")
@@ -248,15 +247,15 @@ extern "C"
         : "r"(val))
 
 #define AARCH64_READ_SYSREG(reg) (          \
-{                                       \
-    uint64_t val;                       \
-    __asm__ __volatile__("mrs %0," #reg \
-                         : "=r"(val));  \
-    val;                                \
+{                                           \
+    uint64_t val;                           \
+    __asm__ __volatile__("mrs %0," #reg     \
+                         : "=r"(val));      \
+    val;                                    \
 })
 
-#define AARCH64_WRITE_SYSREG(reg, val) (           \
-{                                              \
+#define AARCH64_WRITE_SYSREG(reg, val) (   \
+{                                          \
     __asm__ __volatile__("msr " #reg ",%0" \
                          :                 \
                          : "r"(val));      \

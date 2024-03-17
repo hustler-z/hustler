@@ -725,14 +725,19 @@ static void EnableMmuEl1(struct ArmMmuPtables *ptables, unsigned int flags)
     u64 val;
 
     /* Set MAIR, TCR and TBBR registers */
-    __asm__ volatile("msr mair_el1, %0"
+    __asm__ volatile("msr mair_el1, %0" /* Memory Attribute Indirection Register */
                      :
                      : "r"(MEMORY_ATTRIBUTES)
                      : "memory", "cc");
-    __asm__ volatile("msr tcr_el1, %0"
+    __asm__ volatile("msr tcr_el1, %0" /* Translation Control Register (EL1) */
                      :
                      : "r"(GetTcr(1))
                      : "memory", "cc");
+    /* ttbr0_el1 - Holds the base address of the translation table for the initial
+     * lookup for stage 1 of the translation of an address from the lower VA range
+     * in the EL1&0 translation regime, and other information for this translation
+     * regime.
+     **/
     __asm__ volatile("msr ttbr0_el1, %0"
                      :
                      : "r"((u64)ptables->base_xlat_table)
@@ -770,8 +775,8 @@ void MmuInit(void)
     line_breaker();
     mmu_info('a');
 
+    /* AArch64 Memory Model Feature Register 0 */
     val = AARCH64_READ_SYSREG(ID_AA64MMFR0_EL1);
-
 
     FASSERT_MSG((CONFIG_MMU_PAGE_SIZE == KB(4))
             && (!(val & ID_AA64MMFR0_EL1_4K_NO_SURPOORT)),
@@ -800,7 +805,6 @@ void MmuInit(void)
     mmu_info('e');
 
     EnableMmuEl1(&kernel_ptables, flags);
-
 }
 
 static void ArchMemMap(uintptr virt, uintptr phys, fsize_t size, u32 flags)

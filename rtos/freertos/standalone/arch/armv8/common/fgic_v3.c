@@ -94,7 +94,7 @@ FGicConfig fgic_config[FGIC_NUM] =
 {
     {
         .instance_id = 0,                          /* Id of device */
-        .dis_base = GICV3_DISTRIBUTOR_BASE_ADDR, /* Distributor base address      */
+        .dis_base = GICV3_DISTRIBUTOR_BASE_ADDR,   /* Distributor base address */
     }
 };
 

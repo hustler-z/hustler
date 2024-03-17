@@ -40,7 +40,7 @@ const struct ArmMmuRegion mmu_regions[] =
                           MT_NORMAL | MT_RW | MT_NS),
 
     MMU_REGION_FLAT_ENTRY("DEVICE_REGION",
-                          0x20200000, 0x20000000,
+                          0x20200000, 0x10000000,
                           MT_DEVICE_NGNRE | MT_RW | MT_NS),
 };
 

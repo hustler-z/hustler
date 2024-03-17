@@ -355,7 +355,11 @@ FError InterruptCoreInterSend(int int_id, u64 cpu_mask)
 
 /**
  * @name: InterruptEarlyInit
- * @msg:  Interrupt preinitialization function. This function is usually called in assembly code. When the user sets the default initialization mode, this function will use CORE0 as the main CORE and initialize all components in the interrupt driver, and other cores as slave cores will initialize the necessary components in the interrupt driver.
+ * @msg:  Interrupt preinitialization function. This function is usually called in assembly code.
+ * When the user sets the default initialization mode, this function will use CORE0 as the main
+ * CORE and initialize all components in the interrupt driver, and other cores as slave cores
+ * will initialize the necessary components in the interrupt driver.
+ *
  * @return {*}
  */
 void InterruptEarlyInit(void)
@@ -370,7 +374,6 @@ void InterruptEarlyInit(void)
 #endif
 
 #endif
-
 }
 
 
@@ -391,7 +394,7 @@ void InterruptInit(InterruptDrvType *int_driver_p, u32 instance_id, INTERRUPT_RO
 
     /* get gic redistrubutior base address of current core */
     uintptr redis_base = FGicRedistrubutiorIterate();
-    
+
     FGicCfgInitialize(interrupt_handler_p, config_p, redis_base);
 
     if (INTERRUPT_ROLE_MASTER == role_select)

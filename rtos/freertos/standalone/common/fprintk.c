@@ -58,7 +58,10 @@ static int char_out(int c, void *ctx_p)
     struct str_context *ctx = ctx_p;
 
     ctx->count++;
-    printf_call((s8)c);
+
+    if (printf_call)
+        printf_call((s8)c);
+
     return 1;
 }
 
@@ -76,17 +79,16 @@ static inline int convert_value(uint_value_type num, unsigned int base,
         }
         buftop[--i] = c + '0';
         num /= base;
-        
     }
     while (num);
     return -i;
 }
 
-#define OUTC(_c)             \
-    do                       \
-    {                        \
-        out((int)(_c), ctx); \
-        count++;             \
+#define OUTC(_c)                  \
+    do                            \
+    {                             \
+        char_out((int)(_c), ctx); \
+        count++;                  \
     } while (0)
 
 #define PAD_ZERO BIT(0)
@@ -111,7 +113,7 @@ int cbvprintf(cbprintf_cb out, void *ctx, const char *fmt, va_list ap)
 
     /* we pre-increment in the loop  afterwards */
     fmt--;
-    
+
 start:
     while (*++fmt != '%')
     {

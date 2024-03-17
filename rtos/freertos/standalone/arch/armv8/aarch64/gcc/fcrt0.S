@@ -115,29 +115,41 @@ _startup:
     before_main_info #'F'
 
     /* flush dcache first */
-	bl MmuInit
+    bl MmuInit
 
     before_main_info #'G'
 
     /* Enable SError Exception for asynchronous abort */
-	mrs x1, DAIF
-    bic	x1, x1, #(0x1<<8) /* clear SError interrupt mask bit */
-	bic	x1, x1, #(0x1<<7)	/* clear IRQ mask bit */
+    mrs x1, DAIF
+    bic	x1, x1, #(1<<8)   /* clear SError interrupt mask bit */
+    bic	x1, x1, #(1<<7)	  /* clear IRQ mask bit */
     msr	DAIF, x1
 
     before_main_info #'H'
 
-    /*Enable MMU */
-	mov	x1, #0x0
-	orr x1, x1, #(1 << 18)     /* Set WFE non trapping */
-	orr x1, x1, #(1 << 17)     /* Set WFI non trapping */
-	orr x1, x1, #(1 << 5)      /* Set CP15 barrier enabled */
-	orr x1, x1, #(1 << 14)     /* This control does not cause any instructions to be trapped. */
-	orr x1, x1, #(1 << 12)     /* Set I bit */
-	orr x1, x1, #(1 << 2)      /* Set C bit */
-	orr x1, x1, #(1 << 0)      /* Set M bit */
-	msr SCTLR_EL1, x1
-	isb
+    /* Enable MMU */
+    mov	x1, #0x0
+    orr x1, x1, #(1 << 18)  /* Set WFE non trapping */
+
+    /* Traps EL0 execution of WFI instructions to EL1, or to EL2
+     * when it is implemented and enabled for the current Security
+     * state and HCR_EL2.TGE is 1, from both Execution states,
+     * reported using an ESR_ELx.EC value of 0x01.
+     */
+    orr x1, x1, #(1 << 16)  /* Set WFI non trapping */
+    orr x1, x1, #(1 << 5)   /* Set CP15 barrier enabled (System instruction memory barrier enable) */
+    orr x1, x1, #(1 << 14)  /* This control does not cause any instructions to be trapped. */
+
+    /* Set I bit => Stage 1 instruction access Cacheability control, for accesses at EL0 and EL1 */
+    orr x1, x1, #(1 << 12)
+    orr x1, x1, #(1 << 2)   /* Set C bit => Stage 1 Cacheability control, for data accesses. */
+    orr x1, x1, #(1 << 0)   /* Set M bit => MMU enable for EL1&0 stage 1 address translation */
+
+    /* System Control Register - Provides top level control of the system,
+     * including its memory system, at EL1 and EL0.
+     */
+    msr SCTLR_EL1, x1
+    isb
 
     before_main_info #'I'
 
