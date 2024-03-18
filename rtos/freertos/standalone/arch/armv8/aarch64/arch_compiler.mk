@@ -50,10 +50,18 @@
 #   CPPFLAG
 #   AFLAGS
 #
-AARCH64_CROSS_PATH ?= /os/toolchains/armcc-bm-64
 
-# This compiler prefix is a standard prefix for bare-metal program or application development for the ARMv8-A architecture, and is commonly used in embedded systems development, operating system kernel development, and related fields.
-TOOL_CHAIN_PREFIX	?= $(AARCH64_CROSS_PATH)/bin/aarch64-none-elf-
+HOSTARCH := $(shell uname -m)
+
+ifeq ($(HOSTARCH), x86_64)
+	AARCH64_CROSS_PATH ?= /os/toolchains/armcc-bm-64
+	# This compiler prefix is a standard prefix for bare-metal program or application
+	# development for the ARMv8-A architecture, and is commonly used in embedded systems
+	# development, operating system kernel development, and related fields.
+	TOOL_CHAIN_PREFIX	?= $(AARCH64_CROSS_PATH)/bin/aarch64-none-elf-
+else
+	TOOL_CHAIN_PREFIX ?=
+endif
 
 #  Sets the compiler option for the target CPU architecture to ARMv8-A. Specifically
 ARCH_CPU_MARCH += -march=armv8-a
@@ -96,7 +104,7 @@ endif
 
 # Optimization configuration
 ifeq ($(CONFIG_DEBUG_CUSTOMOPT),y)
-  ARCH_OPTIMIZATION += $(CONFIG_DEBUG_OPTLEVEL) # Add custom optimization 
+  ARCH_OPTIMIZATION += $(CONFIG_DEBUG_OPTLEVEL) # Add custom optimization
 else ifeq ($(CONFIG_DEBUG_FULLOPT),y)
   ARCH_OPTIMIZATION += -Os  # Full optimization is enabled, use -Os
 else
