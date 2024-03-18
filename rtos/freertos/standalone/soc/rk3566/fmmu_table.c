@@ -35,12 +35,12 @@
  */
 const struct ArmMmuRegion mmu_regions[] =
 {
-    MMU_REGION_FLAT_ENTRY("DDR_REGION",
-                          0x00200000, 0x20000000,
+    MMU_REGION_FLAT_ENTRY("DDR_2G_REGION",
+                          0x00200000, 0x80000000,
                           MT_NORMAL | MT_RW | MT_NS),
 
     MMU_REGION_FLAT_ENTRY("DEVICE_REGION",
-                          0x20200000, 0x10000000,
+                          0xf0000000, 0x40000000,
                           MT_DEVICE_NGNRE | MT_RW | MT_NS),
 };
 
