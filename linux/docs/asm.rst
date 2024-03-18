@@ -84,7 +84,10 @@ sdei_smccc_hvc()
 
 <cache> <operation>{, <Xt>}
 
+(1) Intruction Cache
 IC <ic_op>{, <Xt>}
+
+(2) Data Cache
 DC <dc_op>{, <Xt>}
 
 --------------------------------------------------------------------------------
@@ -160,5 +163,35 @@ asm [volatile] (
              (b) "cc"     => tell the compiler that the assembly code
                              might modify any of the condition flags,
                              in NZCV (aarch64) / CPSR (aarch32).
+
+--------------------------------------------------------------------------------
+- ASSEMBLY CODING TIPS -
+
+(1) MOVK - Sets only four bits and keeps the rest of the number.
+
+e.g. movk x0, #0xba09, lsl #48 => **** ba09 **** **** **** (hex)
+                        |
+                        ▼
+               logical shift left (<<)
+
+(2) STP/LDP Usage
+
+e.g. stp x10, x11, [sp, #<imm>]! => pre-indexed immediate offset
+     ldp x10, x11, [sp], #<imm>  => post-indexed immediate offset
+
+(3) ADRP Usage
+
+e.g. adrp x1, <label> => load address of the beginning of the 4-Kb memory page
+     add  x1, x1, #:lo12:<label>
+                      |
+                      ▼
+    @only add the lowest 12 bits of the label to the adrp address
+
+(4) BIC/EOR/ORR/AND
+
+e.g. bic x4, x4, x5, lsl #<imm> => Bit Clear: x4 = x4 & ~(x5 << <imm>)
+     eor x4, x5, #<imm>         => Bitwise Exclusive OR: x4 = x5 ^ <imm>
+     orr x4, x5, #<imm>         => Bitwise OR:           x4 = x5 | <imm>
+     and x4, x5, #<imm>         => Bitwise AND:          x4 = x5 & <imm>
 
 --------------------------------------------------------------------------------
