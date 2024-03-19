@@ -46,7 +46,7 @@ code_tracker() {
         if [ -z _ctags ];then
             echo "ctags ain't installed yet, apt install universal-ctags"
         else
-            ctags --languages=Asm,c -R
+            ctags --languages=Asm,c,c++,Sh,Make -R
         fi
         # _cscope=$(command -v cscope)
         # if [ -z _cscope ];then
