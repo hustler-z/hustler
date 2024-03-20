@@ -1,0 +1,11 @@
+tests:
+  drivers.clock.nrf5_clock_calibration:
+    tags:
+      - drivers
+      - clock_control
+    platform_allow:
+      - nrf51dk/nrf51822
+      - nrf52dk/nrf52832
+      - nrf52840dk/nrf52840
+    integration_platforms:
+      - nrf51dk/nrf51822
