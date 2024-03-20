@@ -96,11 +96,39 @@ $ objdump -r -S -l -d *.o
 --------------------------------------------------------------------------------
 - FTRACE -
 
+CONFIG_HAVE_DYNAMIC_FTRACE=y
+CONFIG_HAVE_DYNAMIC_FTRACE_WITH_REGS=y
+CONFIG_HAVE_FTRACE_MCOUNT_RECORD=y
+CONFIG_FTRACE=y
+CONFIG_DYNAMIC_FTRACE=y
+CONFIG_DYNAMIC_FTRACE_WITH_REGS=y
+CONFIG_FTRACE_SYSCALLS=y
+CONFIG_FTRACE_MCOUNT_RECORD=y
+CONFIG_FTRACE_MCOUNT_USE_PATCHABLE_FUNCTION_ENTRY=y
 
+$ mount -t tracefs nodev /sys/kernel/tracing
+
+
+
+@trace-cmd
+
+$ trace-cmd list [option]
+
+$ trace-cmd start -p <tracer> -P <pid> -e <event>
+
+$ trace-cmd record -p <tracer> -P <pid> -e <event>
+
+$ trace-cmd stop
+
+$ trace-cmd clear
 
 --------------------------------------------------------------------------------
 - PERF -
 
+(1) Compilation under [linux-source]/tools/perf
 
+$ make ARCH=arm64 LDFLAGS="-static" CROSS_COMPILE=
+
+$ perf top
 
 --------------------------------------------------------------------------------
