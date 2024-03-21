@@ -367,6 +367,13 @@ sched_setscheduler()
 *---------------------------------------*
 
 --------------------------------------------------------------------------------
+- Preemption-RT -
+
+(1) RT-Mutex
+
+(2) Threaded IRQ handler
+
+--------------------------------------------------------------------------------
 - Deadline Task Scheduling -
 
 @SCHED_DEADLINE: Sporadic task model deadline scheduling

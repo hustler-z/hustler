@@ -132,3 +132,38 @@ $ make ARCH=arm64 LDFLAGS="-static" CROSS_COMPILE=
 $ perf top
 
 --------------------------------------------------------------------------------
+@ latency
+
+- cyclictest
+
+Cyclictest accurately and repeatedly measures the difference between a thread's
+intended wake-up time and the time at which it actually wakes up in order to
+provide statistics about the system's latencies. It can measure latencies in
+real-time systems caused by the hardware, the firmware, and the operating
+system.
+
+$ cyclictest -p80 -i250 -a -t -m -d 0 -b 100 --tracemark
+
+$ trace-cmd start -e sched_switch -e sched_waking -e timer -e irq \
+    -e irq_vectors cyclictest -p80 -i250 -a -t -m -d 0 -b 100 --tracemark
+
+$ trace-cmd export -o trace-cyclic.dat
+
+$ trace-cmd report -i trace-cyclic.dat | tail -20
+
+$ trace-cmd report -l --cpu 1 trace-cyclic.dat | tail -20
+
+(1) HW Latency
+    (a) system management interrupts (SMI)
+    (b) clock frequency
+    (c) cache line bouncing
+
+- Hardware Latency Algorithm
+
+CONFIG_HWLAT_TRACER
+
+- Wakeup Latency
+
+- IRQ and Preemption Latency
+
+--------------------------------------------------------------------------------

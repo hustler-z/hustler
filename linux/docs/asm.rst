@@ -93,10 +93,10 @@ DC <dc_op>{, <Xt>}
 --------------------------------------------------------------------------------
 - Conditional Branch Instructions -
 
-CBZ Rt, label          => Compare and branch if zero
-CBNZ Rt, label         => Compare and branch if not zero
-TBZ Rt, bit, label     => Test and branch if Rt<bit> zero
-TBNZ Rt, bit, label    => Test and branch if Rt<bit> is not zero
+CBZ  Xt, label         => Compare and branch if zero
+CBNZ Xt, label         => Compare and branch if not zero
+TBZ  Xt, bit, label    => Test and branch if Xt<bit> zero
+TBNZ Xt, bit, label    => Test and branch if Xt<bit> is not zero
 
 --------------------------------------------------------------------------------
 
@@ -193,5 +193,11 @@ e.g. bic x4, x4, x5, lsl #<imm> => Bit Clear: x4 = x4 & ~(x5 << <imm>)
      eor x4, x5, #<imm>         => Bitwise Exclusive OR: x4 = x5 ^ <imm>
      orr x4, x5, #<imm>         => Bitwise OR:           x4 = x5 | <imm>
      and x4, x5, #<imm>         => Bitwise AND:          x4 = x5 & <imm>
+
+(5) .align 12 => 2^12=4096 (4Kb alignment)
+
+    .balign 4 => will insert fill bytes until the location counter is an
+                 even multiple of 4. If the location counter is already a
+                 multiple of 4, then no fill bytes will be created.
 
 --------------------------------------------------------------------------------
