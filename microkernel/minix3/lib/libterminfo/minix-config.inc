@@ -1,0 +1,5 @@
+NETBSDINCLUDES= /usr/include/
+
+CPPFLAGS+= 	-D_NETBSD_SOURCE
+
+MKLINKLIB=	yes
