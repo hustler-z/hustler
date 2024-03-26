@@ -73,6 +73,7 @@ $ gdb vmlinux
 (gdb) c
 (gdb) s
 (gdb) l [func]
+
 --------------------------------------------------------------------------------
 Enter the kernel debugger manually or by waiting for an oops or fault.
 CONFIG_MAGIC_SYSRQ=y.
@@ -107,8 +108,6 @@ CONFIG_FTRACE_MCOUNT_RECORD=y
 CONFIG_FTRACE_MCOUNT_USE_PATCHABLE_FUNCTION_ENTRY=y
 
 $ mount -t tracefs nodev /sys/kernel/tracing
-
-
 
 @trace-cmd
 

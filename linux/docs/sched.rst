@@ -55,7 +55,6 @@ execve() @syscall
                                                             (48 as default)
 
                         vm_start = vma->vm_end - PAGE_SIZE
-                                        :
                                         |
                                         v [+] mm/mmap.c
                                 insert_vm_struct()
@@ -67,30 +66,28 @@ execve() @syscall
                 | i_mmap tree.  If vm_file is non-NULL   |
                 | then i_mmap_rwsem is taken here.       |
                 +----------------------------------------+
-                                        |
-                                        +- find_vma_intersection()
+                                    |
+                                    +- find_vma_intersection()
                                                 |
                                                 ▼
                                 +-----------------------------+
                                 | Look up the first VMA which |
                                 | intersects the interval.    |
                                 +-----------------------------+
-                                                |
-                                                +- mt_find()
-                                                        |
-                                                        +-> mm->mm_mt
+                                            |
+                                            +- mt_find()
+                                                  |
+                                                  +-> mm->mm_mt
                                         |
                                         +- vma_link()
-                                                :
-                                                +- if vma->vm_file
-                                                     |not NULL
-                                                     :
-                                                     +- vma->vm_file->f_mapping
-                                                           :
-                                                           |not NULL
-                                                           +- __vma_link_file()
-                                                                      |
-                             +<---------------------------------------+
+                                            :
+                                            +- if vma->vm_file
+                                                   : @not NULL
+                                                   +- vma->vm_file->f_mapping
+                                                       : @not NULL
+                                                       +- __vma_link_file()
+                                                                  |
+                             +<-----------------------------------+
                              :
                              ▼
         vma_interval_tree_insert(vma, &mapping->i_mmap)
@@ -208,7 +205,6 @@ kthread_bind() => bind a just-created kthread to a cpu.
       +- __kthread_bind(p, cpu, TASK_UNINTERRUPTIBLE)
                 |
                 +- __kthread_bind_mask()
-                             |
                              :
                              +- do_set_cpus_allowed()
                                         |
@@ -558,6 +554,10 @@ sched_init() => primary task is to initialize per cpu runqueues.
 
 run_rebalance_domains() can be triggered when needed from the scheduler tick.
 Also triggered for nohz idle balancing (with nohz_balancing_kick set).
+
+nohz_idle_balance() => In CONFIG_NO_HZ_COMMON case, the idle balance kickee
+                       will do the rebalancing for all the cpus for whom
+                       scheduler ticks are stopped.
 
 Normal load balance rebalance_domains() checks each scheduling domain to see
 if it is due to be balanced, and initiates a balancing operation if so.
@@ -1033,6 +1033,10 @@ scheduled-out, both under rq->lock. Non-zero indicates the task is running
 on its CPU.
 
 --------------------------------------------------------------------------------
+- PELT -
+
+With PELT we track some metrics across the various scheduler entities, from
+individual tasks to task-group slices to CPU runqueues.
 
 --------------------------------------------------------------------------------
 udelay()

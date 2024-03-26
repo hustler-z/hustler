@@ -15,6 +15,8 @@ in the system.
 
 [+] include/linux/device/bus.h
 
+bus_register() => register a driver-core subsystem
+
 @struct bus_type
            |
            +- int (*match)(struct device *dev, struct device_driver *drv)

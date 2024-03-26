@@ -49,7 +49,7 @@ or a wakeup event occurs. Wakeup events include the event signaled as a result
 of executing the SEV instruction on any PE in the multiprocessor system.
 
 #define wfet(val)       asm volatile("msr s0_3_c1_c0_0, %0"	\
-				     : : "r" (val) : "memory")
+				        : : "r" (val) : "memory")
 
 --------------------------------------------------------------------------------
 Wait For Interrupt is a hint instruction that indicates that the PE can enter a
@@ -66,10 +66,22 @@ re-fetched) from cache or memory.
 
 #define isb()      asm volatile("isb" : : : "memory")
 
+@Types of Observers
+
+Instruction Fetch Unit (IFU)
+The data interface, typically called the Load Store Unit (LSU)
+The MMU table walk unit
+
 Data Memory Barrier is a memory barrier that ensures the ordering of
 observations of memory accesses.
 
 #define dmb(opt)   asm volatile("dmb " #opt : : : "memory")
+
+e.g.
+
+STR #1,[X1]
+DMB
+STR #1,[X3] => Cannot observe this STR without first observing the previous STR.
 
 Data Synchronization Barrier is a memory barrier that ensures the completion
 of memory accesses. All pending loads and stores, cache maintenance
@@ -77,6 +89,66 @@ instructions, and all TLB maintenance instructions, are completed before
 program execution continues.
 
 #define dsb(opt)   asm volatile("dsb " #opt : : : "memory")
+
+e.g.
+
+STR X0,[X1]  => Must complete before the DSB can retire.
+DSB
+ADD X1,X2,X3 => Must NOT be executed before the first STR completes.
+STR X4,[X5]  => Must NOT be executed until the first STR completes.
+
+The DSB stalls execution until the STR to Device-nGnRnE memory receives a write
+response from the end peripheral at the corresponding memory location
+
+e.g.
+
+STR X0,[Device-nGnRnE] => Must receive a write response from the end-peripheral
+DSB SY
+
+LDAR => Load-Acquire Instructions
+STLR => Store-Release Instructions
+
+        LDR and STR ------+
+                          |
+                          |
+----------- LDAR ---------|--- Accesses can cross a barrier in one
+     ▲                    |    direction but not the other.
+     |  LDR and STR       ▼
+     |       |
+     +-------+
+
+
+        LDR and STR ------+
+     ▲                    |
+     |                    ▼
+-----|----- STLR ------------- Accesses can cross a barrier in one
+     |                         direction but not the other.
+     |  LDR and STR
+     |       |
+     +-------+
+
+
+When the stage 1 MMU is disabled:
+
+• All data accesses are Device-nGnRnE.
+• All instruction fetches are treated as either non-cacheable or cacheable,
+according to the value of the SCTLR_ELx.I (instruction cacheability control)
+field.
+• All addresses have read/write access and are executable.
+
+@Normal Memory
+@Device Memory
+
+The Device memory type is used for describing peripherals. Peripheral registers
+are often referred to as Memory-Mapped I/O (MMIO).
+
+• Device-GRE
+• Device-nGRE
+• Device-nGnRE
+
+@Gathering (G, nG)
+@Re-ordering (R, nR)
+@Early Write Acknowledgement (E, nE)
 
 --------------------------------------------------------------------------------
 
@@ -309,5 +381,16 @@ mutex_unlock()
     RCU-protected data structure, but **before** reclaiming/freeing the data
     element, in order to wait for the completion of all RCU read-side critical
     sections that might be referencing that data item.
+
+--------------------------------------------------------------------------------
+
+membarrier() => issue memory barriers on a set of threads.
+
+All memory accesses performed in program order from each targeted thread
+is guaranteed to be ordered with respect to sys_membarrier(). If we use
+the semantic "barrier()" to represent a compiler barrier forcing memory
+accesses to be performed in program order across the barrier, and
+smp_mb() to represent explicit memory barriers forcing full memory
+ordering across the barrier.
 
 --------------------------------------------------------------------------------
