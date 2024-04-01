@@ -55,8 +55,16 @@ SoC.
 *-----------------*
          |
 *-----------------*
-|    PHY Layer    |
+|    PHY Layer    | -> D-PHY & C-PHY
 *-----------------*
+
+D-PHY can switch between differential (High Speed) and single-ended (Low Power)
+mode in real time depending on the need to transfer large amounts of data or to
+conserve power to prolong the battery life. The D-PHY interface is capable of
+operating in simplex or duplex configuration with single data lane or multiple
+data lanes, giving a flexibility to avail the links as needed. In addition,
+clock is always uni-directional (Master to Slave) and is in quadrature phase
+with data.
 
 --------------------------------------------------------------------------------
 MIPI is differential serial transmission, fast speed, anti-interference.
