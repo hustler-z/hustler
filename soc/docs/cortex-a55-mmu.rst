@@ -11,6 +11,7 @@ side or instruction-side L1 TLB.
 
 When the Cortex®-A55 core generates a memory access, the
 MMU:
+
 1. Performs a lookup for the requested VA and current
    translation regime in the relevant instruction or data L1
    TLB.
