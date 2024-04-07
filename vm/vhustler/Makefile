@@ -53,17 +53,20 @@ LDFLAGS := -g
 # ----------------------------------------------------------
 
 compile_cc = @ mkdir -p `dirname $(1)`; \
-			 echo " (cc)  $(subst $(BUILD_DIR)/,,$(1))"; \
+			 echo " (cc)       $(subst $(BUILD_DIR)/,,$(1))"; \
 			 $(CC) $(CFLAGS) -c $(2) -o $(1)
 compile_as = @ mkdir -p `dirname $(1)`; \
-			 echo " (as)  $(subst $(BUILD_DIR)/,,$(1))"; \
+			 echo " (as)       $(subst $(BUILD_DIR)/,,$(1))"; \
 			 $(AS) $(ASFLAGS) $(2) -o $(1)
 compile_ld = @ mkdir -p `dirname $(1)`; \
-			 echo " (ld)  $(subst $(BUILD_DIR)/,,$(1))"; \
+			 echo " (ld)       $(subst $(BUILD_DIR)/,,$(1))"; \
 			 $(CC) $(3) $(LDFLAGS) -T$(2) -o $(1)
 disassemble = @ mkdir -p `dirname $(1)`; \
 			 echo " (objdump)  $(subst $(BUILD_DIR)/,,$(1))"; \
-			 $(OBJDUMP) -r -S -l -d $(1) > debug.asm
+			 $(OBJDUMP) -r -S -l -d $(1) > $(BUILD_DIR)/debug.asm
+compile_objcopy = @ mkdir -p `dirname $(1)`; \
+			 echo " (objcopy)  $(subst $(BUILD_DIR)/,,$(1))"; \
+			 $(OBJCOPY) -O binary $(2) $(1)
 
 # ----------------------------------------------------------
 OBJS := $(BUILD_DIR)/$(ARCH_PATH)/arch_gic.o \
@@ -95,9 +98,12 @@ OBJS := $(BUILD_DIR)/$(ARCH_PATH)/arch_gic.o \
 # $@ - Target file
 # $< - First dependent file
 # $^ - All dependent files
+$(BUILD_DIR)/$(EXECUTABLE).bin:$(BUILD_DIR)/$(EXECUTABLE).elf
+	$(call compile_objcopy,$@,$<)
 
 $(BUILD_DIR)/$(EXECUTABLE).elf:$(OBJS)
 	$(call compile_ld,$@,$(WORK_DIR)/vhustler.ld,$^)
+	$(call disassemble,$@)
 
 $(BUILD_DIR)/main.o:$(WORK_DIR)/main.c
 	$(call compile_cc,$@,$<)

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 OPT=$1
-ELF=out/vhustler.elf
+ELF=out/vhustler.bin
 DEBUG=$2
 # Compilation function
 
@@ -22,12 +22,13 @@ qemu_dbg() {
     echo "============= QEMU DEBUG =============="
     case $DEBUG in
         on)
+            # show target assembly code for each compiled TB
             qemu-system-aarch64 \
                 -machine virt,virtualization=on \
                 -cpu cortex-a72 \
                 -nographic \
                 -kernel $ELF \
-                -d in_asm
+                -d in_asm,guest_errors,int
             ;;
         off)
             qemu-system-aarch64 \
