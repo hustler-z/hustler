@@ -1,7 +1,6 @@
-/*
-Static scheduler for armvisor
-*/
+/**
+ * Static scheduler for hypervisor
+ */
 
+void hypervisor_sched_setup();
 void schedule_next_vm();
-void schedule_change_order();
-void schedule_start();

@@ -10,6 +10,5 @@
 #define TT_S2_DEVICE_nGnRnE (0x0 << 2)
 #define TT_S2_NORMAL_WBWA   (0xF << 2)
 
-unsigned long pt_s2_l1_vm1 [512]            __attribute__ ((aligned (4096)));
-unsigned long pt_s2_l1_vm2 [512]            __attribute__ ((aligned (4096)));
-
+void setup_vm1_stage2_level1();
+void setup_vm2_stage2_level1();

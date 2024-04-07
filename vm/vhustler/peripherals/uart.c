@@ -1,5 +1,7 @@
 #include "inc/uart.h"
 
+static struct pl011_regs* serial_dev = (struct pl011_regs*)0x09000000;
+
 void uart_print_char(const char c)
 {
     volatile unsigned int* uartx = (unsigned int *)(0x09000000);

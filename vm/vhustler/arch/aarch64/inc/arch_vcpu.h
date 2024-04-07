@@ -1,5 +1,5 @@
-#ifndef AV_ARCH_VCPU_H
-#define AV_ARCH_VCPU_H
+#ifndef ARCH_VCPU_H
+#define ARCH_VCPU_H
 
 #include "regs.h"
 

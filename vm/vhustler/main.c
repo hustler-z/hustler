@@ -6,6 +6,10 @@
 #include "arch/aarch64/inc/arch_vm.h"
 #include "hypervisor/inc/loader.h"
 #include "hypervisor/inc/hypervisor.h"
+#include "hypervisor/inc/vm.h"
+
+extern struct virtual_machine* CUR_VM;
+extern struct virtual_machine* NEXT_VM;
 
 struct virtual_machine vm1;
 struct vcpu vcpu1;

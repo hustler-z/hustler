@@ -1,4 +1,6 @@
 #include "inc/hypervisor.h"
+#include "../arch/aarch64/inc/arch_gic.h"
+#include "../arch/aarch64/inc/generic_timer.h"
 
 /*
  * vm_control.S > asm_start_vm

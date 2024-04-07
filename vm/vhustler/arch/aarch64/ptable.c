@@ -1,5 +1,8 @@
 #include "inc/ptable.h"
+#include "inc/utils.h"
 
+unsigned long pt_s2_l1_vm1[512]     __attribute__((aligned(4096)));
+unsigned long pt_s2_l1_vm2[512]     __attribute__((aligned(4096)));
 
 void setup_vm1_stage2_level1()
 {

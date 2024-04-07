@@ -10,8 +10,6 @@
 #define VIRT_GIC_CPU                (0x08010000)
 #define VIRT_GIC_REDIST             (0x080A0000)
 
-static uint64_t GIC_REDIST_ID = 0;
-
 // Helper functions for GIC control
 void gic_init(void);
 void gic_register_device(uint64_t DEVICE_ID);

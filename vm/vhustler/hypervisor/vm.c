@@ -1,17 +1,18 @@
-#include "hypervisor/vm.h"
-#include "aarch64/inc/uart.h"
+#include "../../hypervisor/inc/vm.h"
+#include "../../peripherals/inc/uart.h"
 
-/*
-    vm_control.S > asm_start_vm
-*/
+extern struct virtual_machine* CUR_VM;
+extern struct virtual_machine* NEXT_VM;
+/**
+ * vm_control.S > asm_start_vm
+ */
 extern void asm_start_vm();
-
 
 void register_vm(struct virtual_machine* _vm)
 {
     HYP_LOG_N("virtual_machine regiter start");
     HYP_LOG("virtual_machine id: ");
-    uart_print_hex(_vm->virtual_machine_ID);
+    uart_print_hex(_vm->vm_id);
     SERIAL_NEWLINE;
     HYP_LOG("virtual_machine start addr: ");
     uart_print_hex(_vm->memory_region);
@@ -20,7 +21,7 @@ void register_vm(struct virtual_machine* _vm)
 
 struct virtual_machine* set_current_vm(struct virtual_machine* _vm)
 {
-    CURRENT_virtual_machine = _vm;
+    CUR_VM = _vm;
     return CUR_VM;
 }
 

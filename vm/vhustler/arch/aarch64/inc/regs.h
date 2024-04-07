@@ -1,5 +1,5 @@
-#ifndef AV_REGS_H
-#define AV_REGS_H
+#ifndef ARCH_REGS_H
+#define ARCH_REGS_H
 
 #include <stdint.h>
 
@@ -40,7 +40,5 @@ struct context_regs
     REG64 x29;
     REG64 x30;
 };
-
-struct context_regs TEMP_REGSET;
 
 #endif

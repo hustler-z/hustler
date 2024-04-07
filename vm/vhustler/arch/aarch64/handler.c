@@ -18,34 +18,27 @@ void interrupt_handler()
 	uart_print_hex(interrupt_id);
 	SERIAL_NEWLINE;
 
-
-
 #ifdef DEBUG
 	counter ++;
-	if(counter == 25)
-	{
+	if (counter == 25) {
 		while(1){}
 	}
 #endif
 
-	switch (interrupt_id)
-	{
-		case (TIMER_EL2_IRQ):
-		{
-			timer_handler2();
-			break;
-		}
-		case (UART_IRQ):
-		{
-			uart_handler();
-			break;
-		}
-		default:
-			break;
+	switch (interrupt_id) {
+	case (TIMER_EL2_IRQ):
+		timer_handler2();
+		break;
+	case (UART_IRQ):
+		uart_handler();
+		break;
+	default:
+		break;
 	}
 
 	__arch_end_of_interrupt(interrupt_id);
 	uart_print_string("> IRQ: Cleared");
+
 	SERIAL_NEWLINE;
 	SERIAL_LINE_N;
 }

@@ -1,7 +1,8 @@
 #!/bin/bash
 
 OPT=$1
-
+ELF=out/vhustler.elf
+DEBUG=$2
 # Compilation function
 
 build() {
@@ -13,7 +14,32 @@ build() {
 clean() {
     echo "======================================="
     make clean
+    echo "Done cleaning built objects"
     echo "======================================="
+}
+
+qemu_dbg() {
+    echo "============= QEMU DEBUG =============="
+    case $DEBUG in
+        on)
+            qemu-system-aarch64 \
+                -machine virt,virtualization=on \
+                -cpu cortex-a72 \
+                -nographic \
+                -kernel $ELF \
+                -d in_asm
+            ;;
+        off)
+            qemu-system-aarch64 \
+                -machine virt,virtualization=on \
+                -cpu cortex-a72 \
+                -nographic \
+                -kernel $ELF \
+            ;;
+        *)
+            echo "Usage: ./cook.sh debug [on/off]"
+            ;;
+    esac
 }
 
 main() {
@@ -24,10 +50,13 @@ main() {
         clean)
             clean
             ;;
+        debug)
+            qemu_dbg
+            ;;
         *)
-            echo "Usage: ./cook.sh build/*"
+            echo "Usage: ./cook.sh build/clean/debug"
             ;;
     esac
 }
 
-main $1
+main $1 $2

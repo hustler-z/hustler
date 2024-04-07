@@ -9,7 +9,7 @@
 
 #include <stdint.h>
 
-typedef size_t unsigned long
+typedef uint64_t size_t;
 
 char *strcpy(char *dest, const char *src);;
 char *strncpy(char *dest, const char *src, size_t count);

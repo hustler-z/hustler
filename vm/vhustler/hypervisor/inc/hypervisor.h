@@ -1,7 +1,6 @@
-#include "aarch64/inc/uart.h"
-#include "aarch64/inc/utils.h"
+#include "../../peripherals/inc/uart.h"
+#include "../../arch/aarch64/inc/utils.h"
 
-
-void armvisor_init();
-void armvisor_set_interrupts(void);
-void armvisor_enable_interrupts(void);
+void hypervisor_init();
+void hypervisor_set_interrupts(void);
+void hypervisor_enable_interrupts(void);

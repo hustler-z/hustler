@@ -9,4 +9,5 @@ void __stack_chk_guard_setup(void)
 
 void __stack_chk_fail(void)
 {
+    /* To Do */
 }

@@ -1,8 +1,15 @@
-ENTRY(start)
+/**
+ * vhustler linker script: vhustler.ld
+ */
+
+OUTPUT_FORMAT("elf64-littleaarch64")
+OUTPUT_ARCH("aarch64")
+ENTRY(vmm_start)
 
 SECTIONS
 {
 	. = 0x40000000;
+
 	.text ALIGN (0x1000):
 	{
 		*(vectors);

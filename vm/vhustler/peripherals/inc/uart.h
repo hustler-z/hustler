@@ -2,8 +2,8 @@
 #define AV_UART_H
 
 #include "utils.h"
-#include "irq.h"
-#include "board.h"
+#include "../../arch/aarch64/inc/irq.h"
+#include "../../arch/aarch64/inc/board.h"
 
 #define DR_DATA_MASK                (0xFF)
 #define RX_INTERRUPT	            (1U << 4U)
@@ -24,27 +24,24 @@
 
 #define SERIAL_LINE_N SERIAL_LINE SERIAL_NEWLINE;
 
-
 struct __attribute__((packed)) pl011_regs
 {
-	REG32 DR;                            
-	REG32 RSRECR;                        
-	REG32 __empty0__[4];                 
-	REG32 FR;                            
-	REG32 __empty1__;                    
-	REG32 ILPR;                          
-	REG32 IBRD;                          
-	REG32 FBRD;                          
-	REG32 LCRH;                          
-	REG32 CR;                            
-	REG32 IFLS;				            
-	REG32 IMSC;				            
-	REG32 RIS;				            
-	REG32 MIS;				            
-	REG32 ICR;				            
-} ;
-
-static struct pl011_regs* serial_dev = (struct pl011_regs*)0x09000000;
+	REG32 DR;
+	REG32 RSRECR;
+	REG32 __empty0__[4];
+	REG32 FR;
+	REG32 __empty1__;
+	REG32 ILPR;
+	REG32 IBRD;
+	REG32 FBRD;
+	REG32 LCRH;
+	REG32 CR;
+	REG32 IFLS;
+	REG32 IMSC;
+	REG32 RIS;
+	REG32 MIS;
+	REG32 ICR;
+};
 
 // PL011 Device
 void uart_print_char(const char);

@@ -1,9 +1,13 @@
-/* ---------------------------------------------------------
+/**
+ * ---------------------------------------------------------
  * commonly used string related functions
  *
  * from lib/string.c
  * ---------------------------------------------------------
  **/
+
+#include "inc/std.h"
+#include "inc/string.h"
 
 /**
  * strcpy - Copy a %NUL terminated string
@@ -123,7 +127,8 @@ size_t strlcat(char *dest, const char *src, size_t count)
 	size_t res = dsize + len;
 
 	/* This would be a bug */
-	BUG_ON(dsize >= count);
+	if (dsize >= count)
+        return 0;
 
 	dest += dsize;
 	count -= dsize;
@@ -139,7 +144,6 @@ size_t strlcat(char *dest, const char *src, size_t count)
  * @cs: One string
  * @ct: Another string
  */
-#undef strcmp
 int strcmp(const char *cs, const char *ct)
 {
 	unsigned char c1, c2;

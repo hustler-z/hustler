@@ -1,5 +1,5 @@
-#ifndef AV_ARCH_VM_H
-#define AV_ARCH_VM_H
+#ifndef ARCH_VM_H
+#define ARCH_VM_H
 
 #include "arch_vcpu.h"
 
@@ -11,6 +11,5 @@ struct virtual_machine
     uint64_t memory_region;
     uint64_t entry_point;
 };
-
 
 #endif

@@ -10,7 +10,12 @@
 #include "gicv3/gicv3_basic.h"
 #include "gicv3/gicv3_registers.h"
 
-extern uint32_t getAffinity(void);
+static uint32_t GIC_REDIST_ID = 0;
+
+extern uint32_t getAffinity();
+extern void setPriorityMask(uint32_t prio_mask);
+extern void enableGroup0Ints();
+extern void enableGroup1Ints();
 
 void gic_init(void)
 {
@@ -32,4 +37,3 @@ void gic_register_device(uint64_t _device_id)
     setIntGroup(_device_id, GIC_REDIST_ID, 0);
     enableInt(_device_id, GIC_REDIST_ID);
 }
-

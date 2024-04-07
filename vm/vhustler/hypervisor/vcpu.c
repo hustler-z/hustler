@@ -1,5 +1,5 @@
-#include "aarch64/inc/uart.h"
-#include "hypervisor/vcpu.h"
+#include "../../peripherals/inc/uart.h"
+#include "../../hypervisor/inc/vcpu.h"
 
 void vcpu_print_registers(struct vcpu* _vcpu)
 {
