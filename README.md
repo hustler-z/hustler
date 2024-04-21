@@ -1,9 +1,20 @@
-Self-education purpose only
-----------------------------------------------
-Mainly forcus on ARM based linux kernel, RTOS
+Hustler's Projects
 
-Mainly do notes and education.
+# My way to be a better OS developer
 
-[ Tech makes life better ]
-----------------------------------------------
-2023/02/07
+@ Bootloader.    - bootloader/ (u-boot)
+@ Linux kernel   - linux/
+@ Micro kernel   - microkernel/
+@ RTOS           - rtos/
+@ Virtualization - vm/
+
+# Respect to all open-source developers
+
+I am far from being an OS expert, it
+took me two years to make the decision.
+lots to learn, lots of distraction,
+but embrace challenges and the beauty
+of various OS products.
+
+# Embedded OS
+
