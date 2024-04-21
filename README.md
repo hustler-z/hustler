@@ -2,10 +2,14 @@ Hustler's Projects
 
 # My way to be a better OS developer
 
-@ Bootloader.    - bootloader/ (u-boot)
+@ Bootloader     - bootloader/ (u-boot)
+
 @ Linux kernel   - linux/
+
 @ Micro kernel   - microkernel/
+
 @ RTOS           - rtos/
+
 @ Virtualization - vm/
 
 # Respect to all open-source developers
