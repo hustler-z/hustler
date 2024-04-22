@@ -2,14 +2,15 @@
 
 OPT=$1
 DEBUG=$2
-ELF=out/vmm.bin
+OUT=build
+ELF=$OUT/vmm.bin
 
 build() {
-    make -j$(nproc) O=out V=1
+    make -j$(nproc) O=$OUT V=1
 }
 
 config() {
-    make -j$(nproc) menuconfig O=out
+    make -j$(nproc) menuconfig O=$OUT
 }
 
 clean() {

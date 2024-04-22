@@ -1,6 +1,0 @@
-========
-GOLDFISH
-========
-
-Supported Boards
-================
