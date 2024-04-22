@@ -1,0 +1,467 @@
+[[events]]
+name = "usb_xhci_exit"
+args = ""
+message = "=== EXIT ==="
+enabled = true
+
+[[events]]
+name = "usb_xhci_run"
+args = ""
+message = "=== RUN ==="
+enabled = true
+
+[[events]]
+name = "usb_xhci_reset"
+args = ""
+message = "=== RESET ==="
+enabled = true
+
+[[events]]
+name = "usb_xhci_stop"
+args = ""
+message = "=== STOP ==="
+enabled = true
+
+[[events]]
+name = "usb_xhci_attach_device"
+args = "port_id: &dyn fmt::Debug, device_id: &dyn fmt::Debug"
+message = "port_id={:?} device_id={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_detach_device"
+args = "port_id: &dyn fmt::Debug, device_id: &dyn fmt::Debug"
+message = "port_id={:?} device_id={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_cap_read"
+args = "gpa: &dyn fmt::Debug, offset: &dyn fmt::Debug, value: &dyn fmt::Debug"
+message = "gpa={:x?} offset={:04x?} value={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_oper_read"
+args = "gpa: &dyn fmt::Debug, offset: &dyn fmt::Debug, value: &dyn fmt::Debug"
+message = "gpa={:x?} offset={:04x?} value={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_runtime_read"
+args = "gpa: &dyn fmt::Debug, offset: &dyn fmt::Debug, value: &dyn fmt::Debug"
+message = "gpa={:x?} offset={:04x?} value={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_runtime_write"
+args = "gpa: &dyn fmt::Debug, offset: &dyn fmt::Debug, value: &dyn fmt::Debug"
+message = "gpa={:x?} offset={:04x?} value={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_oper_write"
+args = "gpa: &dyn fmt::Debug, offset: &dyn fmt::Debug, value: &dyn fmt::Debug"
+message = "gpa={:x?} offset={:04x?} value={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_doorbell_read"
+args = "gpa: &dyn fmt::Debug, offset: &dyn fmt::Debug, value: &dyn fmt::Debug"
+message = "gpa={:x?} offset={:04x?} value={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_doorbell_write"
+args = "gpa: &dyn fmt::Debug, offset: &dyn fmt::Debug, value: &dyn fmt::Debug"
+message = "gpa={:x?} offset={:04x?} value={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_port_read"
+args = "gpa: &dyn fmt::Debug, offset: &dyn fmt::Debug, value: &dyn fmt::Debug"
+message = "gpa={:x?} offset={:04x?} value={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_port_write"
+args = "gpa: &dyn fmt::Debug, offset: &dyn fmt::Debug, value: &dyn fmt::Debug"
+message = "gpa={:x?} offset={:04x?} value={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_port_link"
+args = "port: &dyn fmt::Debug, pls: &dyn fmt::Debug"
+message = "port={:?} pls={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_ep_kick"
+args = "slotid: &dyn fmt::Debug, epid: &dyn fmt::Debug, dequeue: &dyn fmt::Debug"
+message = "slotid={:?} epid={:?} dequeue={:x?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_fetch_trb"
+args = "addr: &dyn fmt::Debug, param: &dyn fmt::Debug, status: &dyn fmt::Debug, control: &dyn fmt::Debug"
+message = "addr={:x?} param={:?} status={:?} control={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_port_reset"
+args = "port: &dyn fmt::Debug, warm: &dyn fmt::Debug"
+message = "port={:?} warm={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_port_notify"
+args = "port: &dyn fmt::Debug, bits: &dyn fmt::Debug"
+message = "port={:?} bits={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_enable_slot"
+args = "slotid: &dyn fmt::Debug"
+message = "slotid={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_disable_slot"
+args = "slotid: &dyn fmt::Debug"
+message = "slotid={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_address_device"
+args = "slotid: &dyn fmt::Debug, port: &dyn fmt::Debug"
+message = "slotid={:?} port={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_configure_endpoint"
+args = "slotid: &dyn fmt::Debug"
+message = "slotid={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_evaluate_context"
+args = "slotid: &dyn fmt::Debug"
+message = "slotid={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_reset_device"
+args = "slotid: &dyn fmt::Debug"
+message = "slotid={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_enable_endpoint"
+args = "slotid: &dyn fmt::Debug, epid: &dyn fmt::Debug"
+message = "slotid={:?} epid={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_disable_endpoint"
+args = "slotid: &dyn fmt::Debug, epid: &dyn fmt::Debug"
+message = "slotid={:?} epid={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_set_tr_dequeue"
+args = "slotid: &dyn fmt::Debug, epid: &dyn fmt::Debug, param: &dyn fmt::Debug"
+message = "slotid={:?} epid={:?} param={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_stop_endpoint"
+args = "slotid: &dyn fmt::Debug, epid: &dyn fmt::Debug"
+message = "slotid={:?} epid={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_reset_endpoint"
+args = "slotid: &dyn fmt::Debug, epid: &dyn fmt::Debug"
+message = "slotid={:?} epid={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_xfer_start"
+args = "slotid: &dyn fmt::Debug, epid: &dyn fmt::Debug"
+message = "slotid={:?} epid={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_xfer_async"
+args = ""
+message = ""
+enabled = true
+
+[[events]]
+name = "usb_xhci_xfer_nak"
+args = ""
+message = ""
+enabled = true
+
+[[events]]
+name = "usb_xhci_xfer_retry"
+args = ""
+message = ""
+enabled = true
+
+[[events]]
+name = "usb_xhci_xfer_success"
+args = "len: &dyn fmt::Debug"
+message = "len={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_xfer_error"
+args = "status: &dyn fmt::Debug"
+message = "status={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_flush_ep_transfer"
+args = "slotid: &dyn fmt::Debug, epid: &dyn fmt::Debug"
+message = "slotid={:?} epid={:?}"
+enabled = true
+
+[[events]]
+name = "usb_xhci_unimplemented"
+args = "str: &dyn fmt::Debug"
+message = "{:?}"
+enabled = true
+
+[[events]]
+name = "usb_handle_control"
+args = "device: &str, req: &dyn fmt::Debug"
+message = "device {} handle control request {:?}."
+enabled = true
+
+[[events]]
+name = "usb_camera_vs_control_request"
+args = "cs: u8, vs_control: &dyn fmt::Debug"
+message = "VideoStreamingControl {} {:?}."
+enabled = true
+
+[[events]]
+name = "usb_camera_handle_control"
+args = ""
+message = "camera control handled by descriptor."
+enabled = true
+
+[[events]]
+name = "usb_camera_handle_payload"
+args = "frame_offset: usize, payload_offset: usize, data_size: u64, copied: usize"
+message = "camera handle payload, frame_offset {} payloadoffset {} data_size {} copied {}."
+enabled = true
+
+[[events]]
+name = "usb_storage_handle_control"
+args = ""
+message = "storage control handled by descriptor."
+enabled = true
+
+[[events]]
+name = "usb_storage_handle_data"
+args = "ep_number: u8, pid: u32, mode: &dyn fmt::Debug"
+message = "endpoint {}, pid 0x{:X}, mode {:?}"
+enabled = true
+
+[[events]]
+name = "usb_storage_handle_token_out"
+args = "cbw: &dyn fmt::Debug"
+message = "cbw {:?}"
+enabled = true
+
+[[events]]
+name = "usb_storage_handle_token_in"
+args = "csw: &dyn fmt::Debug"
+message = "csw {:?}"
+enabled = true
+
+[[events]]
+name = "usb_storage_handle_data_inout_packet"
+args = "len: u32"
+message = "iovec length {}"
+enabled = true
+
+[[events]]
+name = "usb_storage_handle_scsi_request"
+args = "csw: &dyn fmt::Debug"
+message = "csw {:?}"
+enabled = true
+
+[[events]]
+name = "usb_tablet_update_point_state"
+args = "input_type: &dyn fmt::Debug"
+message = "input_type={:?}"
+enabled = true
+
+[[events]]
+name = "usb_tablet_point_sync"
+args = ""
+message = "input pointer sync"
+enabled = true
+
+[[events]]
+name = "usb_tablet_queue_full"
+args = ""
+message = "pointer queue is full"
+enabled = true
+
+[[events]]
+name = "usb_keyboard_event"
+args = "keycode: &dyn fmt::Debug, down: &dyn fmt::Debug"
+message = "do keyboard event keycode={:?} down={:?}"
+enabled = true
+
+[[events]]
+name = "usb_keyboard_queue_full"
+args = ""
+message = "keyboard queue is full"
+enabled = true
+
+[[events]]
+name = "usb_convert_to_hid_code"
+args = "hid_code: &dyn fmt::Debug, index: &dyn fmt::Debug, key: &dyn fmt::Debug"
+message = "hid_code {:?} index {:?} key {:?}"
+enabled = true
+
+[[events]]
+name = "usb_no_data_in_usb_device"
+args = ""
+message = "no data in usb device."
+enabled = true
+
+[[events]]
+name = "usb_keyboard_set_report"
+args = "led_state: &dyn fmt::Debug"
+message = "led_state={:?}"
+enabled = true
+
+[[events]]
+name = "usb_host_open_started"
+args = "bus_num: u8, addr: u8"
+message = "dev bus 0x{:X} addr 0x{:X}"
+enabled = true
+
+[[events]]
+name = "usb_host_close"
+args = "bus_num: u8, addr: u8"
+message = "dev bus 0x{:X} addr 0x{:X}"
+enabled = true
+
+[[events]]
+name = "usb_host_open_success"
+args = "bus_num: u8, addr: u8"
+message = "dev bus 0x{:X} addr 0x{:X}"
+enabled = true
+ 
+[[events]]
+name = "usb_host_reset"
+args = "bus_num: u8, addr: u8"
+message = "dev bus 0x{:X} addr 0x{:X} reset"
+enabled = true
+
+[[events]]
+name = "usb_host_attach_kernel"
+args = "bus_num: u8, addr: u8, interface: u8"
+message = "dev bus 0x{:X} addr 0x{:X}, interface {}"
+enabled = true
+
+[[events]]
+name = "usb_host_detach_kernel"
+args = "bus_num: u8, addr: u8, interface: u8"
+message = "dev bus 0x{:X} addr 0x{:X}, interface {}"
+enabled = true
+
+[[events]]
+name = "usb_host_set_interface"
+args = "bus_num: u8, addr: u8, iface: u16, alt: u16"
+message = "dev bus 0x{:X} addr 0x{:X}, set interface {}, alt {}"
+enabled = true
+
+[[events]]
+name = "usb_host_set_config"
+args = "bus_num: u8, addr: u8, config: u8"
+message = "dev bus 0x{:X} addr 0x{:X}, set config {}"
+enabled = true
+
+[[events]]
+name = "usb_host_set_address"
+args = "bus_num: u8, addr: u8, address: u8"
+message = "dev bus 0x{:X} addr 0x{:X}, set address {}"
+enabled = true
+
+[[events]]
+name = "usb_host_claim_interface"
+args = "bus_num: u8, addr: u8, interface: u8"
+message = "dev bus 0x{:X} addr 0x{:X}, claim interface {}"
+enabled = true
+
+[[events]]
+name = "usb_host_release_interface"
+args = "bus_num: u8, addr: u8, interface: u8"
+message = "dev bus 0x{:X} addr 0x{:X}, release interface {}"
+enabled = true
+
+[[events]]
+name = "usb_host_parse_config"
+args = "bus_num: u8, addr: u8, value: u8"
+message = "dev bus 0x{:X} addr 0x{:X}, parse config value {}"
+enabled = true
+
+[[events]]
+name = "usb_host_parse_interface"
+args = "bus_num: u8, addr: u8, num: u8, alt: u8"
+message = "dev bus 0x{:X} addr 0x{:X}, parse interface num {} alt {}"
+enabled = true
+
+[[events]]
+name = "usb_host_parse_error"
+args = "bus_num: u8, addr: u8, msg: &str"
+message = "dev bus 0x{:X} addr 0x{:X}, msg {}"
+enabled = true
+
+[[events]]
+name = "usb_host_parse_endpoint"
+args = "bus_num: u8, addr: u8, ep: u8, dir: &dyn fmt::Debug, ep_type: &dyn fmt::Debug"
+message = "dev bus 0x{:X} addr 0x{:X}, parse endpoint {} dir {:?} ep_type {:?}"
+enabled = true
+
+[[events]]
+name = "usb_host_req_control"
+args = "bus_num: u8, addr: u8, request: &dyn fmt::Debug"
+message = "dev bus 0x{:X} addr 0x{:X}, request {:?}"
+enabled = true
+
+[[events]]
+name = "usb_host_req_data"
+args = "bus_num: u8, addr: u8, packet: u64, pid: u32, ep_num: u8, iov_len: usize"
+message = "dev bus 0x{:X} addr 0x{:X}, packet 0x{:#X}, pid {} ep_number {} iov len {}"
+enabled = true
+
+[[events]]
+name = "usb_host_iso_start"
+args = "bus_num: u8, addr: u8, ep_number: u8"
+message = "dev bus 0x{:X} addr 0x{:X}, endpoint {}"
+enabled = true
+
+[[events]]
+name = "usb_host_iso_stop"
+args = "bus_num: u8, addr: u8, ep_number: u8"
+message = "dev bus 0x{:X} addr 0x{:X}, endpoint {}"
+enabled = true
+
+[[events]]
+name = "usb_host_req_emulated"
+args = "bus_num: u8, addr: u8, packet: u64, status: &dyn fmt::Debug"
+message = "dev bus 0x{:X} addr 0x{:X}, packet 0x{:#X}, status {:?}"
+enabled = true
+
+[[events]]
+name = "usb_host_req_complete"
+args = "bus_num: u8, addr: u8, packet: u64, status: &dyn fmt::Debug, actual_length: usize"
+message = "dev bus 0x{:X} addr 0x{:X}, packet 0x{:#X}, status {:?} actual length {}"
+enabled = true
