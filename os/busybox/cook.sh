@@ -32,6 +32,10 @@ build() {
             ;;
         install)
             make $JOBS install
+            if [ -d "_install" ];then
+                mkdir -p _install/proc _install/dev _install/sys _install/boot \
+                    _install/tmp _install/hustler
+            fi
             ;;
         clean)
             make $JOBS clean
