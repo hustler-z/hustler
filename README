@@ -1,7 +1,8 @@
-Hustler's Projects                            2024/04/23 TUE
-------------------------------------------------------------
+Hustler's Projects
+2024/04/23 TUE
+Self-education
+
 # My way to be a better OS developer
-------------------------------------------------------------
     .
     ├── bootloader
     │   ├── docs
@@ -43,8 +44,6 @@ Hustler's Projects                            2024/04/23 TUE
         ├── xen
         └── xvisor
 
-------------------------------------------------------------
-
 # Respect to all open-source developers
 
 I am far from being an OS expert, it
@@ -53,6 +52,4 @@ lots to learn, lots of distraction,
 but embrace challenges and the beauty
 of various OS products.
 
-# Embedded OS
-
-------------------------------------------------------------
+Note: education purpose only
