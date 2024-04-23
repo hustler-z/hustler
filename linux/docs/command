@@ -41,6 +41,10 @@ $ git add [file 1]
 
 $ git push origin [branch name]
 
+(5) undo the staged/committed changes, back to modified:
+
+$ get reset HEAD~
+
 -------------------------------------------------------------------------------
 
                                 fdisk => manipulate disk partition table
