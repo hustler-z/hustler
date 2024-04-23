@@ -7,7 +7,6 @@ Hustler's Porting Notes:
      *-------------------------------------------------------------*
      | Origin                  Alias        Target SBC             |
      *-------------------------------------------------------------*
-     | (a) phytium FreeRTOS    freertos     radxa zero 3w (rk3566) |
      | (b) UniProton           uniproton    radxa zero 3w (rk3566) |
      *-------------------------------------------------------------*
 
