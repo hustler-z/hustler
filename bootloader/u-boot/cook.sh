@@ -13,9 +13,9 @@ options:
 
 build() {
     # while CONFIG_SYS_TEXT_BASE=0x60000000
+    echo "---------------------------------------------------------------------"
     begin=$(date +%s)
     make -j$(nproc) qemu_arm64_defconfig
-    echo "---------------------------------------------------------------------"
     make -j$(nproc)
     end=$(date +%s)
     tts=$(($end-$begin))
