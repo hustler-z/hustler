@@ -1,0 +1,5 @@
+/bsp/pro/hustler/vm/xvisor/build/arch/arm/cpu/arm64/cpu_proc.o: /bsp/pro/hustler/vm/xvisor/arch/arm/cpu/arm64/cpu_proc.S \
+ /bsp/pro/hustler/vm/xvisor/build/openconf/openconf.h \
+ /bsp/pro/hustler/vm/xvisor/core/include/vmm_openconf.h \
+ /bsp/pro/hustler/vm/xvisor/arch/arm/cpu/arm64/include/cpu_defines.h \
+ /bsp/pro/hustler/vm/xvisor/core/include/vmm_const.h

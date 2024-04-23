@@ -1,0 +1,129 @@
+		Supported Host Hardware
+
+Note: This list is meant to remain in alphabetical order. Please add new
+machines or boards in alphabetical order so that it is much easier to find
+and edit them later. It is formatted to allow easy grepping and beautification
+by scripts. The fields are: Host Machine Name (M), Host Architecture (A),
+Host CPU Name (C), Host CPU Vendor (V), Emulator for Host Machine (E),
+Guest support (G), Current status (S), and Relevant documentation files (D).
+If a field spans multiple lines then simply add field prefix to every line.
+
+----------
+
+M:	BCM2836 SOC (Raspberry Pi2 development board)
+A:	ARM 32-bit with virtualization extension (ARMv7a-ve)
+C:	Cortex-A7
+V:	Broadcom Corporation (http://www.broadcom.com/)
+E:	---
+G:	Realview-PB-A8, VExpress-A9, VExpress-A15, and Virt-v7 guests supported
+S:	Able to boot Realview-PB-A8 linux guest on Raspberry Pi2
+S:	Able to boot VExpress-A9 linux guest on Raspberry Pi2
+S:	Able to boot VExpress-A15 linux guest on Raspberry Pi2
+S:	Able to boot Virt-v7 linux guest on Raspberry Pi2
+D:	docs/arm/bcm2836-raspi2.txt
+
+M:	BCM2837 SOC (Raspberry Pi3 development board)
+A:	ARM 64-bit (ARMv8a)
+C:	Cortex-A53
+V:	Broadcom Corporation (http://www.broadcom.com/)
+E:	---
+G:	Realview-PB-A8, VExpress-A9, VExpress-A15, Virt-v7 and Virt-v8 guests
+	supported
+S:	Able to boot Realview-PB-A8 linux guest on Raspberry Pi3
+S:	Able to boot VExpress-A9 linux guest on Raspberry Pi3
+S:	Able to boot VExpress-A15 linux guest on Raspberry Pi3
+S:	Able to boot Virt-v7 linux guest on Raspberry Pi3
+S:	Able to boot Virt-v8 linux guest on Raspberry Pi3
+D:	docs/arm/bcm2837-raspi3.txt
+
+M:	Armada 8K SOC (Solidrun ClearFog GT board)
+A:	ARM 64-bit (ARMv8a)
+C:	Cortex-A72
+V:	Marvell Technology Group Ltd. (http://www.marvell.com/)
+E:	---
+G:	Realview-PB-A8, VExpress-A9, VExpress-A15, Virt-v7 and Virt-v8 guests
+	supported
+S:	Able to boot Realview-PB-A8 linux guest on ClearFog GT
+S:	Able to boot VExpress-A9 linux guest on ClearFog GT
+S:	Able to boot VExpress-A15 linux guest on ClearFog GT
+S:	Able to boot Virt-v7 linux guest on ClearFog GT
+S:	Able to boot Virt-v8 linux guest on ClearFog GT
+D:	docs/arm/armada-8k-clearfog-gt.txt
+
+M:	Foundation v8 Machine
+A:	ARM 64-bit (ARMv8a)
+C:	Foundation ARMv8 CPU
+V:	ARM Ltd. (http://www.arm.com/)
+E:	ARMv8 Foundation Model (http://www.arm.com/products/tools/models/fast-models/foundation-model.php)
+G:	Realview-PB-A8, VExpress-A9 VExpress-A15, and Virt-v8 guests supported
+S:	Able to boot Realview-PB-A8 linux guest on Foundation v8 Machine
+	emulated by ARMv8 Foundation Model.
+S:	Able to boot VExpress-A9 linux guest on Foundation v8 Machine emulated
+	by ARMv8 Foundation Model.
+S:	Able to boot VExpress-A15 linux guest on Foundation v8 Machine emulated
+	by ARMv8 Foundation Model.
+S:	Able to boot Virt-v7 linux guest on Foundation v8 Machine emulated
+	by ARMv8 Foundation Model.
+S:	Able to boot Virt-v8 linux guest on Foundation v8 Machine emulated
+	by ARMv8 Foundation Model.
+D:	---
+
+M:	Sun7i SOC (or Allwinner A20) (Cubieboard2)
+A:	ARM 32-bit with virtualization extension (ARMv7a-ve)
+C:	Cortex-A7
+V:	Allwinner Technology (http://www.allwinner.com)
+E:	---
+G:	Realview-PB-A8, VExpress-A9, VExpress-A15, and Virt-v7 guests supported
+S:	Able to boot Realview-PB-A8 linux guest on Cubieboard2
+S:	Able to boot VExpress-A9 linux guest on Cubieboard2
+S:	Able to boot VExpress-A15 linux guest on Cubieboard2
+S:	Able to boot Virt-v7 linux guest on Cubieboard2
+D:	docs/arm/sun7i-cubieboard2.txt
+
+M:	VExpress-A15
+A:	ARM 32-bit with virtualization extension (ARMv7a-ve)
+C:	Cortex-A15
+V:	ARM Ltd. (http://www.arm.com/)
+E:	ARM Fast Models 7.0 or higher (https://www.arm.com/)
+G:	Realview-PB-A8, VExpress-A9, VExpress-A15, and Virt-v7 guests supported
+S:	Able to boot Realview-PB-A8 linux guest on VExpress-A15 emulated by
+	ARM fast models.
+S:	Able to boot VExpress-A9 linux guest on VExpress-A15 emulated by
+	ARM fast models.
+S:	Able to boot VExpress-A15 linux guest on VExpress-A15 emulated by
+	ARM fast models.
+S:	Able to boot Virt-v7 linux guest on VExpress-A15 emulated by
+	ARM fast models.
+D:	docs/arm/vexpress-a15.txt
+
+M:	RISC-V QEMU VirtIO board
+A:	RISC-V 64-bit
+C:	RV64GC
+V:	RISC-V Foundation (https://riscv.org/)
+E:	QEMU (http://qemu.org/)
+G:	Work-In-Progress.
+S:	Work-In-Progress.
+D:	docs/riscv/riscv-virt-qemu.txt
+
+M:	x86_64 Generic
+A:	x86 64-bit
+C:	x86_64
+V:	Intel (http://www.intel.com)
+E:	QEMU (http://qemu.org/)
+G:	Work-In-Progress.
+S:	Work-In-Progress.
+D:	docs/x86/x86_64_generic.txt
+
+M:	ZynqMP SOC (ZynqMP ZCU102 board)
+A:	ARM 64-bit (ARMv8a)
+C:	Cortex-A53
+V:	Xilinx Inc (https://www.xilinx.com)
+E:	---
+G:	Realview-PB-A8, VExpress-A9, VExpress-A15, Virt-v7 and Virt-v8 guests
+	supported
+S:	Able to boot Realview-PB-A8 linux guest on ZynqMP ZCU102 board
+S:	Able to boot VExpress-A9 linux guest on ZynqMP ZCU102 board
+S:	Able to boot VExpress-A15 linux guest on ZynqMP ZCU102 board
+S:	Able to boot Virt-v7 linux guest on ZynqMP ZCU102 board
+S:	Able to boot Virt-v8 linux guest on ZynqMP ZCU102 board
+D:	docs/arm/zynqmp-zcu102.txt

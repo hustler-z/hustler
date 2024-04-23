@@ -1,5 +1,0 @@
-[[events]]
-name = "cpu_boot_config"
-args = "cpu_boot_config: &dyn fmt::Debug"
-message = "{:#?}"
-enabled = true

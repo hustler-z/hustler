@@ -1,2 +1,0 @@
-
-BUILD_INC_PATH_DIR += $(SDK_DIR)/soc/rk3566

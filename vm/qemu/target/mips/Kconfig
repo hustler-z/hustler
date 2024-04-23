@@ -1,7 +1,0 @@
-config MIPS
-    bool
-    select SEMIHOSTING
-
-config MIPS64
-    bool
-    select MIPS

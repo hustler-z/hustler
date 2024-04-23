@@ -1,3 +1,0 @@
-ifdef CONFIG_USE_YMODEM
-	BUILD_INC_PATH_DIR += $(SDK_DIR)/third/ymodem
-endif #CONFIG_USE_YMODEM

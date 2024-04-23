@@ -1,0 +1,8 @@
+/bsp/pro/hustler/vm/xvisor/build/libs/common/rational.o: /bsp/pro/hustler/vm/xvisor/libs/common/rational.c \
+ /bsp/pro/hustler/vm/xvisor/build/openconf/openconf.h \
+ /bsp/pro/hustler/vm/xvisor/core/include/vmm_openconf.h \
+ /bsp/pro/hustler/vm/xvisor/libs/include/libs/mathlib.h \
+ /bsp/pro/hustler/vm/xvisor/core/include/vmm_types.h \
+ /bsp/pro/hustler/vm/xvisor/arch/arm/cpu/arm64/include/arch_types.h \
+ /bsp/pro/hustler/vm/xvisor/arch/arm/cpu/arm64/include/arch_config.h \
+ /bsp/pro/hustler/vm/xvisor/libs/include/libs/rational.h

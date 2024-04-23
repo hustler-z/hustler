@@ -3,46 +3,41 @@ Hustler's Projects
 Self-education
 
 # My way to be a better OS developer
-    .
-    ├── bootloader
-    │   ├── docs
-    │   └── u-boot
-    ├── edu
-    │   └── work-languages
-    ├── linux
-    │   ├── docs
-    │   ├── v4.19.y
-    │   ├── v5.10.y
-    │   ├── v5.15.y
-    │   ├── v6.1.y
-    │   └── v6.7.y
-    ├── microkernel
-    │   ├── docs
-    │   ├── liteos
-    │   └── minix3
-    ├── os
-    │   ├── busybox
-    │   ├── docs
-    │   └── Grindos
-    ├── rtos
-    │   ├── docs
-    │   ├── freertos
-    │   ├── nuttx
-    │   ├── rtthread
-    │   ├── uniproton
-    │   └── zephyr
-    ├── scripts
-    ├── soc
-    │   ├── docs
-    │   └── mmu-edu
-    └── vm
-        ├── docs
-        ├── kvmtool
-        ├── optee-os
-        ├── qemu
-        ├── stratovirt
-        ├── xen
-        └── xvisor
+
+Hierarchy Overview
+.
+├── bootloader
+│   ├── docs
+│   └── u-boot
+├── hustle
+│   ├── basics
+│   ├── busybox
+│   ├── components
+│   ├── docs
+│   ├── hustleos
+│   └── scripts
+├── linux
+│   ├── docs
+│   ├── v4.19.y
+│   ├── v5.10.y
+│   ├── v5.15.y
+│   ├── v6.1.y
+│   └── v6.7.y
+├── rtos
+│   ├── docs
+│   ├── freertos
+│   ├── nuttx
+│   ├── rtthread
+│   ├── uniproton
+│   └── zephyr
+└── vm
+    ├── docs
+    ├── kvmtool
+    ├── optee-os
+    ├── qemu
+    ├── stratovirt
+    ├── xen
+    └── xvisor
 
 # Respect to all open-source developers
 

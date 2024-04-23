@@ -1,4 +1,0 @@
-ifdef CONFIG_ENABLE_FDC_DP_USE_LIB
-endif
-
-

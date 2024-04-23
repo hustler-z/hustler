@@ -1,0 +1,3 @@
+/bsp/pro/hustler/vm/xvisor/build/arch/arm/cpu/arm64/cpu_delay.o: /bsp/pro/hustler/vm/xvisor/arch/arm/cpu/arm64/cpu_delay.S \
+ /bsp/pro/hustler/vm/xvisor/build/openconf/openconf.h \
+ /bsp/pro/hustler/vm/xvisor/core/include/vmm_openconf.h
