@@ -1,4 +1,0 @@
-daemonize talkd
-daemonize tcpd shell in.rshd
-daemonize tcpd telnet in.telnetd
-daemonize tcpd ftp in.ftpd
