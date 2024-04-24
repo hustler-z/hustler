@@ -1,2 +1,0 @@
-add_library(rhealstone_support OBJECT banchmark_support.c)
-target_include_directories(rhealstone_support INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
