@@ -1,0 +1,5 @@
+if (${CONFIG_OS_OPTION_OPENAMP})
+    add_subdirectory(openamp)
+elseif(${CONFIG_GUEST_OS})
+    add_subdirectory(helloworld)
+endif()

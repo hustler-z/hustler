@@ -1,0 +1,13 @@
+if(${CONFIG_OS_ARCH_ARMV7_M})
+    add_subdirectory(armv7-m)
+endif()
+if(${CONFIG_OS_ARCH_ARMV8})
+    add_subdirectory(armv8)
+endif()
+if(${CONFIG_OS_ARCH_X86_64})
+    add_subdirectory(x86_64)
+endif()
+
+if(${CONFIG_OS_ARCH_RISCV64})
+    add_subdirectory(riscv64)
+endif()
