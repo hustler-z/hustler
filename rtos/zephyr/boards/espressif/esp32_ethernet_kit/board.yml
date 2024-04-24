@@ -1,5 +1,0 @@
-board:
-  name: esp32_ethernet_kit
-  vendor: espressif
-  socs:
-  - name: esp32

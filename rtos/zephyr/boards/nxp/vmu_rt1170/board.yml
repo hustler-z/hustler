@@ -1,5 +1,0 @@
-board:
-  name: vmu_rt1170
-  vendor: nxp
-  socs:
-    - name: mimxrt1176

@@ -1,5 +1,0 @@
-board:
-  name: icev_wireless
-  vendor: others
-  socs:
-  - name: esp32c3

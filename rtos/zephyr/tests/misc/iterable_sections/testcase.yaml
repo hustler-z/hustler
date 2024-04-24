@@ -1,4 +1,0 @@
-tests:
-  linker.iterable_sections:
-    tags: iterable_sections
-    arch_exclude: xtensa

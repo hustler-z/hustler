@@ -1,7 +1,0 @@
-board:
-  name: stm32l562e_dk
-  vendor: st
-  socs:
-    - name: stm32l562xx
-      variants:
-        - name: ns

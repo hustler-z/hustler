@@ -1,5 +1,0 @@
-board:
-  name: stm32f3_seco_d23
-  vendor: seco
-  socs:
-    - name: stm32f302xc

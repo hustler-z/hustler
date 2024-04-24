@@ -1,5 +1,0 @@
-board:
-  name: mimxrt1020_evk
-  vendor: nxp
-  socs:
-    - name: mimxrt1021

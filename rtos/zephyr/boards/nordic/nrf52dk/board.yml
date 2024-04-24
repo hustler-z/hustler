@@ -1,7 +1,0 @@
-board:
-  name: nrf52dk
-  vendor: nordic
-  socs:
-  - name: nrf52805
-  - name: nrf52810
-  - name: nrf52832

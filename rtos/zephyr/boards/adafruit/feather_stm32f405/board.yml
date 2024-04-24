@@ -1,5 +1,0 @@
-board:
-  name: adafruit_feather_stm32f405
-  vendor: adafruit
-  socs:
-    - name: stm32f405xx

@@ -1,5 +1,0 @@
-board:
-  name: pan1782_evb
-  vendor: panasonic
-  socs:
-  - name: nrf52833

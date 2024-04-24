@@ -1,5 +1,0 @@
-board:
-  name: twr_kv58f220m
-  vendor: nxp
-  socs:
-    - name: mkv58f24

@@ -1,5 +1,0 @@
-board:
-  name: olimex_esp32_evb
-  vendor: olimex
-  socs:
-  - name: esp32

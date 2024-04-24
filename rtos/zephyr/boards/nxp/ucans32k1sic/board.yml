@@ -1,5 +1,0 @@
-board:
-  name: ucans32k1sic
-  vendor: nxp
-  socs:
-    - name: s32k146

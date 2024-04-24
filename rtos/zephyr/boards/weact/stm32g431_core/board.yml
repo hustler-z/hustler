@@ -1,5 +1,0 @@
-board:
-  name: weact_stm32g431_core
-  vendor: weact
-  socs:
-    - name: stm32g431xx

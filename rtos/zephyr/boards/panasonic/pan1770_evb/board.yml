@@ -1,5 +1,0 @@
-board:
-  name: pan1770_evb
-  vendor: panasonic
-  socs:
-  - name: nrf52840

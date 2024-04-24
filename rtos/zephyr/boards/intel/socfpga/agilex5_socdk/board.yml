@@ -1,4 +1,0 @@
-board:
-  name: intel_socfpga_agilex5_socdk
-  socs:
-    - name: agilex5

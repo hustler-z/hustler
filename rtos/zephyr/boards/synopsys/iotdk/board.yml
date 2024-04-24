@@ -1,5 +1,0 @@
-board:
-  name: iotdk
-  vendor: snps
-  socs:
-  - name: arc_iot

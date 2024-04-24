@@ -1,5 +1,0 @@
-board:
-  name: cc3235sf_launchxl
-  vendor: ti
-  socs:
-  - name: cc3235sf

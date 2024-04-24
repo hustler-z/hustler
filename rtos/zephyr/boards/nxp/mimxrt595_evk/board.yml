@@ -1,5 +1,0 @@
-board:
-  name: mimxrt595_evk
-  vendor: nxp
-  socs:
-    - name: mimxrt595s

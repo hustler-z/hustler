@@ -1,5 +1,0 @@
-board:
-  name: qemu_leon3
-  vendor: gaisler
-  socs:
-  - name: leon3

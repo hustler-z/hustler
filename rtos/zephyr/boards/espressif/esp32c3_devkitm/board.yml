@@ -1,5 +1,0 @@
-board:
-  name: esp32c3_devkitm
-  vendor: espressif
-  socs:
-  - name: esp32c3

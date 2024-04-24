@@ -1,5 +1,0 @@
-board:
-  name: bbc_microbit_v2
-  vendor: bbc
-  socs:
-  - name: nrf52833

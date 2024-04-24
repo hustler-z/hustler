@@ -1,5 +1,0 @@
-board:
-  name: colibri_imx7d
-  vendor: toradex
-  socs:
-    - name: mcimx7d

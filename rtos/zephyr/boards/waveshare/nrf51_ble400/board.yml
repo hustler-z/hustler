@@ -1,5 +1,0 @@
-board:
-  name: nrf51_ble400
-  vendor: waveshare
-  socs:
-  - name: nrf51822

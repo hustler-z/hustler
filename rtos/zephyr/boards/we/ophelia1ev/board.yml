@@ -1,5 +1,0 @@
-board:
-  name: we_ophelia1ev
-  vendor: wurth
-  socs:
-  - name: nrf52805

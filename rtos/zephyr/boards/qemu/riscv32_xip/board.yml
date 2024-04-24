@@ -1,5 +1,0 @@
-board:
-  name: qemu_riscv32_xip
-  vendor: qemu
-  socs:
-    - name: fe310

@@ -1,5 +1,0 @@
-board:
-  name: qemu_cortex_r5
-  vendor: qemu
-  socs:
-  - name: zynqmp_rpu

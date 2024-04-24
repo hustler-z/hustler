@@ -1,5 +1,0 @@
-board:
-  name: particle_boron
-  vendor: particle
-  socs:
-  - name: nrf52840

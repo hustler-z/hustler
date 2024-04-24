@@ -1,5 +1,0 @@
-board:
-  name: frdm_mcxn947
-  vendor: nxp
-  socs:
-  - name: mcxn947

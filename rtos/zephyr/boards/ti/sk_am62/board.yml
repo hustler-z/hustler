@@ -1,5 +1,0 @@
-board:
-  name: sk_am62
-  vendor: ti
-  socs:
-  - name: am6234

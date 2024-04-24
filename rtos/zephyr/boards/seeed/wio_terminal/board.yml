@@ -1,5 +1,0 @@
-board:
-  name: wio_terminal
-  vendor: seeed
-  socs:
-    - name: samd51p19a

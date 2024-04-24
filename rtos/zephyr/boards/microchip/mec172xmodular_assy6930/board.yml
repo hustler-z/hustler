@@ -1,5 +1,0 @@
-board:
-  name: mec172xmodular_assy6930
-  vendor: microchip
-  socs:
-    - name: mec172x_nsz

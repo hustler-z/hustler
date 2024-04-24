@@ -1,5 +1,0 @@
-board:
-  name: frdm_k82f
-  vendor: nxp
-  socs:
-    - name: mk82f25615

@@ -1,5 +1,0 @@
-board:
-  name: pan1781_evb
-  vendor: panasonic
-  socs:
-  - name: nrf52820

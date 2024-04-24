@@ -1,5 +1,0 @@
-board:
-  name: thingy52
-  vendor: nordic
-  socs:
-  - name: nrf52832

@@ -1,5 +1,0 @@
-board:
-  name: nrf51_blenano
-  vendor: particle
-  socs:
-  - name: nrf51822

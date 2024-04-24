@@ -1,5 +1,0 @@
-board:
-  name: nucleo_c031c6
-  vendor: st
-  socs:
-    - name: stm32c031xx

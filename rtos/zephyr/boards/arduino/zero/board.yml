@@ -1,5 +1,0 @@
-board:
-  name: arduino_zero
-  vendor: arduino
-  socs:
-    - name: samd21g18a

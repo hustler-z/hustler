@@ -1,5 +1,0 @@
-board:
-  name: rd_rw612_bga
-  vendor: nxp
-  socs:
-    - name: rw612

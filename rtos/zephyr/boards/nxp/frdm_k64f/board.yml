@@ -1,5 +1,0 @@
-board:
-  name: frdm_k64f
-  vendor: nxp
-  socs:
-    - name: mk64f12

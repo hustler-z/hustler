@@ -1,5 +1,0 @@
-board:
-  name: frdm_kw41z
-  vendor: nxp
-  socs:
-    - name: mkw41z4

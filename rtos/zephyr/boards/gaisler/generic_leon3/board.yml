@@ -1,5 +1,0 @@
-board:
-  name: generic_leon3
-  vendor: gaisler
-  socs:
-  - name: leon3

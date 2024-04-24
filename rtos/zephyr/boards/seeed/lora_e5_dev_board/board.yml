@@ -1,5 +1,0 @@
-board:
-  name: lora_e5_dev_board
-  vendor: seeed
-  socs:
-    - name: stm32wle5xx

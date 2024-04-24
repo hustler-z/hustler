@@ -1,5 +1,0 @@
-board:
-  name: adp_xc7k
-  vendor: andestech
-  socs:
-  - name: ae350

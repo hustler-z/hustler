@@ -1,7 +1,0 @@
-board:
-  name: nrf9131ek
-  vendor: nordic
-  socs:
-  - name: nrf9131
-    variants:
-    - name: 'ns'

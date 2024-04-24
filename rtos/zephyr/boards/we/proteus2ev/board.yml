@@ -1,5 +1,0 @@
-board:
-  name: we_proteus2ev
-  vendor: wurth
-  socs:
-  - name: nrf52832

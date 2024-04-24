@@ -1,5 +1,0 @@
-board:
-  name: blueclover_plt_demo_v2
-  vendor: bcdevices
-  socs:
-  - name: nrf52832

@@ -1,4 +1,0 @@
-board:
-  name: cyclonev_socdk
-  socs:
-    - name: cyclonev

@@ -1,5 +1,0 @@
-board:
-  name: hifive_unmatched
-  vendor: sifive
-  socs:
-    - name: fu740

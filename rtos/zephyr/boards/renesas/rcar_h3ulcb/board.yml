@@ -1,5 +1,0 @@
-board:
-  name: rcar_h3ulcb
-  vendor: renesas
-  socs:
-  - name: r8a77951

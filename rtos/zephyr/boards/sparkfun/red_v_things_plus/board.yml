@@ -1,5 +1,0 @@
-board:
-  name: sparkfun_red_v_things_plus
-  vendor: sparkfun
-  socs:
-    - name: fe310

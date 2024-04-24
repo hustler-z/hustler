@@ -1,5 +1,0 @@
-board:
-  name: lpcxpresso11u68
-  vendor: nxp
-  socs:
-    - name: lpc11u68

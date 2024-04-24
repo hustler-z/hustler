@@ -1,5 +1,0 @@
-board:
-  name: imx93_evk
-  vendor: nxp
-  socs:
-  - name: mimx9352

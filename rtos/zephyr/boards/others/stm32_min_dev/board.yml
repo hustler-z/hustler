@@ -1,7 +1,0 @@
-board:
-  name: stm32_min_dev
-  vendor: others
-  revision:
-    format: custom
-  socs:
-    - name: stm32f103xb

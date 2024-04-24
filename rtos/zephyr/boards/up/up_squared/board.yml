@@ -1,4 +1,0 @@
-board:
-  name: up_squared
-  socs:
-    - name: apollo_lake

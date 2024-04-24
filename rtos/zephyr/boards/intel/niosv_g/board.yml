@@ -1,4 +1,0 @@
-board:
-  name: niosv_g
-  socs:
-    - name: niosv_g

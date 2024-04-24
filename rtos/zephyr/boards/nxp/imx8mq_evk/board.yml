@@ -1,5 +1,0 @@
-board:
-  name: imx8mq_evk
-  vendor: nxp
-  socs:
-  - name: mimx8mq6

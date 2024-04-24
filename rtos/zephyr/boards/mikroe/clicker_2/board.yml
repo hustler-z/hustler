@@ -1,5 +1,0 @@
-board:
-  name: mikroe_clicker_2
-  vendor: mikroe
-  socs:
-    - name: stm32f407xx

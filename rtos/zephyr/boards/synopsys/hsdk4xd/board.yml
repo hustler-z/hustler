@@ -1,5 +1,0 @@
-board:
-  name: hsdk4xd
-  vendor: snps
-  socs:
-  - name: arc_hsdk4xd

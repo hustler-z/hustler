@@ -1,5 +1,0 @@
-board:
-  name: ruuvi_ruuvitag
-  vendor: ruuvi
-  socs:
-  - name: nrf52832

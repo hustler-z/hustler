@@ -1,5 +1,0 @@
-board:
-  name: imx8ulp_evk
-  vendor: nxp
-  socs:
-    - name: imx8ulp

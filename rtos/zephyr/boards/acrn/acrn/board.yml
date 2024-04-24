@@ -1,9 +1,0 @@
-boards:
-
-  - name: acrn
-    socs:
-      - name: atom
-
-  - name: acrn_ehl_crb
-    socs:
-      - name: elkhart_lake

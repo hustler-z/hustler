@@ -1,5 +1,0 @@
-board:
-  name: mm_swiftio
-  vendor: madmachine
-  socs:
-    - name: mimxrt1052

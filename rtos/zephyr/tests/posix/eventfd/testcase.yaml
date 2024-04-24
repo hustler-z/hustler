@@ -1,9 +1,0 @@
-common:
-  filter: not CONFIG_NATIVE_LIBC
-  tags:
-    - posix
-    - eventfd
-  integration_platforms:
-    - qemu_x86
-tests:
-  portability.posix.eventfd: {}

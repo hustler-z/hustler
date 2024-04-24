@@ -1,5 +1,0 @@
-board:
-  name: ubx_bmd300eval
-  vendor: u-blox
-  socs:
-  - name: nrf52832

@@ -1,5 +1,0 @@
-board:
-  name: stm32f401_mini
-  vendor: others
-  socs:
-    - name: stm32f401xc

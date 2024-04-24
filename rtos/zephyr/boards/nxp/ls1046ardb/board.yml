@@ -1,9 +1,0 @@
-board:
-  name: ls1046ardb
-  vendor: nxp
-  socs:
-  - name: ls1046a
-    variants:
-    - name: smp
-      variants:
-      - name: 4cores

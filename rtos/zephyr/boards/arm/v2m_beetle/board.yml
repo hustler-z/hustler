@@ -1,5 +1,0 @@
-board:
-  name: v2m_beetle
-  vendor: arm
-  socs:
-  - name: beetle_r0
