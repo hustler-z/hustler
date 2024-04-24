@@ -3,7 +3,17 @@
 OPT=$1
 DEBUG=$2
 OUT=build
-ELF=$OUT/vmm.bin
+ELF=$OUT/vhustle.bin
+
+usage() {
+printf "usage: ./cook.sh [options]
+options:
+    config - set up configuration for vhustle
+    build  - build vhustle
+    clean  - clean built objects
+    debug  - QEMU emulation [on debug mode]
+"
+}
 
 build() {
     make -j$(nproc) O=$OUT V=1
@@ -35,7 +45,7 @@ debug() {
                 -kernel $ELF \
             ;;
         *)
-            echo "Usage: ./cook.sh debug [on/off]"
+            usage
             ;;
     esac
 }
@@ -43,9 +53,14 @@ debug() {
 main() {
     case $OPT in
         build)
-            echo "======================================"
+            echo "---------------------------------------------------------------------"
+            begin=$(date +%s)
             build
-            echo "======================================"
+            end=$(date +%s)
+            tts=$(($end-$begin))
+            echo "---------------------------------------------------------------------"
+            echo "Done building vhustle within $(($tts/60)) min $(($tts%60)) sec"
+            echo "---------------------------------------------------------------------"
             ;;
         config)
             config
@@ -57,7 +72,7 @@ main() {
             debug
             ;;
         *)
-            echo "Usage: ./cook.sh [build/config/clean/debug]"
+            usage
             ;;
     esac
 }

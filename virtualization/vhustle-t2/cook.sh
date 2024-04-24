@@ -1,7 +1,6 @@
 #!/bin/bash
 
 OPT=$1
-PLAT=$2
 
 usage() {
 printf "usage: ./cook.sh [options]
@@ -21,7 +20,8 @@ build() {
     build_kvmtool
     end=$(date +%s)
     tts=$(($end-$begin))
-    echo "Done build uboot in $(($tts/60)) min $(($tts%60)) sec"
+    echo "---------------------------------------------------------------------"
+    echo "Done building kvmtool in $(($tts/60)) min $(($tts%60)) sec"
     echo "---------------------------------------------------------------------"
 }
 
@@ -43,4 +43,4 @@ main() {
     esac
 }
 
-main $1 $2
+main $1
