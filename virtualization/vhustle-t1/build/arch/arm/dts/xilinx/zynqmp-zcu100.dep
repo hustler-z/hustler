@@ -1,6 +1,0 @@
-/bsp/pro/hustler/vm/xvisor/build/arch/arm/dts/xilinx/zynqmp-zcu100.dtb: /bsp/pro/hustler/vm/xvisor/arch/arm/dts/xilinx/zynqmp-zcu100.dts
-/bsp/pro/hustler/vm/xvisor/build/arch/arm/dts/xilinx/zynqmp-zcu100.dtb: \
- /bsp/pro/hustler/vm/xvisor/arch/arm/dts/xilinx/zynqmp-zcu100.dts \
- /bsp/pro/hustler/vm/xvisor/build/openconf/openconf.h \
- /bsp/pro/hustler/vm/xvisor/core/include/vmm_openconf.h \
- /bsp/pro/hustler/vm/xvisor/arch/arm/dts/xilinx/./zynqmp.dtsi
