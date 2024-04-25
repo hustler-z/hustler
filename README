@@ -5,7 +5,6 @@ Self-education
 # My way to be a better OS developer
 
 Hierarchy Overview
-
 .
 ├── bootloader
 │   ├── docs
@@ -17,7 +16,7 @@ Hierarchy Overview
 │   ├── docs
 │   ├── hustleos
 │   └── scripts
-├── linux
+├── linux          - GPL-2.0 license
 │   ├── docs
 │   ├── v4.19.y
 │   ├── v5.10.y
@@ -26,13 +25,12 @@ Hierarchy Overview
 │   └── v6.7.y
 ├── rtos
 │   ├── docs
-│   ├── nuttx
-│   ├── rtthread
-│   └── uniproton
+│   ├── LiteOS     - BSD-3-Clause license
+│   └── UniProton  - MulanPSL-2.0
 └── virtualization
     ├── docs
-    ├── hyperm  -  based on xvisor
-    └── hyperx  -  based on kvmtool
+    ├── hyperm     - GPL-2.0 license
+    └── hyperx     - GPL-2.0 license
 
 # Respect to all open-source developers
 

@@ -1,0 +1,14 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../../../../src/arch/include/prt_asm_cpu_external.h
+
+/bsp/pro/hustler/rtos/uniproton/src/arch/cpu/armv8/common/exc/prt_hw_exc.S
+prt_asm_cpu_external.h
+/bsp/pro/hustler/rtos/uniproton/src/arch/cpu/armv8/common/exc/prt_asm_cpu_external.h
+

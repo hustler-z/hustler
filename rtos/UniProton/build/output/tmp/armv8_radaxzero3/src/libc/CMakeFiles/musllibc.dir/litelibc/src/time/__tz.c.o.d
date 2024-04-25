@@ -1,0 +1,28 @@
+src/libc/CMakeFiles/musllibc.dir/litelibc/src/time/__tz.c.o: \
+ /bsp/pro/hustler/rtos/uniproton/src/libc/litelibc/src/time/__tz.c \
+ /bsp/pro/hustler/rtos/uniproton/build/uniproton_config/config_armv8_radaxzero3/prt_buildef.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_buildef_common.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/litelibc/include/../../musl/src/time/time_impl.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/time.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/../../include/time.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/features.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/../../include/features.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/bits/alltypes.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/stdint.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/bits/stdint.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/limits.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/bits/limits.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/stdlib.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/../../include/stdlib.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/alloca.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/string.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/../../include/string.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/strings.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/sys/mman.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/sys/../../../include/sys/mman.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/bits/mman.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/ctype.h \
+ /bsp/pro/hustler/rtos/uniproton/src/libc/musl/src/internal/libc.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/stdio.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/../../include/stdio.h \
+ /bsp/pro/hustler/rtos/uniproton/src/libc/musl/src/internal/lock.h

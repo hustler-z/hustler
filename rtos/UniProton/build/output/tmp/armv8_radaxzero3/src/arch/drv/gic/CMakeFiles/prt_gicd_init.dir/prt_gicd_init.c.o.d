@@ -1,0 +1,35 @@
+src/arch/drv/gic/CMakeFiles/prt_gicd_init.dir/prt_gicd_init.c.o: \
+ /bsp/pro/hustler/rtos/uniproton/src/arch/drv/gic/prt_gicd_init.c \
+ /bsp/pro/hustler/rtos/uniproton/./src/arch/include/prt_gic_external.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/utility/lib/include/prt_lib_external.h \
+ /bsp/pro/hustler/rtos/uniproton/./platform/libboundscheck/include/securec.h \
+ /bsp/pro/hustler/rtos/uniproton/./platform/libboundscheck/include/securectype.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/stdio.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/../../include/stdio.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/features.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/../../include/features.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/bits/alltypes.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/string.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/../../include/string.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/strings.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/stdlib.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/../../include/stdlib.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/alloca.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/stddef.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/stdarg.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/errno.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/../../include/errno.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/bits/errno.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_sys.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_module.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_errno.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_typedef.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/stdint.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/bits/stdint.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/stdbool.h \
+ /bsp/pro/hustler/rtos/uniproton/build/uniproton_config/config_armv8_radaxzero3/prt_buildef.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_buildef_common.h \
+ /bsp/pro/hustler/rtos/uniproton/src/arch/drv/gic/./gicv600/prt_gic_internal.h \
+ /bsp/pro/hustler/rtos/uniproton/src/arch/drv/gic/./gicv600/../prt_gic_common_internal.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/arch/include/prt_attr_external.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/arch/include/../cpu/armv8/common/os_attr_armv8_external.h

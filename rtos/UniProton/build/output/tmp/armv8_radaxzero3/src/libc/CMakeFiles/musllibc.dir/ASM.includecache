@@ -1,0 +1,18 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/bsp/pro/hustler/rtos/uniproton/src/libc/musl/src/fenv/aarch64/fenv.s
+
+/bsp/pro/hustler/rtos/uniproton/src/libc/musl/src/setjmp/aarch64/longjmp.s
+
+/bsp/pro/hustler/rtos/uniproton/src/libc/musl/src/setjmp/aarch64/setjmp.s
+
+/bsp/pro/hustler/rtos/uniproton/src/libc/musl/src/string/aarch64/memcpy.S
+
+/bsp/pro/hustler/rtos/uniproton/src/libc/musl/src/string/aarch64/memset.S
+

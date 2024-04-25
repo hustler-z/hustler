@@ -1,0 +1,21 @@
+src/libc/CMakeFiles/musllibc.dir/litelibc/src/unistd/getpid.c.o: \
+ /bsp/pro/hustler/rtos/uniproton/src/libc/litelibc/src/unistd/getpid.c \
+ /bsp/pro/hustler/rtos/uniproton/build/uniproton_config/config_armv8_radaxzero3/prt_buildef.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_buildef_common.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/unistd.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/../../include/unistd.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/features.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/../../include/features.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/bits/alltypes.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/bits/posix.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_task.h \
+ /bsp/pro/hustler/rtos/uniproton/build/uniproton_config/config_armv8_radaxzero3/prt_buildef.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_module.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_errno.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_typedef.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/stddef.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/stdint.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/bits/stdint.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/stdbool.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/./hw/armv8/os_cpu_armv8.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_typedef.h

@@ -1,0 +1,34 @@
+src/libc/CMakeFiles/musllibc.dir/litelibc/src/thread/pthread_kill.c.o: \
+ /bsp/pro/hustler/rtos/uniproton/src/libc/litelibc/src/thread/pthread_kill.c \
+ /bsp/pro/hustler/rtos/uniproton/build/uniproton_config/config_armv8_radaxzero3/prt_buildef.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_buildef_common.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/pthread.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/../../include/pthread.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/features.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/../../include/features.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/bits/alltypes.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/sched.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/time.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/../../include/time.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/litelibc/include/bits/pthread_types.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/litelibc/include/bits/list_types.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/litelibc/include/bits/semaphore_types.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/errno.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/../../include/errno.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/bits/errno.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/signal.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/src/include/../../include/signal.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/bits/signal.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_signal.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_typedef.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/stddef.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/stdint.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/bits/stdint.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/musl/include/stdbool.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_task.h \
+ /bsp/pro/hustler/rtos/uniproton/build/uniproton_config/config_armv8_radaxzero3/prt_buildef.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_module.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_errno.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/./hw/armv8/os_cpu_armv8.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/include/uapi/prt_typedef.h \
+ /bsp/pro/hustler/rtos/uniproton/./src/libc/litelibc/include/bits/list_types.h
