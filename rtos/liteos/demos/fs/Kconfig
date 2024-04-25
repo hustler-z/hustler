@@ -1,0 +1,42 @@
+menu "FileSystem Demo"
+
+config LOSCFG_DEMOS_FS_FAT
+    bool "Enable Fat FileSystem Demo"
+    default n
+    depends on LOSCFG_COMPONENTS_FS_FATFS
+    select LOSCFG_DEMOS_FS
+    help
+      Answer y to enable fat filesystem demo.
+
+choice
+    prompt "Choose FatFs Hardware Device"
+    default LOSCFG_FATFS_USE_SD_CARD
+    depends on LOSCFG_DEMOS_FS_FAT
+
+    config LOSCFG_FATFS_USE_SD_CARD
+        bool "Enable Fatfs Use SD Card"
+
+    config LOSCFG_FATFS_USE_SPI_FLASH
+        bool "Enable Fatfs Use SPI Flash"
+endchoice
+
+config LOSCFG_DEMOS_FS_SPIF
+    bool "Enable Spi Flash FileSystem Demo"
+    default n
+    depends on LOSCFG_COMPONENTS_FS_SPIFFS
+    select LOSCFG_DEMOS_FS
+    help
+      Answer y to enable spi flash filesystem demo.
+
+config LOSCFG_DEMOS_FS_RAM
+    bool "Enable Ram FileSystem Demo"
+    default n
+    depends on LOSCFG_COMPONENTS_FS_RAMFS
+    select LOSCFG_DEMOS_FS
+    help
+      Answer y to enable ram filesystem demo.
+
+config LOSCFG_DEMOS_FS
+    bool
+
+endmenu

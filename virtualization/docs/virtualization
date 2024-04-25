@@ -55,10 +55,43 @@ Components of VMM:
 (2) Allocator
 (3) Interpreter
 
-Implementation of Virtualization
+Hypervisor Design
+
+(1) Complete Monolithic (xvisor)
+
+Complete monolithic hypervisor is a single software layer responsible
+for host hardware access, CPU virtualization, and guest IO emulation.
+
+(2) Partially Monolithic (kvmtool)
+
+Partially monolithic hypervisors are usually an extension of general
+purpose monolithic OS. They support host hardware access and CPU
+virtualization in OS kernel and support guest IO emulation from user-
+space software.
+
+(3) Micro-kernelized (xen)
+
+Micro-kernelized hypervisors are usually lightweight micro-kernels
+providing basic host hardware access and CPU virtualization in
+hypervisor micro-kernel. They depend on a management virtual machine
+for full host hardware access, guest IO emulation, and rest of the
+services.
+
+Virtualization Mode
 
 (1) Full Virtualization
+
+Unmodified guest OSs are allowed to run as guest by providing system
+virtual machines (i.e. emulating whole system resembling real hardware
+for guest).
+
 (2) Para Virtualization
+
+Modified guest OSs are allowed to run as guest by providing hypercalls.
+The hypercalls trigger a trap interrupt in the hypervisor, which
+based on the hypercall parameters, causes the hypervisor to provide
+the desired service to the guest.
+
 (3) Hardware Assisted Virtualization
 
 ----------------------------------------------------------------------
@@ -80,8 +113,44 @@ Projects to learn:
 
 (a) hyperm is based on xvisor
 
++-----------------+
+| Guest User space|
++-----------------+
+|  Guest Kernel   |
+|  +-----------+  |
+|  |   VirtIO  |  | . . .
+|  | Frontends |  |
+|  +-----------+  |
+|     Guest 0     |
++-----------------+
++-------------------------------------------------------+
+|  Guest IO          CPU          Management    VirtIO  |
+| Emulation     Virtualization     Terminal    Backends |
+|                                                       | => Xvisor
+| Device Drivers                                 Orphan |
+| (Host HW Access)                                vCPUs |
++-------------------------------------------------------+
++-------------------------------------------------------+
+|                     Host Hardware                     |
++-------------------------------------------------------+
 
 (b) hyperx is based on kvmtool
 
+----------------------------------------------------------------------
+Memory Management
+
+The guest OS is responsible for programming stage 1 translation table
+which carries out guest virtual address (GVA) to intermediate physical
+address (IPA) translation. The ARM hypervisors are responsible for
+programming stage 2 translation table to achieve intermediate physical
+address (IPA) to actual physical address (PA) translation.
+
++----------------------------+      +-------------+
+|           Guest            |      | Hypervisor  |
+|                +---------+ |      | +---------+ |
+| +------+  GVA  | Stage 1 | | IPA  | | Stage 2 | | PA
+| | vCPU |------▶|   MMU   |-------▶| |   MMU   |-------▶
+| +------+       +---------+ |      | +---------+ |
++----------------------------+      +-------------+
 
 ----------------------------------------------------------------------

@@ -5,6 +5,7 @@ Self-education
 # My way to be a better OS developer
 
 Hierarchy Overview
+
 .
 ├── bootloader
 │   ├── docs
@@ -27,13 +28,11 @@ Hierarchy Overview
 │   ├── docs
 │   ├── nuttx
 │   ├── rtthread
-│   ├── uniproton
-│   └── zephyr
+│   └── uniproton
 └── virtualization
     ├── docs
-    ├── optee-os
-    ├── vhustle-t1 - xvisor
-    └── vhustle-t2 - kvmtool
+    ├── hyperm  -  based on xvisor
+    └── hyperx  -  based on kvmtool
 
 # Respect to all open-source developers
 
