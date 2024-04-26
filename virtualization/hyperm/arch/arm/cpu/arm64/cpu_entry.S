@@ -86,7 +86,7 @@ _start:
 
 	/*
 	 * Setup Hypervisor System Control Register
-	 * (we need to at least clear the A bit for 
+	 * (we need to at least clear the A bit for
 	 *  _copy routine to work properly)
 	 */
 	ldr	x2, __hsctlr_clear
@@ -212,7 +212,7 @@ __start_secondary_pen_release:
 	.dword	start_secondary_pen_release
 
 	/*
-	 * Secondary CPU startup code 
+	 * Secondary CPU startup code
 	 */
 _start_secondary:
 	/*
@@ -343,27 +343,27 @@ __boot_reg0:
 _boot_reg0:
 	.dword 0x0
 
-	/* 
+	/*
 	 * Load start address storage
 	 */
 	.globl _load_start
 _load_start:
 	.dword 0x0
 
-	/* 
+	/*
 	 * Load end address storage
 	 */
 	.globl _load_end
 _load_end:
 	.dword 0x0
 
-	/* 
+	/*
 	 * Exception stacks.
 	 */
 __hvc_stack_end:
 	.dword _hvc_stack_end
 
-	/* 
+	/*
 	 * Copy data from source to destination
 	 * (alignment handled by hardware)
 	 * Arguments:

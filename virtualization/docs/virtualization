@@ -47,14 +47,6 @@ Type-1 hypervisors, a.k.a., native, bare-metal, hypervisors
                                      |          Hypervisor           |
                                      +-------------------------------+
 
-Type-2 hypervisors, a.k.a., hosted hypervisors
-
-Components of VMM:
-
-(1) Dispatcher
-(2) Allocator
-(3) Interpreter
-
 Hypervisor Design
 
 (1) Complete Monolithic (xvisor)
@@ -76,6 +68,15 @@ providing basic host hardware access and CPU virtualization in
 hypervisor micro-kernel. They depend on a management virtual machine
 for full host hardware access, guest IO emulation, and rest of the
 services.
+
+Type-2 hypervisors, a.k.a., hosted hypervisors
+
+----------------------------------------------------------------------
+Components of VMM:
+
+(1) Dispatcher
+(2) Allocator
+(3) Interpreter
 
 Virtualization Mode
 
@@ -104,8 +105,11 @@ Problematic Instructions
 (4) ARM sensitive instructions
     CPSR
 
-Solutions:
+Software Solutions:
+
 (a) Dynamic binary translation
+    replace the problematic instructions with hypercalls
+
 (b) Hypercall
 
 ----------------------------------------------------------------------
@@ -113,28 +117,52 @@ Projects to learn:
 
 (a) hyperm is based on xvisor
 
-+-----------------+
-| Guest User space|
-+-----------------+
-|  Guest Kernel   |
-|  +-----------+  |
-|  |   VirtIO  |  | . . .
-|  | Frontends |  |
-|  +-----------+  |
-|     Guest 0     |
-+-----------------+
-+-------------------------------------------------------+
-|  Guest IO          CPU          Management    VirtIO  |
-| Emulation     Virtualization     Terminal    Backends |
-|                                                       | => Xvisor
-| Device Drivers                                 Orphan |
-| (Host HW Access)                                vCPUs |
-+-------------------------------------------------------+
-+-------------------------------------------------------+
-|                     Host Hardware                     |
-+-------------------------------------------------------+
+    +-----------------+                            +--------+
+    | Guest User space|                            |        |
+    +-----------------+                            |        |
+    |  Guest Kernel   |                            |        |
+    |  +-----------+  |                            | Normal |
+    |  |   VirtIO  |  | . . .                . . . | vCPUs  |
+    |  | Frontends |  |                            |        |
+    |  +-----------+  |                            |        |
+    |     Guest 0     |                            |        |
+    +-----------------+                            +--------+
+    +-------------------------------------------------------+
+    |  Guest IO          CPU          Management    VirtIO  |
+    | Emulation     Virtualization     Terminal    Backends |
+    |                                                       |
+    | Device Drivers                                 Orphan |
+    | (Host HW Access)                                vCPUs |
+    +-------------------------------------------------------+
+    +-------------------------------------------------------+
+    |                     Host Hardware                     |
+    +-------------------------------------------------------+
+
+Normal vCPU - A vCPU belonging to Guest/VM
+Orphan vCPU - A vCPU belonging to hypervisor for background processing
 
 (b) hyperx is based on kvmtool
+
+    +-------------------------------------------------------+
+    |                   Host User Space                     |
+    |                                          +----------+ |
+    |                          KVMTOOL         | Guest US | |
+    |                    (Guest IO Emulation   +----------+ |
+    |                     + VirtIO Backends)   | Guest KS | |
+    |                                          |  VirtIO  | |
+    |                                          | Backends | |
+    |                                          +----------+ |
+    +-------------------------------------------------------+
+    +-------------------------------------------------------+
+    |  Device Drivers    Host Kernel        KVM Module      |
+    | (Host HW Access)                 (CPU Virtualization) |
+    +-------------------------------------------------------+
+    +-------------------------------------------------------+
+    |      KVM Module Low-Visor (Only for ARM/ARM64)        |
+    +-------------------------------------------------------+
+    +-------------------------------------------------------+
+    |                     Host Hardware                     |
+    +-------------------------------------------------------+
 
 ----------------------------------------------------------------------
 Memory Management
@@ -152,5 +180,38 @@ address (IPA) to actual physical address (PA) translation.
 | | vCPU |------▶|   MMU   |-------▶| |   MMU   |-------▶
 | +------+       +---------+ |      | +---------+ |
 +----------------------------+      +-------------+
+
+----------------------------------------------------------------------
+Hypervisor Scheduler
+
+Pluggable Scheduling Policy (soft real-time)
+
+- Fixed Priority Round-Robin
+- Fixed Priority Rate Monotonic
+
+----------------------------------------------------------------------
+Device Virtualization
+
+(1) Software Emulated Devices
+
+(2) Paravirtual Devices (e.g., VirtIO Net, VirtIO Block)
+
+(3) Pass-through Devices
+    - Direct access of host device from Guest/VM
+
+(4) Partial Pass-through Devices
+    - Access part of a host device from Guest/VM
+
+----------------------------------------------------------------------
+VIRTIO
+
+
+
+
+
+
+
+
+
 
 ----------------------------------------------------------------------

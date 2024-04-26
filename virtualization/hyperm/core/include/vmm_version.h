@@ -23,7 +23,7 @@
 #ifndef _VMM_VERSION_H__
 #define _VMM_VERSION_H__
 
-#define VMM_NAME			"Xvisor"
+#define VMM_NAME			"hyperm"
 #define VMM_VERSION_MAJOR		CONFIG_MAJOR
 #define VMM_VERSION_MINOR		CONFIG_MINOR
 #define VMM_VERSION_RELEASE		CONFIG_RELEASE
