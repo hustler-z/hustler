@@ -30,6 +30,8 @@ clean() {
     rm -rf ../component/libmetal ../component/open-amp ../component/*.tar.gz
     # remove built objects
     rm -rf ../build/libmetal ../build/open-amp ../build/*.asm ../build/*.elf ../build/*.bin
+    # remove object files
+    rm -rf ../../../output
 }
 
 main() {
