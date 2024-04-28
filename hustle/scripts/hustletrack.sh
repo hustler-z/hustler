@@ -1,6 +1,22 @@
-#!/bin/sh
+# --------------------------------------------------------------------
+# Hustler's Projects                                    2024/04/28 SUN
+#
+#
+# --------------------------------------------------------------------
+
+#!/bin/bash
 
 SRC_PATH=$1
+
+usage() {
+printf "hustletrack - generate tags for better code reading experience
+usage: hustletrack [options]
+
+options:
+    -h                      help information
+    -p [path-to-source]     path to target source code
+"
+}
 
 find_sources() {
     find . -name "*.[chS]" -o -name "*.cpp" -o -name "*.hpp" \
@@ -9,6 +25,11 @@ find_sources() {
 }
 
 code_tracker() {
+    if [ -z $SRC_PATH ];then
+        usage
+        exit
+    fi
+
     echo "----------------------- CODE TRACKER -----------------------"
     cd $SRC_PATH
 
@@ -63,9 +84,26 @@ code_tracker() {
         fi
         end=$(date +%s)
         cost=$(($end-$start))
+        echo "------------------------------------------------------------"
         echo "code tracker setup in $(($cost/60)) min $(($cost%60)) sec"
     fi
     echo "----------------------- CODE TRACKER -----------------------"
  }
 
- code_tracker $1
+while getopts 'p:h' OPT; do
+    case $OPT in
+        'h')
+            usage
+            exit
+            ;;
+        'p')
+            SRC_PATH="$OPTARG"
+            ;;
+        *)
+            usage
+            exit
+            ;;
+    esac
+done
+
+ code_tracker
