@@ -47,6 +47,9 @@ Type-1 hypervisors, a.k.a., native, bare-metal, hypervisors
                                      |          Hypervisor           |
                                      +-------------------------------+
 
+Type-2 hypervisors, a.k.a., hosted hypervisors
+
+
 Hypervisor Design
 
 (1) Complete Monolithic (xvisor)
@@ -68,8 +71,6 @@ providing basic host hardware access and CPU virtualization in
 hypervisor micro-kernel. They depend on a management virtual machine
 for full host hardware access, guest IO emulation, and rest of the
 services.
-
-Type-2 hypervisors, a.k.a., hosted hypervisors
 
 ----------------------------------------------------------------------
 Components of VMM:
@@ -113,6 +114,9 @@ Software Solutions:
 (b) Hypercall
 
 ----------------------------------------------------------------------
+Hypercall Implementation
+
+----------------------------------------------------------------------
 Projects to learn:
 
 (a) hyperm is based on xvisor
@@ -132,7 +136,7 @@ Projects to learn:
     | Emulation     Virtualization     Terminal    Backends |
     |                                                       |
     | Device Drivers                                 Orphan |
-    | (Host HW Access)                                vCPUs |
+    | (Host HW Access)         [Xvisor]               vCPUs |
     +-------------------------------------------------------+
     +-------------------------------------------------------+
     |                     Host Hardware                     |
@@ -165,6 +169,19 @@ Orphan vCPU - A vCPU belonging to hypervisor for background processing
     +-------------------------------------------------------+
 
 ----------------------------------------------------------------------
+CPU Virtualization
+
+
+
+
+----------------------------------------------------------------------
+Hypervisor Timer
+
+A hypervisor will have to keep track of time elapsed with low overhead,
+high precision and high resolution.
+
+
+----------------------------------------------------------------------
 Memory Management
 
 The guest OS is responsible for programming stage 1 translation table
@@ -173,21 +190,42 @@ address (IPA) translation. The ARM hypervisors are responsible for
 programming stage 2 translation table to achieve intermediate physical
 address (IPA) to actual physical address (PA) translation.
 
-+----------------------------+      +-------------+
-|           Guest            |      | Hypervisor  |
-|                +---------+ |      | +---------+ |
-| +------+  GVA  | Stage 1 | | IPA  | | Stage 2 | | PA
-| | vCPU |------▶|   MMU   |-------▶| |   MMU   |-------▶
-| +------+       +---------+ |      | +---------+ |
-+----------------------------+      +-------------+
+    +----------------------------+      +-------------+
+    |           Guest            |      | Hypervisor  |
+    |                +---------+ |      | +---------+ |
+    | +------+  GVA  | Stage 1 | | IPA  | | Stage 2 | | PA
+    | | vCPU |------▶|   MMU   |-------▶| |   MMU   |-------▶
+    | +------+       +---------+ |      | +---------+ |
+    +----------------------------+      +-------------+
 
 ----------------------------------------------------------------------
 Hypervisor Scheduler
+
+The hypervisor scheduler of Xvisor is generic and pluggable with respect
+to the scheduling strategy (or scheduling algorithm)
 
 Pluggable Scheduling Policy (soft real-time)
 
 - Fixed Priority Round-Robin
 - Fixed Priority Rate Monotonic
+
+----------------------------------------------------------------------
+Host Interrupts
+
+
+
+----------------------------------------------------------------------
+Guest IO Emulation
+
+         +-------+                              +-------+
+    SVC  | Guest |  Guest        Non-sleepable  | Guest |
+    Mode | Code  |  IO Event        Context     | Code  |
+         +-------+ /                   |        +-------+
+    -----------------------------------|--------------------▶
+                  +--------+ +-----------------+       (time)
+    HYP           | Xvisor | | IO Emulation in |
+    Mode          | Kernel | | Normal Context  |
+                  +--------+ +-----------------+
 
 ----------------------------------------------------------------------
 Device Virtualization

@@ -1,16 +1,25 @@
-本目录下放置的是UniProton实时部分版本
+----------------------------------------------------------------------
+Hustler's Projects                                      2024/04/29 MON
+----------------------------------------------------------------------
 
-├─apps            # 基于UniProton实时OS编程的demo程序
-│  └─ivshmem      # 基于jialhouse的共享内存示例
-├─bsp             # 提供的板级驱动与OS对接
-├─build           # 提供编译脚本编译出最终镜像
-├─config          # 配置选项，供用户调整运行时参数
-├─include         # UniProton实时部分提供的编程接口API
-└─libs            # UniProton实时部分的静态库，build目录
-                    中的makefile示例已经将头文件和静态库
-                    的引用准备好，应用可直接使用
+Basic Diagram of Hustler's Project in 2024
 
-Porting:
+    +-------------+ +-----------------+
+    | Linux Guest | | UniProton Guest |
+    +-------------+ +-----------------+
+    +---------------------------------+
+    |        Xvisor Hypervisor        |
+    +---------------------------------+
+    +---------------------------------+
+    |   Host Hardware (radax zero3w)  |
+    +---------------------------------+
+
+----------------------------------------------------------------------
+Porting Note
+
+2024/04/29: Done creating radaxzero3 demos, environment setup;
+
+Modified files:
 - config.xml
 - build/uniproton_cli_lib/globle.py
 - build/uniproton_config/config_armv8_radaxzero3/defconfig
@@ -20,4 +29,9 @@ Porting:
 - cmake/tool_chain/uniproton_tool_chain.cmake
 - src/include/uapi/prt_buildef_common.h
   e.g. #define OS_RADAXZERO3       0x04
-- demos/radaxzero3 - project directory
+- demos/radaxzero3 - project directory (reference: rk3568_jailhouse)
+----------------------------------------------------------------------
+2024/04/29 -      Modified the source code to be able run on Xvisor
+
+
+----------------------------------------------------------------------

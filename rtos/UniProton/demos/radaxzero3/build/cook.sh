@@ -32,6 +32,7 @@ clean() {
     rm -rf ../build/libmetal ../build/open-amp ../build/*.asm ../build/*.elf ../build/*.bin
     # remove object files
     rm -rf ../../../output
+    rm -rf ../../../build/output
 }
 
 main() {
