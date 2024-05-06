@@ -26,6 +26,8 @@ config() {
 clean() {
     make -j$(nproc) clean
     rm -rf build/*
+    # also remove openconf for menuconfig to work
+    cd tools/openconf && make clean
 }
 
 debug() {
