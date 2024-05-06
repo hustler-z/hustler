@@ -24,7 +24,7 @@
 #include <cpu_defines.h>
 #include <mmu_lpae.h>
 
-	/* 
+	/*
 	 * _start: Primary CPU startup code
 	 * _start_secondary: Secondary CPU startup code
 	 * _start_secondary_nopen: Secondary CPU startup code without holding pen
@@ -65,6 +65,26 @@ _start:
 	sub	x0, x0, x6
 	add	x0, x0, x4
 	str	x5, [x0]
+
+/* Saved Addresses
+ * ----------------------------------------------------
+ *
+ * Execution start and end both set from 'linker.ld',
+ * TEXT_START can be set in 'objects.mk'
+ *
+ *      ------------------ load start (TEXT_START)
+ *       |
+ *      ------------------ execution start (x6)
+ *       |                  (code start)
+ *
+ *       :
+ *
+ *       |
+ *      ------------------ execution end   (x7)
+ *                           (code end)
+ *
+ * ----------------------------------------------------
+ */
 
 	/* Hang if execution start is not 4 KB aligned */
 	movn	x3, #0xfff
@@ -276,6 +296,58 @@ _start_secondary_nopen:
 	msr     sctlr_el2, x0
 	dsb	sy
 	isb
+
+/* Architecture Registers
+ * ----------------------------------------------------
+ * (1) SCTLR_EL2 - System Control Register
+ *
+ * Provides top level control of the system, including
+ * its memory system, at EL2.
+ *
+ * (2) DAIF - Interrupt Mask Bits
+ *
+ * Allows access to the interrupt mask bits
+ * (DAIFSet, DAIFClr)
+ *
+ * (3) MAIR_EL2 - Memory Attribute Indirection Register
+ *
+ * Provides the memory attribute encodings corresponding
+ * to the possible AttrIndx values in a Long-descriptor
+ * format translation table entry for stage 1
+ * translations at EL2.
+ *
+ * (4) TCR_EL2 - Translation Control Register
+ *
+ * The control register for stage 1 of the EL2, or EL2&0,
+ * translation regime:
+ *    • When the Effective value of HCR_EL2.E2H is 0, this
+ * register controls stage 1 of the EL2 translation
+ * regime, that supports a single VA range, translated
+ * using TTBR0_EL2.
+ *    • When the value of HCR_EL2.E2H is 1, this register
+ * controls stage 1 of the EL2&0 translation regime, that
+ * supports both:
+ *    ◦ A lower VA range, translated using TTBR0_EL2.
+ *    ◦ A higher VA range, translated using TTBR1_EL2.
+ *
+ * (5) TTBR0_EL2 - Translation Table Base Register 0
+ *
+ * (6) VTCR_EL2 - Virtualization Translation Control
+ *                Register
+ *
+ * The control register for stage 2 of the EL1&0
+ * translation regime
+ *
+ * (7) HCR_EL2 - Hypervisor Configuration Register
+ *
+ * Provides configuration controls for virtualization,
+ * including defining whether various operations are
+ * trapped to EL2.
+ *
+ * (8) VBAR_EL2 - Vector Base Address Register
+ *
+ * ----------------------------------------------------
+ */
 
 	/* We should never reach here */
 _start_hang:

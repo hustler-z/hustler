@@ -77,7 +77,14 @@ endif
 check-lxdialog  := ./lxdialog/check-lxdialog.sh
 
 # Select the compiler needed to build binaries for your development system
+PLAT := $(shell uname -m)
+
+ifeq ($(PLAT),x86_64)
+HOST_CC     = /bsp/pro/toolchains/armcc-64/bin/aarch64-none-linux-gnu-gcc
+else
 HOST_CC     = gcc
+endif
+
 HOST_CFLAGS = -O2 -Wall
 
 # Use recursively expanded variables so we do not call gcc unless
