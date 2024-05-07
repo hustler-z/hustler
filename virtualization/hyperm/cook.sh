@@ -22,6 +22,7 @@ usage() {
 printf "usage: ./cook.sh [options]
 options:
     config - set up configuration for hyperm
+    rmcfg  - remove configuration setup
     build  - build hyperm
     clean  - clean built objects
     debug  - QEMU emulation [on debug mode]
@@ -39,7 +40,10 @@ config() {
 clean() {
     make -j$(nproc) clean
     rm -rf build/*
-    # also remove openconf for menuconfig to work
+}
+
+rmconfig() {
+    # remove openconf for menuconfig to work
     cd tools/openconf && make clean
 }
 
@@ -84,12 +88,14 @@ main() {
             echo "---------------------------------------------------------------------"
             ;;
         config)
-            ccsetup
             config
             ;;
         clean)
             ccsetup
             clean
+            ;;
+        rmcfg)
+            rmconfig
             ;;
         debug)
             debug

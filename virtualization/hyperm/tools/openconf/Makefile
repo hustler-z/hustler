@@ -77,9 +77,7 @@ endif
 check-lxdialog  := ./lxdialog/check-lxdialog.sh
 
 # Select the compiler needed to build binaries for your development system
-PLAT := $(shell uname -m)
-
-HOST_CC     = $(CROSS_COMPILE)gcc
+HOST_CC     = gcc
 
 HOST_CFLAGS = -O2 -Wall
 
