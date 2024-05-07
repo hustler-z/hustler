@@ -4,6 +4,19 @@ OPT=$1
 DEBUG=$2
 OUT=build
 ELF=$OUT/hyperm.bin
+PLAT=$(uname -m)
+
+ccsetup() {
+    if [ "$PLAT" == "x86_64" ];then
+        export CROSS_COMPILE=/bsp/pro/toolchains/armcc-64/bin/aarch64-none-linux-gnu-
+    fi
+
+    echo "---------------------------------------------------------------------"
+    echo "Host:    $PLAT"
+    echo "Date:    $(date +%D)"
+    echo "Tool:    $CROSS_COMPILE"
+    echo "---------------------------------------------------------------------"
+}
 
 usage() {
 printf "usage: ./cook.sh [options]
@@ -20,7 +33,7 @@ build() {
 }
 
 config() {
-    make -j$(nproc) menuconfig O=$OUT
+    make -j$(nproc) menuconfig O=$OUT V=1
 }
 
 clean() {
@@ -54,8 +67,13 @@ debug() {
 }
 
 main() {
+
+
     case $OPT in
         build)
+            # set CROSS_COMPILE toolchains if necessary
+            ccsetup
+            echo "Start Compiling ..."
             echo "---------------------------------------------------------------------"
             begin=$(date +%s)
             build
@@ -66,9 +84,11 @@ main() {
             echo "---------------------------------------------------------------------"
             ;;
         config)
+            ccsetup
             config
             ;;
         clean)
+            ccsetup
             clean
             ;;
         debug)

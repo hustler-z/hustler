@@ -121,7 +121,7 @@ targets-y+=$(build_dir)/hyperm.bin
 targets-y+=$(build_dir)/system.map
 
 # Setup compilation environment
-ifdef CROSS_COMPILE
+ifneq ($(CROSS_COMPILE),)
 CC		=	$(CROSS_COMPILE)gcc
 CPP		=	$(CROSS_COMPILE)cpp
 AR		=	$(CROSS_COMPILE)ar

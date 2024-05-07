@@ -79,15 +79,15 @@ check-lxdialog  := ./lxdialog/check-lxdialog.sh
 # Select the compiler needed to build binaries for your development system
 PLAT := $(shell uname -m)
 
-ifeq ($(PLAT),x86_64)
-HOST_CC     = /bsp/pro/toolchains/armcc-64/bin/aarch64-none-linux-gnu-gcc
-else
-HOST_CC     = gcc
-endif
+HOST_CC     = $(CROSS_COMPILE)gcc
 
 HOST_CFLAGS = -O2 -Wall
 
-Q := @
+ifeq ($(V),1)
+	Q :=
+else
+	Q := @
+endif
 
 # Use recursively expanded variables so we do not call gcc unless
 # we really need to do so. (Do not call gcc as part of make mrproper)
