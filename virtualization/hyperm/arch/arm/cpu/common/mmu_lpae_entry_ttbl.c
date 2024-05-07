@@ -46,6 +46,22 @@ extern u8 defterm_early_base[];
 #define PGTBL_SIZE_SHIFT	ARCH_MMU_STAGE1_NONROOT_SIZE_ORDER
 #define PGTBL_ENTCNT		(PGTBL_SIZE / sizeof(arch_pte_t))
 
+/* Debug info */
+#if 1
+void outc(char ch)
+{
+    asm volatile (
+            "ldr x2, =0xfe660000\n\t"
+            "mov x3, %0\n\t"
+            "str x3, [x2]\n\t"
+            "mov x3, #'-'\n\t"
+            "str x3, [x2]"
+            : : "r" (ch));
+}
+#else
+#define outc(c)
+#endif
+
 void __attribute__ ((section(".entry")))
     __setup_initial_ttbl(struct mmu_lpae_entry_ctrl *lpae_entry,
 		     virtual_addr_t map_start, virtual_addr_t map_end,
@@ -129,10 +145,11 @@ void __attribute__ ((section(".entry")))
 					<< TTBL_STAGE1_LOWER_SH_SHIFT);
 			ttbl[index] |= (TTBL_TABLE_MASK | TTBL_VALID_MASK);
 		}
-
+        outc('e');
 		/* Point to next page */
 		page_addr += TTBL_L3_BLOCK_SIZE;
 	}
+    outc('f');
 }
 
 /* Note: This functions must be called with MMU disabled from
@@ -216,10 +233,13 @@ void __attribute__ ((section(".entry")))
 	lpae_entry.next_ttbl =
 		(u64 *)to_load_pa((virtual_addr_t)&stage1_pgtbl_nonroot);
 
+    outc('a');
+
 	/* Invalidate stale contents of page tables in cache */
 	cpu_mmu_invalidate_range(lpae_entry.ttbl_base, PGTBL_ROOT_SIZE);
 	cpu_mmu_invalidate_range((virtual_addr_t)lpae_entry.next_ttbl,
 				 PGTBL_COUNT * PGTBL_SIZE);
+    outc('b');
 
 	/* Init first ttbl */
 	root_ttbl = (u64 *)lpae_entry.ttbl_base;
@@ -249,6 +269,8 @@ void __attribute__ ((section(".entry")))
 	SETUP_RO_SECTION(lpae_entry, spinlock);
 	SETUP_RO_SECTION(lpae_entry, rodata);
 
+    outc('c');
+
 	/* Map rest of logical addresses which are
 	 * not covered by read-only linker sections
 	 * Note: This mapping is used at runtime
@@ -262,6 +284,8 @@ void __attribute__ ((section(".entry")))
 	*dt_virt_base &= TTBL_L3_MAP_MASK;
 	*dt_virt_size = exec_start - *dt_virt_base;
 	*dt_virt = *dt_virt_base + (dtb_start & (TTBL_L3_BLOCK_SIZE - 1));
+
+    outc('d');
 
 	/* Map device tree */
 	__setup_initial_ttbl(&lpae_entry, *dt_virt_base,
