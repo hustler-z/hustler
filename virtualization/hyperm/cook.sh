@@ -44,6 +44,7 @@ clean() {
 
 rmconfig() {
     # remove openconf for menuconfig to work
+    rm -rf build
     cd tools/openconf && make clean
 }
 

@@ -31,6 +31,11 @@
 				" rev16   %0, %1\n\t" : "=r" (rval) : \
 				"r" (val) : "memory", "cc"); rval;})
 
+/* REV32 <Xd>, <Xn>
+ *
+ * Reverse bytes in 32-bit words reverses the
+ * byte order in each 32-bit word of a register.
+ */
 #define rev32(val)		({ u32 rval; asm volatile(\
 				" rev32    %0, %1\n\t" : "=r" (rval) : \
 				"r" (val) : "memory", "cc"); rval;})

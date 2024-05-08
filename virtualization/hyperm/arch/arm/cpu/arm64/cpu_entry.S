@@ -25,15 +25,18 @@
 #include <mmu_lpae.h>
 
 /* Debug on work flow */
-.macro outc char
-#if 0
-    ldr x2, =0xfe660000
-    mov x3, \char
-    str x3, [x2]
-#else
-    nop
+#define EARLY_DEBUG_INFO        (0)
+
+#if EARLY_DEBUG_INFO
+save_env_info:
+    .string "\r[1] store env\n\r"
+bss_clear_info:
+    .string "\r[2] mmu setup\n\r"
+wait_excep_info:
+    .string "\r[3] wait!!\n\r"
+cpu_init_info:
+    .string "\r[4] kick cpus up\n\r"
 #endif
-.endm
 
 	/*
 	 * _start: Primary CPU startup code
@@ -97,7 +100,10 @@ _start:
  * ----------------------------------------------------
  */
 
-    outc #'A'
+#if EARLY_DEBUG_INFO
+    adr x0, save_env_info
+    bl  strout
+#endif
 
 	/* Hang if execution start is not 4 KB aligned */
 	movn	x3, #0xfff
@@ -117,7 +123,6 @@ _start:
 	cmp	w0, #PSR_MODE64_EL2t
 	bne	_start_hang
 
-    outc #'B'
 	/*
 	 * Setup Hypervisor System Control Register
 	 * (we need to at least clear the A bit for
@@ -130,7 +135,11 @@ _start:
 	dsb	sy
 	isb
 
-    outc #'C'
+#if EARLY_DEBUG_INFO
+    adr x0, bss_clear_info
+    bl  strout
+#endif
+
 	/* Zero-out bss section */
 	ldr	x1, __bss_start
 	sub	x1, x1, x6
@@ -197,7 +206,6 @@ _start_nextpc1:
 	str	x5, [x0]
 
 _start_mmu_init:
-    outc #'D'
 	/* Setup SP as-per load address */
 	ldr	x0, __hvc_stack_end
 	mov	sp, x0
@@ -218,7 +226,6 @@ _start_mmu_init:
 	sub     x3, x3, x6
 	add     x3, x3, x4
 	ldr     x3, [x3]
-    outc #'E'
 	bl	_setup_initial_ttbl
 
 	/* Restoring x4 .. x7 from callee-saved regs */
@@ -235,7 +242,6 @@ _start_mmu_init:
 	sub	x0, x0, x6
 	add	x0, x0, x4
 	str	x0, [x1]
-    outc #'F'
 	b	_start_secondary_nopen
 
 #ifdef CONFIG_SMP
@@ -275,7 +281,6 @@ pen:	wfe
 	 * Note: From this point primary CPU startup is same as secondary CPU
 	 */
 _start_secondary_nopen:
-	outc #'G'
     /* Disable IRQ & FIQ */
 	msr	daifset, #3
 
@@ -307,7 +312,7 @@ _start_secondary_nopen:
 	/* Setup init vector containing branch to self for debug */
 	ldr	x0, __init_vectors
 	msr    	vbar_el2, x0
-    outc #'H'
+
 	/* Setup Hypervisor System Control Register */
 	bl	proc_setup
 	msr     sctlr_el2, x0
@@ -365,7 +370,12 @@ _start_secondary_nopen:
  *
  * ----------------------------------------------------
  */
-    outc #'Z'
+
+#if EARLY_DEBUG_INFO
+    adr x0, wait_excep_info
+    bl  strout
+#endif
+
 	/* We should never reach here */
 _start_hang:
 	b	.
@@ -493,6 +503,11 @@ _copy_end:
 	.align 3
 	.globl _cpu_init
 _cpu_init:
+#if EARLY_DEBUG_INFO
+    adr x0, cpu_init_info
+    bl  strout
+#endif
+
 #ifdef CONFIG_SMP
 	/* Setup SMP ID for current processor */
 	ldr	x1, __start_secondary_smp_id
@@ -733,3 +748,25 @@ EXCEPTION_HANDLER guest_error_a32
 	mov	x1, EXC_GUEST_SERROR_A32
 	CALL_EXCEPTION_CFUNC do_bad_mode
 	PULL_REGS
+
+/* Early Debug Info Print */
+#if EARLY_DEBUG_INFO
+    .globl strout
+    .type  strout, %function
+strout:
+nextc:
+    ldr  x2, =0xfe660000 /* debug uart base address for rk356x */
+    ldrb w3, [x0], #1
+    cmp  w3, #'\0'
+    bne  cout
+    ret
+cout:
+    strb w3, [x2]
+#ifdef CONFIG_SMP
+    dsb ish
+#else
+    dsb sy
+#endif
+    b    nextc
+    .size strout, (. - strout)
+#endif

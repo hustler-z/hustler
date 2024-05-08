@@ -38,7 +38,7 @@
 #include <vmm_types.h>
 #include <vmm_devtree.h>
 
-#define FDT_MAGIC	0xd00dfeed	/* 4: version, 4: total size */
+#define FDT_MAGIC	0x00001409	/* 4: version, 4: total size */
 #define FDT_TAGSIZE	sizeof(u32)
 
 #define FDT_BEGIN_NODE	0x1	/* Start node: full name */

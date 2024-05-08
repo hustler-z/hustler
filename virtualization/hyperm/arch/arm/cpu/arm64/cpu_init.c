@@ -32,6 +32,7 @@ extern u8 _code_start;
 extern u8 _code_end;
 extern physical_addr_t _load_start;
 extern physical_addr_t _load_end;
+extern void early_debug_strout(char *str);
 
 virtual_addr_t arch_code_vaddr_start(void)
 {
@@ -104,6 +105,7 @@ int __init arch_cpu_final_init(void)
 
 void __init cpu_init(void)
 {
+    early_debug_strout("\r- cpu initialization -\n\r");
 	/* Initialize VMM (APIs only available after this) */
 	vmm_init();
 

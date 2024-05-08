@@ -249,7 +249,7 @@ compile_objcopy = $(V)mkdir -p `dirname $(1)`; \
 	     $(OBJCOPY) -O binary $(2) $(1)
 disassemble = $(V)mkdir -p `dirname $(1)`; \
 		 echo " (objdump)   $(subst $(build_dir)/,,$(1))"; \
-		 $(OBJDUMP) -r -S -l -d $(1) > $(1).asm
+		 $(OBJDUMP) -r -S -d $(1) > $(1).asm
 inst_file =  $(V)mkdir -p `dirname $(1)`; \
 	     echo " (install)   $(subst $(install_dir)/,,$(1))"; \
 	     cp -f $(2) $(1)

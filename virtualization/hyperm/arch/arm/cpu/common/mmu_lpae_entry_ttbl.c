@@ -46,24 +46,43 @@ extern u8 defterm_early_base[];
 #define PGTBL_SIZE_SHIFT	ARCH_MMU_STAGE1_NONROOT_SIZE_ORDER
 #define PGTBL_ENTCNT		(PGTBL_SIZE / sizeof(arch_pte_t))
 
-#if 1
-static void outc(char ch)
+// ------------------------------------------------------------------
+#define MAX_NBYTES         (8 + 3)
+static char hex_lut[16] =
+    {'0', '1', '2', '3', '4', '5', '6', '7',
+     '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+
+inline void outc(char ch)
 {
-    asm volatile (
-            "ldr x2, =0xfe660000\t\n"
-            "mov x3, %0\t\n"
-            "str x3, [x2]"
-            : : "r" (ch));
+    char *debug_uart_base = (char *)0xfe660000UL;
+    *debug_uart_base = ch;
 }
 
-static void bugpr(char *str)
+void early_debug_strout(char *str)
 {
-    while (*str++)
+    while (*str++ != '\0')
         outc(*str);
 }
-#else
-#define bugpr(str)
-#endif
+
+void early_debug_hexout(char *prefix, u32 num)
+{
+    int base = 16, cnt = 8;
+    char buf[MAX_NBYTES] = {'0'}, *hexstr;
+
+    early_debug_strout(prefix);
+
+    hexstr = &buf[MAX_NBYTES - 1];
+    *hexstr   = '\0';
+    *hexstr-- = '\r';
+    *hexstr-- = '\n';
+
+    do {
+        *hexstr-- = hex_lut[num % base];
+    } while ((num /= base) || (cnt-- > 0));
+
+    early_debug_strout((char *)buf);
+}
+// ------------------------------------------------------------------
 
 void __attribute__ ((section(".entry")))
     __setup_initial_ttbl(struct mmu_lpae_entry_ctrl *lpae_entry,
@@ -202,9 +221,11 @@ virtual_size_t __attribute__ ((section(".entry")))
     _fdt_size(virtual_addr_t dtb_start)
 {
 	u32 *src = (u32 *)dtb_start;
+    u32 rev = rev32(src[0]);
 
-	if (rev32(src[0]) != FDT_MAGIC) {
-        bugpr("\rAh, shit!!\r\n");
+    // early_debug_hexout("\rFDT:\t", rev);
+	if (rev != FDT_MAGIC) {
+        early_debug_strout("\rShit, we hang!!\r\n");
 		while (1); /* Hang !!! */
 	}
 
@@ -276,17 +297,19 @@ void __attribute__ ((section(".entry")))
 	__setup_initial_ttbl(&lpae_entry, exec_start, exec_end, load_start,
 			     AINDEX_NORMAL_WB, TRUE);
 
-    bugpr("\rTo kick the ass!!\r\n");
+    early_debug_strout("\rmemory map kicks\n\r");
+
+    // early_debug_hexout("\rexec start addr:\t", (u32)exec_start);
+    // early_debug_hexout("\rexec end addr:  \t", (u32)exec_end);
+    // early_debug_hexout("\rdtb start addr: \t", (u32)dtb_start);
+    // early_debug_hexout("\rload start addr:\t", (u32)load_start);
+    // early_debug_hexout("\rload end addr:  \t", (u32)load_end);
 
 	/* Compute and save devtree addresses */
 	*dt_phys_base = dtb_start & TTBL_L3_MAP_MASK;
-
 	*dt_virt_base = exec_start - _fdt_size(dtb_start);
-
 	*dt_virt_base &= TTBL_L3_MAP_MASK;
-
 	*dt_virt_size = exec_start - *dt_virt_base;
-
 	*dt_virt = *dt_virt_base + (dtb_start & (TTBL_L3_BLOCK_SIZE - 1));
 
 	/* Map device tree */
