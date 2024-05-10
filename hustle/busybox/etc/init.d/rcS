@@ -1,14 +1,14 @@
 #!bin/sh
 
 notify_ok() {
-    echo ""
-    echo "****************************************"
-    echo "**   VIRTUAL MACHINE NOW ACTIVATED    **"
-    echo "**  Let's Explore the World of KVM!!  **"
-    echo "****************************************"
-    echo ""
-    echo "-- Aha, Terminal kicks off properly!! --"
-    echo ""
+printf "
+                _____ _____ _____ ____
+ /\__/\ /\  /\ / ___//_  _// ___// __ \
+ \  __ \\ \_\ \\___ \ / / / ___\ | __ /
+  \_\ \_\\____//____/ \_/ \____\ \_| \/ HYPERX
+
+  LINUX KVM               - $(date +%D)
+"
 }
 
 uptime() {
