@@ -27,7 +27,6 @@ options:
     build  - build hyperm
     clean  - clean built objects
     debug  - QEMU emulation [on debug mode]
-    disk   - build disk image
 "
 }
 
@@ -39,7 +38,6 @@ create_disk_image() {
     mkdir -p ./build/disk/images/arm64/virt-v8
     dtc -q -I dts -O dtb -o ./build/disk/images/arm64/virt-v8-guest.dtb ./tests/arm64/virt-v8/virt-v8-guest.dts
     make -j$(nproc) -C tests/arm64/virt-v8/basic
-    echo "---------------------------------------------------------------------"
 
     if [ -f "build/tests/arm64/virt-v8/basic/firmware.bin" ];then
         echo "Now start building disk image ..."
@@ -53,14 +51,28 @@ create_disk_image() {
 }
 
 ubootable() {
+    if [ -f "build/hyperm.bin" ];then
+        mkimage -A arm64 -O linux -T kernel \
+            -C none -a 0x3cebc000 -e 0x3cebc000 \
+            -n "Hyperm VMM" -d build/hyperm.bin build/uhyperm.bin
+    else
+        echo "Build hyperm.bin first!!"
+    fi
+
     echo "---------------------------------------------------------------------"
-    mkimage -A arm64 -O linux -T kernel \
-        -C none -a 0x3cebc000 -e 0x3cebc000 \
-        -n hyperm -d build/hyperm.bin build/hypermub.bin
+
+    if [ -f "build/disk.img" ];then
+        mkimage -A arm64 -O linux -T ramdisk \
+            -a 0x00000000 -n "Hyperm Ramdisk" \
+            -d build/disk.img build/udisk.img
+    else
+        echo "Build disk.img first!!"
+    fi
 }
 
 build() {
     make -j$(nproc) O=$OUT V=1
+    create_disk_image
     ubootable
 }
 
@@ -133,10 +145,6 @@ main() {
             ;;
         rmall)
             cleanall
-            ;;
-        disk)
-            ccsetup
-            create_disk_image
             ;;
         debug)
             debug
