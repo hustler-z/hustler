@@ -27,11 +27,24 @@ unsigned int udiv(int a, int b)
     return ret;
 }
 
+void banner(void)
+{
+
+printf(
+    "\n"
+    "                  _____ _____       _____ ____  \n"
+    " /A__/A  /A  /A  / ___//_  _//A    / ___// __ A \n"
+    " V  __ A V A_V A V___A  / / / /_  / ___A A __ / \n"
+    "  V_A V_A V____//____/  V/  V___A V____A V   V  HYPERM\n"
+    "\n");
+
+}
+
 int main(void)
 {
     int a = 3, b = 13, x = 3;
+    banner();
     info();
-
     printf("sum = %d\n", func(a, b));
     printf("PSTATE: 0x%016x\n", pstate());
     printf("factorial of %d: %d\n", x, factorial(x));
