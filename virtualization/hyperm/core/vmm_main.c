@@ -59,6 +59,10 @@
 /* Optional includes */
 #include <drv/rtc.h>
 
+#ifdef CONFIG_EARLY_DEBUG_UART
+extern void _debug_serial_puts(char *str);
+#endif
+
 void __noreturn vmm_hang(void)
 {
 	while (1) ;
@@ -469,6 +473,15 @@ static void __init init_bootcpu(void)
 		vmm_hang();
 	}
 
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r                  _____ _____       _____ ____  \n\r");
+    _debug_serial_puts("\r /A__/A  /A  /A  / ___//_  _//A    / ___// __ A \n\r");
+    _debug_serial_puts("\r V  __ A V A_V A V___A  / / / /_  / ___A A __ / \n\r");
+    _debug_serial_puts("\r  V_A V_A V____//____/  V/  V___A V____A V/  V  HYPERM\n\r");
+    _debug_serial_puts("\r\n\r");
+    _debug_serial_puts("\rBooting CPU in process\n\r");
+#endif
+
 	/* Mark this CPU possible & present */
 	vmm_set_cpu_possible(vmm_smp_processor_id(), TRUE);
 	vmm_set_cpu_present(vmm_smp_processor_id(), TRUE);
@@ -480,6 +493,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize host address space */
 	vmm_init_printf("host address space\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(0) Host address space initialization\n\r");
+#endif
 	ret = vmm_host_aspace_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -487,6 +503,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize normal heap */
 	vmm_init_printf("heap management\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(1) Heap initialization\n\r");
+#endif
 	ret = vmm_heap_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -494,6 +513,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize device tree */
 	vmm_init_printf("device tree\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(2) Device tree initialization\n\r");
+#endif
 	ret = vmm_devtree_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -501,6 +523,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize device tree based reserved-memory */
 	vmm_init_printf("device tree reserved-memory\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(3) Device tree reserved-memory initialization\n\r");
+#endif
 	ret = vmm_devtree_reserved_memory_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -508,6 +533,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize DMA heap */
 	vmm_init_printf("DMA heap management\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(4) DMA heap initialization\n\r");
+#endif
 	ret = vmm_dma_heap_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -515,6 +543,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize CPU nascent */
 	vmm_init_printf("CPU nascent\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(5) CPU nascent initialization\n\r");
+#endif
 	ret = arch_cpu_nascent_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -522,6 +553,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize Board nascent */
 	vmm_init_printf("board nascent\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(6) Board nascent initialization\n\r");
+#endif
 	ret = arch_board_nascent_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -529,12 +563,18 @@ static void __init init_bootcpu(void)
 
 	/* Call nascent init functions */
 	vmm_init_printf("nascent funtions\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(7) Nascent funtion initialization\n\r");
+#endif
 	ret = vmm_initfn_nascent();
 	if (ret) {
 		goto init_bootcpu_fail;
 	}
 
 	vmm_init_printf("page pool\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(8) Page pool initialization\n\r");
+#endif
 	ret = vmm_pagepool_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -542,6 +582,9 @@ static void __init init_bootcpu(void)
 
         /* Initialize exception table */
 	vmm_init_printf("exception table\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(9) Exception table initialization\n\r");
+#endif
 	ret = vmm_extable_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -564,6 +607,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize per-cpu area */
 	vmm_init_printf("per-CPU areas\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(10) per-CPU initialization\n\r");
+#endif
 	ret = vmm_percpu_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -571,6 +617,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize per-cpu area */
 	vmm_init_printf("CPU hotplug\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(11) CPU hotplug initialization\n\r");
+#endif
 	ret = vmm_cpuhp_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -600,6 +649,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize host interrupts */
 	vmm_init_printf("host irq subsystem\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(12) Host IRQ subsystem initialization\n\r");
+#endif
 	ret = vmm_host_irq_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -607,6 +659,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize CPU early */
 	vmm_init_printf("CPU early\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(13) CPU early initialization\n\r");
+#endif
 	ret = arch_cpu_early_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -614,6 +669,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize Board early */
 	vmm_init_printf("board early\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(14) Board early initialization\n\r");
+#endif
 	ret = arch_board_early_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -621,6 +679,9 @@ static void __init init_bootcpu(void)
 
 	/* Call early init functions */
 	vmm_init_printf("early funtions\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(15) Early funtion initialization\n\r");
+#endif
 	ret = vmm_initfn_early();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -628,6 +689,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize standerd input/output */
 	vmm_init_printf("standard I/O\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(16) Standard I/O initialization\n\r");
+#endif
 	ret = vmm_stdio_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -635,6 +699,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize clocksource manager */
 	vmm_init_printf("clocksource manager\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(17) Clocksource initialization\n\r");
+#endif
 	ret = vmm_clocksource_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -642,6 +709,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize clockchip manager */
 	vmm_init_printf("clockchip manager\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(18) Clockchip initialization\n\r");
+#endif
 	ret = vmm_clockchip_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -649,6 +719,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize hypervisor timer */
 	vmm_init_printf("hypervisor timer\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(19) Hypervisor timer initialization\n\r");
+#endif
 	ret = vmm_timer_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -656,6 +729,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize hypervisor soft delay */
 	vmm_init_printf("hypervisor soft delay\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(20) Hypervisor soft delay initialization\n\r");
+#endif
 	ret = vmm_delay_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -663,6 +739,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize hypervisor shared memory */
 	vmm_init_printf("hypervisor shared memory\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(21) Hypervisor shared memory initialization\n\r");
+#endif
 	ret = vmm_shmem_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -670,6 +749,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize hypervisor manager */
 	vmm_init_printf("hypervisor manager\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(22) Hypervisor manager initialization\n\r");
+#endif
 	ret = vmm_manager_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -686,6 +768,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize hypervisor scheduler */
 	vmm_init_printf("hypervisor scheduler\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(23) Hypervisor scheduler initialization\n\r");
+#endif
 	ret = vmm_scheduler_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -702,6 +787,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize hypervisor threads */
 	vmm_init_printf("hypervisor threads\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(24) Hypervisor threads initialization\n\r");
+#endif
 	ret = vmm_threads_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -718,6 +806,9 @@ static void __init init_bootcpu(void)
 
 	/* Initialize workqueue framework */
 	vmm_init_printf("workqueue framework\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(25) Workqueue framework initialization\n\r");
+#endif
 	ret = vmm_workqueue_init();
 	if (ret) {
 		goto init_bootcpu_fail;
@@ -729,6 +820,10 @@ static void __init init_bootcpu(void)
 
 	/* Start timer (Must be last step) */
 	vmm_timer_start();
+
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r(26) Wait till scheduler kicked up by timer\n\r");
+#endif
 
 	/* Wait here till scheduler gets invoked by timer */
 	vmm_hang();

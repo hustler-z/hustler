@@ -41,47 +41,18 @@ extern u8 defterm_early_base[];
 #define PGTBL_ROOT_SIZE		(1UL << ARCH_MMU_STAGE1_ROOT_SIZE_ORDER)
 #define PGTBL_ROOT_ENTCNT	(PGTBL_ROOT_SIZE / sizeof(arch_pte_t))
 
-#define PGTBL_COUNT		ARCH_MMU_STAGE1_NONROOT_INITIAL_COUNT
-#define PGTBL_SIZE		(1UL << ARCH_MMU_STAGE1_NONROOT_SIZE_ORDER)
+#define PGTBL_COUNT		    ARCH_MMU_STAGE1_NONROOT_INITIAL_COUNT
+#define PGTBL_SIZE		    (1UL << ARCH_MMU_STAGE1_NONROOT_SIZE_ORDER)
 #define PGTBL_SIZE_SHIFT	ARCH_MMU_STAGE1_NONROOT_SIZE_ORDER
 #define PGTBL_ENTCNT		(PGTBL_SIZE / sizeof(arch_pte_t))
 
 // ------------------------------------------------------------------
-#define MAX_NBYTES         (8 + 3)
-static char hex_lut[16] =
-    {'0', '1', '2', '3', '4', '5', '6', '7',
-     '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
-
-inline void outc(char ch)
-{
-    char *debug_uart_base = (char *)0xfe660000UL;
-    *debug_uart_base = ch;
-}
-
-void early_debug_strout(char *str)
-{
-    while (*str++ != '\0')
-        outc(*str);
-}
-
-void early_debug_hexout(char *prefix, u32 num)
-{
-    int base = 16, cnt = 8;
-    char buf[MAX_NBYTES] = {'0'}, *hexstr;
-
-    early_debug_strout(prefix);
-
-    hexstr = &buf[MAX_NBYTES - 1];
-    *hexstr   = '\0';
-    *hexstr-- = '\r';
-    *hexstr-- = '\n';
-
-    do {
-        *hexstr-- = hex_lut[num % base];
-    } while ((num /= base) || (cnt-- > 0));
-
-    early_debug_strout((char *)buf);
-}
+#ifdef CONFIG_EARLY_DEBUG_UART
+extern void _debug_serial_init(void);
+extern void _debug_serial_puts(char *str);
+extern void _debug_serial_hexdump(char *prefix, u32 num);
+extern void early_debug_el(void);
+#endif
 // ------------------------------------------------------------------
 
 void __attribute__ ((section(".entry")))
@@ -222,14 +193,23 @@ virtual_size_t __attribute__ ((section(".entry")))
 {
 	u32 *src = (u32 *)dtb_start;
     u32 rev = rev32(src[0]);
+    u32 fdt_size;
 
-    // early_debug_hexout("\rFDT:\t", rev);
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_hexdump("\rFDT magic:              \t0x", rev);
+#endif
 	if (rev != FDT_MAGIC) {
-        early_debug_strout("\rShit, we hang!!\r\n");
+#ifdef CONFIG_EARLY_DEBUG_UART
+        _debug_serial_puts("\rShit, we hang!!\r\n");
+#endif
 		while (1); /* Hang !!! */
 	}
 
-	return rev32(src[1]);
+    fdt_size = rev32(src[1]);
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_hexdump("\rFDT size:               \t0x", fdt_size);
+#endif
+	return fdt_size;
 }
 
 void __attribute__ ((section(".entry")))
@@ -252,6 +232,10 @@ void __attribute__ ((section(".entry")))
 		(physical_addr_t *)to_load_pa((virtual_addr_t)&devtree_phys_base);
 	struct mmu_lpae_entry_ctrl lpae_entry = { 0, NULL, 0 };
 
+    /* Set up early debug uart */
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_init();
+#endif
 	/* Init ttbl_base and next_ttbl */
 	lpae_entry.ttbl_base = to_load_pa((virtual_addr_t)&stage1_pgtbl_root);
 	lpae_entry.next_ttbl =
@@ -296,15 +280,15 @@ void __attribute__ ((section(".entry")))
 	 */
 	__setup_initial_ttbl(&lpae_entry, exec_start, exec_end, load_start,
 			     AINDEX_NORMAL_WB, TRUE);
-
-    early_debug_strout("\rmemory map kicks\n\r");
-
-    // early_debug_hexout("\rexec start addr:\t", (u32)exec_start);
-    // early_debug_hexout("\rexec end addr:  \t", (u32)exec_end);
-    // early_debug_hexout("\rdtb start addr: \t", (u32)dtb_start);
-    // early_debug_hexout("\rload start addr:\t", (u32)load_start);
-    // early_debug_hexout("\rload end addr:  \t", (u32)load_end);
-
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r----------------- EARLY DEBUG INFO -----------------\n\r");
+    _debug_serial_puts("\rSet up initial translation table ...\n\r");
+    _debug_serial_hexdump("\rExecution start address:\t0x", (u32)exec_start);
+    _debug_serial_hexdump("\rExecution end address:  \t0x", (u32)exec_end);
+    _debug_serial_hexdump("\rDTB start address:      \t0x", (u32)dtb_start);
+    _debug_serial_hexdump("\rLoad start address:     \t0x", (u32)load_start);
+    _debug_serial_hexdump("\rLoad end address:       \t0x", (u32)load_end);
+#endif
 	/* Compute and save devtree addresses */
 	*dt_phys_base = dtb_start & TTBL_L3_MAP_MASK;
 	*dt_virt_base = exec_start - _fdt_size(dtb_start);
@@ -316,4 +300,8 @@ void __attribute__ ((section(".entry")))
 	__setup_initial_ttbl(&lpae_entry, *dt_virt_base,
 			     *dt_virt_base + *dt_virt_size, *dt_phys_base,
 			     AINDEX_NORMAL_WB, TRUE);
+#ifdef CONFIG_EARLY_DEBUG_UART
+    early_debug_el();
+    _debug_serial_puts("\r----------------- EARLY DEBUG INFO -----------------\n\r");
+#endif
 }

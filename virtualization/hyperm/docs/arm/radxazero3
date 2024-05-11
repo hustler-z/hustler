@@ -1,0 +1,32 @@
+------------------------------------------------------------
+RADXA ZERO 3 PORTING NOTES
+------------------------------------------------------------
+
+- 2024/05/09 -
+
+    (1) radxa zero 3w dts porting
+
+        FATAL ERROR: Unable to parse input tree (syntax error)
+        (solved, the issue happened in rk3566.dtsi
+         where unreferenced members.)
+
+    (2) rk3568 clock driver porting (not completed)
+
+- 2024/05/11 -
+
+    (1) now get into C routine, work on later process.
+        (a) how to invoke the exception -> cpu_init()
+
+
+
+
+
+
+
+
+
+
+
+
+
+------------------------------------------------------------

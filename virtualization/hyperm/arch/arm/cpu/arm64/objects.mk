@@ -37,6 +37,7 @@ cpu-objs-y+= cpu_entry.o
 cpu-objs-y+= cpu_proc.o
 cpu-objs-y+= cpu_cache.o
 cpu-objs-y+= cpu_init.o
+cpu-objs-$(CONFIG_EARLY_DEBUG_UART)+= cpu_debug.o
 cpu-objs-y+= cpu_delay.o
 cpu-objs-y+= cpu_memcpy.o
 cpu-objs-y+= cpu_memset.o

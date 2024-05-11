@@ -25,3 +25,4 @@ board-objs-$(CONFIG_GENERIC_VEXPRESS)+= vexpress.o
 board-objs-$(CONFIG_GENERIC_BCM2836)+= bcm2836.o
 board-objs-$(CONFIG_GENERIC_FOUNDATION_V8)+= foundation-v8.o
 board-objs-$(CONFIG_GENERIC_RK3399)+= rk3399.o
+board-objs-$(CONFIG_GENERIC_RK3566)+= rk3566.o

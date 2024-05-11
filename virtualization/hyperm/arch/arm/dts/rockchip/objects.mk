@@ -22,3 +22,4 @@
 # */
 
 arch-dtbs-$(CONFIG_ARMV8)+=rockchip/rk3399-rockpro64.dtb
+arch-dtbs-$(CONFIG_ARMV8)+=rockchip/rk3566-radxa-zero3.dtb

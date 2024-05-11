@@ -105,9 +105,9 @@ static int mterm_main(void *udata)
 		while (1) {
 #ifdef CONFIG_LIBAUTH
 			/* Show prompt */
-			vmm_printf("%s@XVisor# ", user);
+			vmm_printf("%s@Hustler ", user);
 #else
-			vmm_printf("XVisor# ");
+			vmm_printf("Hustler ");
 #endif
 			memset(cmds, 0, sizeof(cmds));
 

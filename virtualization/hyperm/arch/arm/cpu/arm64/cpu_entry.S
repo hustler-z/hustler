@@ -24,19 +24,12 @@
 #include <cpu_defines.h>
 #include <mmu_lpae.h>
 
-/* Debug on work flow */
-#define EARLY_DEBUG_INFO        (0)
-
-#if EARLY_DEBUG_INFO
-save_env_info:
-    .string "\r[1] store env\n\r"
-bss_clear_info:
-    .string "\r[2] mmu setup\n\r"
-wait_excep_info:
-    .string "\r[3] wait!!\n\r"
-cpu_init_info:
-    .string "\r[4] kick cpus up\n\r"
-#endif
+__debug_hang_wait:
+    .string "\rNow cpu hang and wait ...\n\r"
+__debug_cpu_init:
+    .string "\rNow kicks into cpu initialization C routine ...\n\r"
+__debug_exception:
+    .string "\rException been taken\n\r"
 
 	/*
 	 * _start: Primary CPU startup code
@@ -100,11 +93,6 @@ _start:
  * ----------------------------------------------------
  */
 
-#if EARLY_DEBUG_INFO
-    adr x0, save_env_info
-    bl  strout
-#endif
-
 	/* Hang if execution start is not 4 KB aligned */
 	movn	x3, #0xfff
 	mov	x0, x6
@@ -134,11 +122,6 @@ _start:
 	msr     sctlr_el2, x3
 	dsb	sy
 	isb
-
-#if EARLY_DEBUG_INFO
-    adr x0, bss_clear_info
-    bl  strout
-#endif
 
 	/* Zero-out bss section */
 	ldr	x1, __bss_start
@@ -313,6 +296,10 @@ _start_secondary_nopen:
 	ldr	x0, __init_vectors
 	msr    	vbar_el2, x0
 
+#ifdef CONFIG_EARLY_DEBUG_UART
+    bl  early_debug_sp
+#endif
+
 	/* Setup Hypervisor System Control Register */
 	bl	proc_setup
 	msr     sctlr_el2, x0
@@ -371,9 +358,13 @@ _start_secondary_nopen:
  * ----------------------------------------------------
  */
 
-#if EARLY_DEBUG_INFO
-    adr x0, wait_excep_info
-    bl  strout
+#ifdef CONFIG_EARLY_DEBUG_UART
+    adr x0, __debug_hang_wait
+    bl  _debug_serial_puts
+#else
+    bl  _rk3566_debug_uart_init /* asm implemented uart init function */
+    adr x0, __debug_hang_wait
+    bl  _rk3566_debug_uart_puts
 #endif
 
 	/* We should never reach here */
@@ -503,9 +494,12 @@ _copy_end:
 	.align 3
 	.globl _cpu_init
 _cpu_init:
-#if EARLY_DEBUG_INFO
-    adr x0, cpu_init_info
-    bl  strout
+#ifdef CONFIG_EARLY_DEBUG_UART
+    adr x0, __debug_cpu_init
+    bl  _debug_serial_puts
+#else
+    adr x0, __debug_cpu_init
+    bl  _rk3566_debug_uart_puts
 #endif
 
 #ifdef CONFIG_SMP
@@ -628,6 +622,13 @@ init_vectors:
 	ventry	hyp_init_entry		/* Error 32-bit EL0 */
 
 EXCEPTION_HANDLER hyp_init_entry
+#ifdef CONFIG_EARLY_DEBUG_UART
+    adr x0, __debug_exception
+    bl  _debug_serial_puts
+#else
+    adr x0, __debug_exception
+    bl  _rk3566_debug_uart_puts
+#endif
 	b	_cpu_init
 
 	.align	11
@@ -749,24 +750,98 @@ EXCEPTION_HANDLER guest_error_a32
 	CALL_EXCEPTION_CFUNC do_bad_mode
 	PULL_REGS
 
+#ifndef CONFIG_EARLY_DEBUG_UART
+// -------------------------------------------------------------------
+.macro FUNC_ENTRY name
+    .globl \name
+    .type  \name, %function
+\name:
+.endm
+
+.macro FUNC_END   name
+    .size \name, (. - \name)
+.endm
+
 /* Early Debug Info Print */
-#if EARLY_DEBUG_INFO
-    .globl strout
-    .type  strout, %function
-strout:
-nextc:
-    ldr  x2, =0xfe660000 /* debug uart base address for rk356x */
-    ldrb w3, [x0], #1
-    cmp  w3, #'\0'
-    bne  cout
+FUNC_ENTRY _rk3566_debug_uart_init
+    #define UART_8250_BASE             0xfe660000UL
+    #define UART_RBR_OFFSET		       (0x00)	/* Recieve Buffer Register */
+    #define UART_THR_OFFSET		       (0x00)	/* Transmitter Holding Register */
+    #define UART_DLL_OFFSET		       (0x00)	/* Divisor Latch Low */
+    #define UART_IER_OFFSET		       (0x04)	/* Interrupt Enable Register */
+    #define UART_DLH_OFFSET		       (0x04)	/* Divisor Latch High */
+    #define UART_FCR_OFFSET		       (0x08)	/* FIFO Control Register */
+    #define UART_LCR_OFFSET		       (0x0c)	/* Line Control Register */
+    #define UART_MCR_OFFSET		       (0x10)	/* Modem Control Register */
+    #define UART_LSR_OFFSET		       (0x14)	/* Line Status Register */
+    #define UART_MSR_OFFSET            (0x18)  /* Modern Status Register */
+    #define UART_SCR_OFFSET		       (0x1c)	/* Scratch Register */
+    #define UART_USR_OFFSET            (0x7c)  /* Uart Status Register */
+    #define UART_LSR_THRE		       (0x20)	/* Transmit-hold-register empty */
+    #define UART_LCR_STOP              (0x04)
+    #define UART_LCR_DLAB              (0x80)
+    #define UART_LCR_WLEN8             (0x03)
+    #define UART_LCR_PARITY            (0x08)
+    #define UART_MCR_LOOP              (0x10)
+    #define UART_8250_DLL              (0x01)
+    #define UART_8250_DLH              (0x00)
+    #define UART_FCR_FIFO_ENABLE       (0x01)
+    #define UART_FCR_R_TRIG_10         (0x80)
+    #define UART_FCR_T_TRIG_10         (0x20)
+    #define UART_USR_TX_FIFO_NOT_FULL  (0x02)
+    #define UART_FIFO_IS_FULL          (0x00)
+
+    /* baud rate = (serial clock freq) / (16 * divisor) */
+	ldr	x4, __uart_8250_base
+    /* set baud rate */
+    mov w5, #UART_MCR_LOOP
+    str w5, [x4, #UART_MCR_OFFSET]
+	mov	w5, #UART_LCR_DLAB
+	str	w5, [x4, #UART_LCR_OFFSET]
+	ldr	x5, __uart_8250_dll
+	str	w5, [x4, #UART_DLL_OFFSET]
+	ldr	x5, __uart_8250_dlh
+	str	w5, [x4, #UART_DLH_OFFSET]
+    ldr w5, [x4, #UART_LCR_OFFSET]
+	and	x5, x5, #(~UART_LCR_DLAB)
+	str	w5, [x4, #UART_LCR_OFFSET]
+    ldr w5, [x4, #UART_MCR_OFFSET]
+    and x5, x5, #(~UART_MCR_LOOP)
+    str w5, [x4, #UART_MCR_OFFSET]
+    /* enable FIFO */
+	mov	w5, #(UART_FCR_FIFO_ENABLE | UART_FCR_T_TRIG_10 | UART_FCR_R_TRIG_10)
+	str	w5, [x4, #UART_FCR_OFFSET]
+    /* set parity and stop bit */
+    ldr w5, [x4, #UART_LCR_OFFSET]
+    and x5, x5, #(~UART_LCR_PARITY)
+    and x5, x5, #(~UART_LCR_STOP)
+    and x5, x5, #UART_LCR_WLEN8
+    str w5, [x4, #UART_LCR_OFFSET]
     ret
-cout:
-    strb w3, [x2]
-#ifdef CONFIG_SMP
-    dsb ish
-#else
-    dsb sy
-#endif
-    b    nextc
-    .size strout, (. - strout)
+FUNC_END  _rk3566_debug_uart_init
+
+	.align 3
+__uart_8250_base:
+	.dword UART_8250_BASE
+__uart_8250_dll:
+	.dword UART_8250_DLL
+__uart_8250_dlh:
+	.dword UART_8250_DLH
+
+FUNC_ENTRY _rk3566_debug_uart_puts
+	ldrb w5, [x0], #1
+	cmp	 w5, #'\0'
+	beq	 puts_done
+	ldr	 x4, __uart_8250_base
+puts_check:
+	ldr	 w6, [x4, #UART_USR_OFFSET]
+	and	 x6, x6, #UART_USR_TX_FIFO_NOT_FULL
+	cmp	 x6, #UART_FIFO_IS_FULL
+	beq	 puts_check
+	str	 w5, [x4, #UART_THR_OFFSET]
+	b	 _rk3566_debug_uart_puts
+puts_done:
+	ret
+FUNC_END   _rk3566_debug_uart_puts
+// -------------------------------------------------------------------
 #endif

@@ -32,7 +32,10 @@ extern u8 _code_start;
 extern u8 _code_end;
 extern physical_addr_t _load_start;
 extern physical_addr_t _load_end;
-extern void early_debug_strout(char *str);
+
+#ifdef CONFIG_EARLY_DEBUG_UART
+extern void _debug_serial_puts(char *str);
+#endif
 
 virtual_addr_t arch_code_vaddr_start(void)
 {
@@ -105,7 +108,10 @@ int __init arch_cpu_final_init(void)
 
 void __init cpu_init(void)
 {
-    early_debug_strout("\r- cpu initialization -\n\r");
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\rCPU Initialization C routine started ...\n\r");
+#endif
+
 	/* Initialize VMM (APIs only available after this) */
 	vmm_init();
 
