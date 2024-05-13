@@ -32,7 +32,7 @@ static u8 rockchip_muxgrf_get_parent(struct clk_hw *hw)
 {
 	struct rockchip_muxgrf_clock *mux = to_muxgrf_clock(hw);
 	unsigned int mask = GENMASK(mux->width - 1, 0);
-	unsigned int val;
+	unsigned int val = 0;
 
 	regmap_read(mux->regmap, mux->reg, &val);
 

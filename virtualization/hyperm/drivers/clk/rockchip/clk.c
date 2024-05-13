@@ -32,6 +32,10 @@
 #include <linux/rational.h>
 #include "clk.h"
 
+// -------------------------------------------------------------------
+void (*rk_dump_cru)(void);
+// -------------------------------------------------------------------
+
 /**
  * Register a clock branch.
  * Most clock branches have a form like
@@ -508,6 +512,9 @@ void __init rockchip_clk_register_branches(
 				list->mux_shift, list->mux_width,
 				list->mux_flags);
 			break;
+        case branch_muxpmugrf:
+            /* TO DO */
+            break;
 		case branch_divider:
 			if (list->div_table)
 				clk = clk_register_divider_table(NULL,
@@ -612,6 +619,7 @@ void __init rockchip_clk_register_branches(
 	}
 }
 
+#if 0
 void __init rockchip_clk_register_armclk(struct rockchip_clk_provider *ctx,
 			unsigned int lookup_id,
 			const char *name, const char *const *parent_names,
@@ -633,6 +641,31 @@ void __init rockchip_clk_register_armclk(struct rockchip_clk_provider *ctx,
 
 	rockchip_clk_add_lookup(ctx, clk, lookup_id);
 }
+#else
+void rockchip_clk_register_armclk(struct rockchip_clk_provider *ctx,
+				  unsigned int lookup_id,
+				  const char *name,
+				  u8 num_parents,
+				  struct clk *parent, struct clk *alt_parent,
+				  const struct rockchip_cpuclk_reg_data *reg_data,
+				  const struct rockchip_cpuclk_rate_table *rates,
+				  int nrates)
+{
+	struct clk *clk;
+
+	clk = rockchip_clk_register_cpuclk(name, num_parents,
+		parent, alt_parent,
+					   reg_data, rates, nrates,
+					   ctx->reg_base, &ctx->lock);
+	if (IS_ERR(clk)) {
+		pr_err("%s: failed to register clock %s: %ld\n",
+		       __func__, name, PTR_ERR(clk));
+		return;
+	}
+
+	rockchip_clk_add_lookup(ctx, clk, lookup_id);
+}
+#endif
 
 void __init rockchip_clk_protect_critical(const char *const clocks[],
 					  int nclocks)

@@ -229,13 +229,35 @@ struct clk;
 #define RK3399_SDMMC_CON1		0x584
 #define RK3399_SDIO_CON0		0x588
 #define RK3399_SDIO_CON1		0x58c
+// -------------------------------------------------------------------
+#define RK3568_PLL_CON(x)		RK2928_PLL_CON(x)
+#define RK3568_MODE_CON0		0xc0
+#define RK3568_MISC_CON0		0xc4
+#define RK3568_MISC_CON1		0xc8
+#define RK3568_MISC_CON2		0xcc
+#define RK3568_GLB_CNT_TH		0xd0
+#define RK3568_GLB_SRST_FST		0xd4
+#define RK3568_GLB_SRST_SND		0xd8
+#define RK3568_GLB_RST_CON		0xdc
+#define RK3568_GLB_RST_ST		0xe0
+#define RK3568_CLKSEL_CON(x)		((x) * 0x4 + 0x100)
+#define RK3568_CLKGATE_CON(x)		((x) * 0x4 + 0x300)
+#define RK3568_SOFTRST_CON(x)		((x) * 0x4 + 0x400)
+#define RK3568_SDMMC0_CON0		0x580
+#define RK3568_SDMMC0_CON1		0x584
+#define RK3568_SDMMC1_CON0		0x588
+#define RK3568_SDMMC1_CON1		0x58c
+#define RK3568_SDMMC2_CON0		0x590
+#define RK3568_SDMMC2_CON1		0x594
+#define RK3568_EMMC_CON0		0x598
+#define RK3568_EMMC_CON1		0x59c
 
-#define RK3399_PMU_PLL_CON(x)		RK2928_PLL_CON(x)
-#define RK3399_PMU_CLKSEL_CON(x)	((x) * 0x4 + 0x80)
-#define RK3399_PMU_CLKGATE_CON(x)	((x) * 0x4 + 0x100)
-#define RK3399_PMU_SOFTRST_CON(x)	((x) * 0x4 + 0x110)
-#define RK3399_PMU_RSTNHOLD_CON(x)	((x) * 0x4 + 0x120)
-#define RK3399_PMU_GATEDIS_CON(x)	((x) * 0x4 + 0x130)
+#define RK3568_PMU_PLL_CON(x)		RK2928_PLL_CON(x)
+#define RK3568_PMU_MODE_CON0		0x80
+#define RK3568_PMU_CLKSEL_CON(x)	((x) * 0x4 + 0x100)
+#define RK3568_PMU_CLKGATE_CON(x)	((x) * 0x4 + 0x180)
+#define RK3568_PMU_SOFTRST_CON(x)	((x) * 0x4 + 0x200)
+// -------------------------------------------------------------------
 
 enum rockchip_pll_type {
 	pll_rk3036,
@@ -380,10 +402,13 @@ struct rockchip_cpuclk_clksel {
 	u32 val;
 };
 
-#define ROCKCHIP_CPUCLK_NUM_DIVIDERS	2
+#define ROCKCHIP_CPUCLK_MAX_CORES	4
+#define ROCKCHIP_CPUCLK_NUM_DIVIDERS	6
 struct rockchip_cpuclk_rate_table {
 	unsigned long prate;
 	struct rockchip_cpuclk_clksel divs[ROCKCHIP_CPUCLK_NUM_DIVIDERS];
+	struct rockchip_cpuclk_clksel pre_muxs[ROCKCHIP_CPUCLK_NUM_DIVIDERS];
+	struct rockchip_cpuclk_clksel post_muxs[ROCKCHIP_CPUCLK_NUM_DIVIDERS];
 };
 
 /**
@@ -397,9 +422,11 @@ struct rockchip_cpuclk_rate_table {
  * @mux_core_mask:	core multiplexer mask
  */
 struct rockchip_cpuclk_reg_data {
-	int		core_reg;
-	u8		div_core_shift;
-	u32		div_core_mask;
+	int		core_reg[ROCKCHIP_CPUCLK_MAX_CORES];
+	u8		div_core_shift[ROCKCHIP_CPUCLK_MAX_CORES];
+	u32		div_core_mask[ROCKCHIP_CPUCLK_MAX_CORES];
+    int     num_cores;
+    int     mux_core_reg;
 	u8		mux_core_alt;
 	u8		mux_core_main;
 	u8		mux_core_shift;
@@ -407,11 +434,20 @@ struct rockchip_cpuclk_reg_data {
 	const char	*pll_name;
 };
 
+#if 0
 struct clk *rockchip_clk_register_cpuclk(const char *name,
 			const char *const *parent_names, u8 num_parents,
 			const struct rockchip_cpuclk_reg_data *reg_data,
 			const struct rockchip_cpuclk_rate_table *rates,
 			int nrates, void __iomem *reg_base, spinlock_t *lock);
+#else
+struct clk *rockchip_clk_register_cpuclk(const char *name,
+			u8 num_parents,
+			struct clk *parent, struct clk *alt_parent,
+			const struct rockchip_cpuclk_reg_data *reg_data,
+			const struct rockchip_cpuclk_rate_table *rates,
+			int nrates, void __iomem *reg_base, spinlock_t *lock);
+#endif
 
 struct clk *rockchip_clk_register_mmc(const char *name,
 				const char *const *parent_names, u8 num_parents,
@@ -453,6 +489,7 @@ enum rockchip_clk_branch_type {
 	branch_composite,
 	branch_mux,
 	branch_muxgrf,
+    branch_muxpmugrf,
 	branch_divider,
 	branch_fraction_divider,
 	branch_gate,
@@ -754,7 +791,22 @@ struct rockchip_clk_branch {
 		.div_flags	= df,				\
 		.div_table	= dt,				\
 	}
-
+// -------------------------------------------------------------------
+#define MUXPMUGRF(_id, cname, pnames, f, o, s, w, mf)		\
+	{							\
+		.id		= _id,				\
+		.branch_type	= branch_muxpmugrf,		\
+		.name		= cname,			\
+		.parent_names	= pnames,			\
+		.num_parents	= ARRAY_SIZE(pnames),		\
+		.flags		= f,				\
+		.muxdiv_offset	= o,				\
+		.mux_shift	= s,				\
+		.mux_width	= w,				\
+		.mux_flags	= mf,				\
+		.gate_offset	= -1,				\
+	}
+// -------------------------------------------------------------------
 #define GATE(_id, cname, pname, f, o, b, gf)			\
 	{							\
 		.id		= _id,				\
@@ -904,12 +956,23 @@ void rockchip_clk_register_branches(struct rockchip_clk_provider *ctx,
 void rockchip_clk_register_plls(struct rockchip_clk_provider *ctx,
 				struct rockchip_pll_clock *pll_list,
 				unsigned int nr_pll, int grf_lock_offset);
+#if 0
 void rockchip_clk_register_armclk(struct rockchip_clk_provider *ctx,
 			unsigned int lookup_id, const char *name,
 			const char *const *parent_names, u8 num_parents,
 			const struct rockchip_cpuclk_reg_data *reg_data,
 			const struct rockchip_cpuclk_rate_table *rates,
 			int nrates);
+#else
+void rockchip_clk_register_armclk(struct rockchip_clk_provider *ctx,
+				  unsigned int lookup_id,
+				  const char *name,
+				  u8 num_parents,
+				  struct clk *parent, struct clk *alt_parent,
+				  const struct rockchip_cpuclk_reg_data *reg_data,
+				  const struct rockchip_cpuclk_rate_table *rates,
+				  int nrates);
+#endif
 void rockchip_clk_protect_critical(const char *const clocks[], int nclocks);
 int rockchip_pll_clk_adaptive_scaling(struct clk *clk, int sel);
 int rockchip_pll_clk_rate_to_scale(struct clk *clk, unsigned long rate);

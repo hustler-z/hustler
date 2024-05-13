@@ -1634,7 +1634,7 @@ void rockchip_boost_init(struct clk_hw *hw)
 void rockchip_boost_enable_recovery_sw_low(struct clk_hw *hw)
 {
 	struct rockchip_clk_pll *pll;
-	unsigned int val;
+	unsigned int val = 0;
 
 	if (!hw)
 		return;
