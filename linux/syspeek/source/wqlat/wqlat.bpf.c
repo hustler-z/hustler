@@ -1,19 +1,31 @@
 #include "vmlinux.h"
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
-#include "workqlatency.h"
+#include "wqlat.h"
 
 #define KWORK_COUNT 1000
 #define MAX_KWORKNAME 128
 #define NULL ((void *)0)
 #define _(P) ({typeof(P) val = 0; bpf_probe_read(&val, sizeof(val), &P); val;})
 
-struct bpf_map_def SEC("maps") args_map = {
-	.type = BPF_MAP_TYPE_HASH,
-	.key_size = sizeof(int),
-	.value_size = sizeof(struct args),
-	.max_entries = 1,
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(key_size, sizeof(int));
+    __uint(value_size, sizeof(struct args));
+    __uint(max_entries, 1);
+} args_map SEC(".maps");
+
+/*struct trace_event_raw_workqueue_activate_work {
+        struct trace_entry ent;
+        void *work;
+        char __data[0];
 };
+
+struct trace_event_raw_workqueue_execute_end {
+        struct trace_entry ent;
+        void *work;
+        char __data[0];
+};*/
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
@@ -83,7 +95,7 @@ int report_workqueue_execute_end(struct trace_event_raw_workqueue_execute_end *c
 	argsp = bpf_map_lookup_elem(&args_map, &args_key);
 	if (!argsp)
 		return 0;
-
+	
 	data = bpf_map_lookup_elem(&runtime_kwork_report, &key);
 	if (data) {
 		__u64 now = bpf_ktime_get_ns();
@@ -93,6 +105,7 @@ int report_workqueue_execute_end(struct trace_event_raw_workqueue_execute_end *c
 		if (delta > _(argsp->thresh)) {
 			if ((delta > data->max_time) || (data->max_time == 0)) {
 				data->max_time = delta;
+				//data->max_time_start = time_start;
 				data->max_time_end = now;
 			}
 			data->total_time += delta;

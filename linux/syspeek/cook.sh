@@ -42,14 +42,7 @@ bpf_env_setup() {
     fi
 }
 
-cc_toolchain_setup() {
-    if [ "$PLAT" == "x86_64" ];then
-        export CROSS_COMPILE=/bsp/pro/toolchains/armcc-64/bin/aarch64-none-linux-gnu-
-    fi
-}
-
 bpf_build() {
-    cc_toolchain_setup
     make build
 }
 

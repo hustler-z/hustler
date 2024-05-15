@@ -1,18 +1,33 @@
 // SPDX-License-Identifier: GPL-2.0
 // Copyright (c) 2020 Wenbo Zhang
 #include <vmlinux.h>
-#include <bpf/bpf_core_read.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
-#include "hardirqs.h"
+#include <bpf/bpf_core_read.h>
+#include "softirqs.h"
 #include "bits.bpf.h"
 #include "maps.bpf.h"
+#include "hardirqs.h"
 
 #define MAX_ENTRIES	256
 
 const volatile bool filter_cg = false;
 const volatile bool targ_dist = false;
 const volatile bool targ_ns = false;
+const volatile bool do_count = false;
+// -------------------------------------------------------------------
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, u32);
+	__type(value, u64);
+} start SEC(".maps");
+
+__u64 counts[NR_SOFTIRQS] = {};
+__u64 time[NR_SOFTIRQS] = {};
+struct hist hists[NR_SOFTIRQS] = {};
+
 const volatile bool do_count = false;
 
 struct irq_key {
@@ -33,7 +48,6 @@ struct {
 	__type(value, u64);
 } start SEC(".maps");
 
-/// @sample {"interval": 1000, "type" : "log2_hist"}
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__uint(max_entries, MAX_ENTRIES);
@@ -42,8 +56,50 @@ struct {
 } infos SEC(".maps");
 
 static struct info zero;
+// -------------------------------------------------------------------
 
-static int handle_entry(int irq, struct irqaction *action)
+static int softirq_handle_entry(unsigned int vec_nr)
+{
+	u64 ts = bpf_ktime_get_ns();
+	u32 key = 0;
+
+	bpf_map_update_elem(&start, &key, &ts, BPF_ANY);
+	return 0;
+}
+
+static int softirq_handle_exit(unsigned int vec_nr)
+{
+	u64 delta, *tsp;
+	u32 key = 0;
+
+	if (vec_nr >= NR_SOFTIRQS)
+		return 0;
+	tsp = bpf_map_lookup_elem(&start, &key);
+	if (!tsp)
+		return 0;
+	delta = bpf_ktime_get_ns() - *tsp;
+	if (!targ_ns)
+		delta /= 1000U;
+
+	if (!targ_dist) {
+		__sync_fetch_and_add(&counts[vec_nr], 1);
+		__sync_fetch_and_add(&time[vec_nr], delta);
+	} else {
+		struct hist *hist;
+		u64 slot;
+
+		hist = &hists[vec_nr];
+		slot = log2(delta);
+		if (slot >= MAX_SLOTS)
+			slot = MAX_SLOTS - 1;
+		__sync_fetch_and_add(&hist->slots[slot], 1);
+	}
+
+	return 0;
+}
+
+// -------------------------------------------------------------------
+static int hardirq_handle_entry(int irq, struct irqaction *action)
 {
 	if (filter_cg && !bpf_current_task_under_cgroup(&cgroup_map, 0))
 		return 0;
@@ -70,7 +126,7 @@ static int handle_entry(int irq, struct irqaction *action)
 	}
 }
 
-static int handle_exit(int irq, struct irqaction *action)
+static int hardirq_handle_exit(int irq, struct irqaction *action)
 {
 	struct irq_key ikey = {};
 	struct info *info;
@@ -108,28 +164,53 @@ static int handle_exit(int irq, struct irqaction *action)
 	return 0;
 }
 
+// -------------------------------------------------------------------
+SEC("tp_btf/softirq_entry")
+int BPF_PROG(softirq_entry_btf, unsigned int vec_nr)
+{
+	return softirq_handle_entry(vec_nr);
+}
+
+SEC("tp_btf/softirq_exit")
+int BPF_PROG(softirq_exit_btf, unsigned int vec_nr)
+{
+	return softirq_handle_exit(vec_nr);
+}
+
+SEC("raw_tp/softirq_entry")
+int BPF_PROG(softirq_entry, unsigned int vec_nr)
+{
+	return softirq_handle_entry(vec_nr);
+}
+
+SEC("raw_tp/softirq_exit")
+int BPF_PROG(softirq_exit, unsigned int vec_nr)
+{
+	return softirq_handle_exit(vec_nr);
+}
+
 SEC("tp_btf/irq_handler_entry")
 int BPF_PROG(irq_handler_entry_btf, int irq, struct irqaction *action)
 {
-	return handle_entry(irq, action);
+	return hardirq_handle_entry(irq, action);
 }
 
 SEC("tp_btf/irq_handler_exit")
 int BPF_PROG(irq_handler_exit_btf, int irq, struct irqaction *action)
 {
-	return handle_exit(irq, action);
+	return hardirq_handle_exit(irq, action);
 }
 
 SEC("raw_tp/irq_handler_entry")
 int BPF_PROG(irq_handler_entry, int irq, struct irqaction *action)
 {
-	return handle_entry(irq, action);
+	return hardirq_handle_entry(irq, action);
 }
 
 SEC("raw_tp/irq_handler_exit")
 int BPF_PROG(irq_handler_exit, int irq, struct irqaction *action)
 {
-	return handle_exit(irq, action);
+	return hardirq_handle_exit(irq, action);
 }
 
 char LICENSE[] SEC("license") = "GPL";

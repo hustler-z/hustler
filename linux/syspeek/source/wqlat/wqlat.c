@@ -13,9 +13,10 @@
 #include <bpf/libbpf.h>
 #include <bpf/bpf.h>
 #include <getopt.h>
-#include "workqlatency.skel.h"
-#include "workqlatency.h"
+#include "wqlat.skel.h"
+#include "wqlat.h"
 
+//__u64 period = DEF_TIME;
 __u64 g_thresh = LAT_THRESH_NS;
 bool verbose = false;
 FILE *latency_fd = NULL;
@@ -25,9 +26,9 @@ static int sym_cnt;
 static volatile sig_atomic_t exiting;
 
 
-char *log_dir = "/var/log/syspeek/workqlatency";
-char *runtime_data = "/var/log/syspeek/wqlatency/runtime.log";
-char *latency_data = "/var/log/syspeek/wqlatency/latency.log";
+char *log_dir = "/var/log/syspeek/wqlat";
+char *runtime_data = "/var/log/syspeek/wqlat/runtime.log";
+char *latency_data = "/var/log/syspeek/wqlat/latency.log";
 
 struct option longopts[] = {
     //{ "time", no_argument, NULL, 't' },
@@ -39,11 +40,11 @@ struct option longopts[] = {
 static void usage(void)
 {
 	fprintf(stdout,
-	        "Usage: wqlatency [options] [args]\n"
+	        "Usage: wqlat [options] [args]\n"
             "Options:\n"
 			"    --threshold/-l		specify the threshold time(ms), default=10ms\n"
             "    --help/-h			help info\n"
-            "example: wqlatency -t 10  #trace work runtime and latency statistics\n");
+            "example: wqlat -t 10  #trace work runtime and latency statistics\n");
 	exit(EXIT_FAILURE);
 }
 
@@ -218,18 +219,17 @@ void handle_lost_events(void *ctx, int cpu, __u64 lost_cnt)
 	printf("Lost %llu events on CPU #%d!\n", lost_cnt, cpu);
 }
 
-int report_handler(int poll_fd, struct workqlatency_bpf *skel, FILE *filep, enum trace_class_type type)
+int report_handler(int poll_fd, struct wqlat_bpf *skel, FILE *filep, enum trace_class_type type)
 {
 	int err = 0;
 	struct perf_buffer *pb = NULL;
 	struct perf_buffer_opts pb_opts = {};
 
 	if (type == TRACE_RUNTIME)
-		pb_opts.sample_cb = handle_runtime_event;
+        pb = perf_buffer__new(poll_fd, 64, handle_runtime_event, handle_lost_events, NULL, &pb_opts);
 	else
-		pb_opts.sample_cb = handle_latency_event;
-	pb_opts.lost_cb = handle_lost_events;
-	pb = perf_buffer__new(poll_fd, 64, &pb_opts);
+		pb = perf_buffer__new(poll_fd, 64, handle_latency_event, handle_lost_events, NULL, &pb_opts);
+
 	if (!pb) {
 		err = -errno;
 		fprintf(stderr, "failed to open perf buffer: %d\n", err);
@@ -250,22 +250,22 @@ clean_nosched:
 	return err;
 }
 
-//static int report_data(struct workqlatency_bpf *skel, enum trace_class_type type)
+//static int report_data(struct wqlat_bpf *skel, enum trace_class_type type)
 static void *report_data(void *arg)
 {
 	int map_fd;
 	struct thread_args *arg_info;
-	struct workqlatency_bpf *skel;
+	struct wqlat_bpf *skel;
 	enum trace_class_type type;
 
 	arg_info = (struct thread_args *)arg;
 	type = arg_info->type;
-	skel = (struct workqlatency_bpf *)arg_info->skel;
+	skel = (struct wqlat_bpf *)arg_info->skel;
 	if (type == TRACE_RUNTIME){
 		if (access(runtime_data,0) != 0){
 			runtime_fd = fopen(runtime_data, "a+");
 			fprintf(runtime_fd, "%-48s\t%-10s\t%-10s\t%-12s\t%-12s\t%-32s\t%-16s\n", "Kwork Name", "Cpu",
-				"Avg runtime(ns)", "Count", "Max runtime(ns)", "Max runtime start(s)", "Max runtime end(s)");			
+				"Avg runtime(ns)", "Count", "Max runtime(ns)", "Max runtime start(s)", "Max runtime end(s)");
 		} else {
 			runtime_fd = fopen(runtime_data, "a+");
 		}
@@ -295,26 +295,26 @@ int main(int argc, char *argv[])
 	int opt, i;
 	int err = 0, map_fd, args_key = 0;
 	pthread_t tid[NR_THREADS];
-	struct workqlatency_bpf *skel;
+	struct wqlat_bpf *skel;
 	struct args args;
 	struct thread_args *targs[NR_THREADS];
 
 	while ((opt = getopt_long(argc, argv, "t:l:hv", longopts, NULL)) != -1) {
 		switch (opt) {
-			case 'l':
-                if (optarg)
-                    g_thresh = (int)strtoul(optarg, NULL, 10)*1000*1000;
-				break;
-			case 'h':
-                usage();
-                break;
-			case 'v':
-                verbose = true;
-                break;
-			default:
-                printf("must have parameter\n");
-                usage();
-                break;
+		case 'l':
+            if (optarg)
+                g_thresh = (int)strtoul(optarg, NULL, 10)*1000*1000;
+            break;
+		case 'h':
+            usage();
+            break;
+		case 'v':
+            verbose = true;
+            break;
+		default:
+            printf("must have parameter\n");
+            usage();
+            break;
         }
 	}
 
@@ -329,13 +329,13 @@ int main(int argc, char *argv[])
 		return err;
 	}
 
-	skel = workqlatency_bpf__open();
+	skel = wqlat_bpf__open();
 	if (!skel) {
 		fprintf(stderr, "Failed to open BPF skeleton\n");
 		return 1;
 	}
 
-	err = workqlatency_bpf__load(skel);
+	err = wqlat_bpf__load(skel);
 	if (err) {
 		fprintf(stderr, "Failed to load BPF skeleton, errno:%d\n",err);
 		return 1;
@@ -364,7 +364,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Attach tracepoint handler */
-	err = workqlatency_bpf__attach(skel);
+	err = wqlat_bpf__attach(skel);
 	if (err) {
 		fprintf(stderr, "Failed to attach BPF skeleton\n");
 		return err;
@@ -372,6 +372,6 @@ int main(int argc, char *argv[])
 	pthread_exit(NULL);
 
 cleanup:
-	workqlatency_bpf__destroy(skel);
+	wqlat_bpf__destroy(skel);
 	return err;
 }

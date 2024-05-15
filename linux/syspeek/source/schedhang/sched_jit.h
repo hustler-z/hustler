@@ -25,7 +25,7 @@ struct sched_jit_summary {
 	int min_idx;
 	unsigned long num;
 	__u64 total, topNmin;
-	struct jit_maxN maxN_array[CPU_ARRY_LEN]; 
-	struct jit_lastN lastN_array[CPU_ARRY_LEN]; 
+	struct jit_maxN maxN_array[CPU_ARRY_LEN];
+	struct jit_lastN lastN_array[CPU_ARRY_LEN];
 	unsigned long less10ms, less50ms, less100ms, less500ms, less1s,plus1s;
 };
