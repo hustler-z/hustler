@@ -40,6 +40,9 @@ build() {
             ;;
         clean)
             make $JOBS clean
+            if [ -f "rootfs.ext4" ];then
+                rm rootfs.ext4
+            fi
             ;;
         ext4)
             echo "------------------------------------------------------------------"
