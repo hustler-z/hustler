@@ -1,0 +1,33 @@
+#!bin/sh
+
+notify_ok() {
+    cat /etc/init.d/hyperx.txt
+}
+
+uptime() {
+    echo "----------------------------------------"
+    echo "Booting took $(cut -d' ' -f1 /proc/uptime) seconds"
+    echo "----------------------------------------"
+}
+
+notify_ok
+
+# environment variables
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+runlevel=S
+prevlevel=N
+umask 022
+export PATH runlevel prevlevel
+
+# mount all fs mentioned in /etc/fstab
+mount -a
+#
+if [ -f "/proc/sys/kernel/hotplug" ];then
+    echo /sbin/mdev > /proc/sys/kernel/hotplug
+    mdev -s
+fi
+
+uptime
+
+# set up eth0
+# ip link set eth0 up
