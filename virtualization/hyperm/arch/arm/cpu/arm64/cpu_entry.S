@@ -24,12 +24,20 @@
 #include <cpu_defines.h>
 #include <mmu_lpae.h>
 
+#ifdef CONFIG_EARLY_DEBUG_UART_INASM
 __debug_hang_wait:
-    .string "\rNow cpu hang and wait ...\n\r"
+    .string "\rHang & wait\n\r"
 __debug_cpu_init:
-    .string "\rNow kicks into cpu initialization C routine ...\n\r"
+    .string "\rKick into C routine\n\r"
+__debug_arch_setup:
+    .string "\rArchitecture setup\n\r"
+__debug_on_el2t:
+    .string "\rContinue on EL2t\n\r"
+__debug_done_setup:
+    .string "\rDone setup sysregs\n\r"
 __debug_exception:
     .string "\rException been taken\n\r"
+#endif
 
 	/*
 	 * _start: Primary CPU startup code
@@ -264,6 +272,11 @@ pen:	wfe
 	 * Note: From this point primary CPU startup is same as secondary CPU
 	 */
 _start_secondary_nopen:
+#ifdef CONFIG_EARLY_DEBUG_UART_INASM
+    adr x0, __debug_arch_setup
+    bl  _debug_serial_puts
+#endif
+
     /* Disable IRQ & FIQ */
 	msr	daifset, #3
 
@@ -271,6 +284,11 @@ _start_secondary_nopen:
 	mrs	x0, currentEL
 	cmp	w0, #PSR_MODE64_EL2t
 	bne	_start_hang
+
+#ifdef CONFIG_EARLY_DEBUG_UART_INASM
+    adr x0, __debug_on_el2t
+    bl  _debug_serial_puts
+#endif
 
 	/* Setup Hypervisor MAIR0 & MAIR1 */
 	ldr	x0, __mair_set
@@ -296,80 +314,21 @@ _start_secondary_nopen:
 	ldr	x0, __init_vectors
 	msr    	vbar_el2, x0
 
-#ifdef CONFIG_EARLY_DEBUG_UART
-    bl  early_debug_sp
-#endif
-
 	/* Setup Hypervisor System Control Register */
 	bl	proc_setup
 	msr     sctlr_el2, x0
 	dsb	sy
 	isb
 
-/* Architecture Registers
- * ----------------------------------------------------
- * (1) SCTLR_EL2 - System Control Register
- *
- * Provides top level control of the system, including
- * its memory system, at EL2.
- *
- * (2) DAIF - Interrupt Mask Bits
- *
- * Allows access to the interrupt mask bits
- * (DAIFSet, DAIFClr)
- *
- * (3) MAIR_EL2 - Memory Attribute Indirection Register
- *
- * Provides the memory attribute encodings corresponding
- * to the possible AttrIndx values in a Long-descriptor
- * format translation table entry for stage 1
- * translations at EL2.
- *
- * (4) TCR_EL2 - Translation Control Register
- *
- * The control register for stage 1 of the EL2, or EL2&0,
- * translation regime:
- *    • When the Effective value of HCR_EL2.E2H is 0, this
- * register controls stage 1 of the EL2 translation
- * regime, that supports a single VA range, translated
- * using TTBR0_EL2.
- *    • When the value of HCR_EL2.E2H is 1, this register
- * controls stage 1 of the EL2&0 translation regime, that
- * supports both:
- *    ◦ A lower VA range, translated using TTBR0_EL2.
- *    ◦ A higher VA range, translated using TTBR1_EL2.
- *
- * (5) TTBR0_EL2 - Translation Table Base Register 0
- *
- * (6) VTCR_EL2 - Virtualization Translation Control
- *                Register
- *
- * The control register for stage 2 of the EL1&0
- * translation regime
- *
- * (7) HCR_EL2 - Hypervisor Configuration Register
- *
- * Provides configuration controls for virtualization,
- * including defining whether various operations are
- * trapped to EL2.
- *
- * (8) VBAR_EL2 - Vector Base Address Register
- *
- * ----------------------------------------------------
- */
-
-#ifdef CONFIG_EARLY_DEBUG_UART
-    adr x0, __debug_hang_wait
+#ifdef CONFIG_EARLY_DEBUG_UART_INASM
+    adr x0, __debug_done_setup
     bl  _debug_serial_puts
-#else
-    bl  _rk3566_debug_uart_init /* asm implemented uart init function */
-    adr x0, __debug_hang_wait
-    bl  _rk3566_debug_uart_puts
 #endif
 
 	/* We should never reach here */
 _start_hang:
-	b	.
+    wfi
+	b	_start_hang
 
 	.align 3
 	.globl __mair_set
@@ -494,12 +453,9 @@ _copy_end:
 	.align 3
 	.globl _cpu_init
 _cpu_init:
-#ifdef CONFIG_EARLY_DEBUG_UART
+#ifdef CONFIG_EARLY_DEBUG_UART_INASM
     adr x0, __debug_cpu_init
     bl  _debug_serial_puts
-#else
-    adr x0, __debug_cpu_init
-    bl  _rk3566_debug_uart_puts
 #endif
 
 #ifdef CONFIG_SMP
@@ -529,7 +485,7 @@ _cpu_init:
 /* Push registers on stack */
 .macro	PUSH_REGS
 	sub	sp, sp, #ARM_ARCH_REGS_SIZE
-	stp	x28, x29, [sp, #ARM_ARCH_REGS_GPR28]	/* save GPR0-GPR29 */
+	stp	x28, x29, [sp, #ARM_ARCH_REGS_GPR28]  /* save GPR0-GPR29 */
 	stp	x26, x27, [sp, #ARM_ARCH_REGS_GPR26]
 	stp	x24, x25, [sp, #ARM_ARCH_REGS_GPR24]
 	stp	x22, x23, [sp, #ARM_ARCH_REGS_GPR22]
@@ -539,14 +495,14 @@ _cpu_init:
 	stp	x14, x15, [sp, #ARM_ARCH_REGS_GPR14]
 	stp	x12, x13, [sp, #ARM_ARCH_REGS_GPR12]
 	stp	x10, x11, [sp, #ARM_ARCH_REGS_GPR10]
-	stp	x8, x9, [sp, #ARM_ARCH_REGS_GPR8]
-	stp	x6, x7, [sp, #ARM_ARCH_REGS_GPR6]
-	stp	x4, x5, [sp, #ARM_ARCH_REGS_GPR4]
-	stp	x2, x3, [sp, #ARM_ARCH_REGS_GPR2]
-	stp	x0, x1, [sp, #ARM_ARCH_REGS_GPR0]
-	add	x29, sp, #ARM_ARCH_REGS_SIZE		/* save LR, SP */
+	stp	x8,  x9,  [sp, #ARM_ARCH_REGS_GPR8]
+	stp	x6,  x7,  [sp, #ARM_ARCH_REGS_GPR6]
+	stp	x4,  x5,  [sp, #ARM_ARCH_REGS_GPR4]
+	stp	x2,  x3,  [sp, #ARM_ARCH_REGS_GPR2]
+	stp	x0,  x1,  [sp, #ARM_ARCH_REGS_GPR0]
+	add	x29, sp,  #ARM_ARCH_REGS_SIZE		  /* save LR, SP */
 	stp	x30, x29, [sp, #ARM_ARCH_REGS_LR]
-	mrs	x22, elr_el2				/* save ELR, SPSR */
+	mrs	x22, elr_el2				          /* save ELR, SPSR */
 	mrs	x23, spsr_el2
 	stp	x22, x23, [sp, #ARM_ARCH_REGS_PC]
 	/*
@@ -571,12 +527,12 @@ _cpu_init:
 	msr	spsr_el2, x23
 	ldp	x30, x28, [sp, #ARM_ARCH_REGS_LR]	/* load LR, SP */
 	mov	x29, sp
-	mov	sp, x28
-	ldp	x0, x1, [x29, #ARM_ARCH_REGS_GPR0]	/* load GPR0-GPR29 */
-	ldp	x2, x3, [x29, #ARM_ARCH_REGS_GPR2]
-	ldp	x4, x5, [x29, #ARM_ARCH_REGS_GPR4]
-	ldp	x6, x7, [x29, #ARM_ARCH_REGS_GPR6]
-	ldp	x8, x9, [x29, #ARM_ARCH_REGS_GPR8]
+	mov	sp,  x28
+	ldp	x0,  x1,  [x29, #ARM_ARCH_REGS_GPR0]	/* load GPR0-GPR29 */
+	ldp	x2,  x3,  [x29, #ARM_ARCH_REGS_GPR2]
+	ldp	x4,  x5,  [x29, #ARM_ARCH_REGS_GPR4]
+	ldp	x6,  x7,  [x29, #ARM_ARCH_REGS_GPR6]
+	ldp	x8,  x9,  [x29, #ARM_ARCH_REGS_GPR8]
 	ldp	x10, x11, [x29, #ARM_ARCH_REGS_GPR10]
 	ldp	x12, x13, [x29, #ARM_ARCH_REGS_GPR12]
 	ldp	x14, x15, [x29, #ARM_ARCH_REGS_GPR14]
@@ -622,12 +578,9 @@ init_vectors:
 	ventry	hyp_init_entry		/* Error 32-bit EL0 */
 
 EXCEPTION_HANDLER hyp_init_entry
-#ifdef CONFIG_EARLY_DEBUG_UART
+#ifdef CONFIG_EARLY_DEBUG_UART_INASM
     adr x0, __debug_exception
     bl  _debug_serial_puts
-#else
-    adr x0, __debug_exception
-    bl  _rk3566_debug_uart_puts
 #endif
 	b	_cpu_init
 
@@ -639,8 +592,8 @@ vectors:
 	ventry	hyp_fiq_invalid		/* FIQ EL1t */
 	ventry	hyp_error_invalid	/* Error EL1t */
 
-	ventry	hyp_sync		/* Synchronous EL1h */
-	ventry	hyp_irq			/* IRQ EL1h */
+	ventry	hyp_sync		    /* Synchronous EL1h */
+	ventry	hyp_irq			    /* IRQ EL1h */
 	ventry	hyp_fiq_invalid		/* FIQ EL1h */
 	ventry	hyp_error_invalid	/* Error EL1h */
 
@@ -750,7 +703,7 @@ EXCEPTION_HANDLER guest_error_a32
 	CALL_EXCEPTION_CFUNC do_bad_mode
 	PULL_REGS
 
-#ifndef CONFIG_EARLY_DEBUG_UART
+#ifndef CONFIG_EARLY_DEBUG_UART_INASM
 // -------------------------------------------------------------------
 .macro FUNC_ENTRY name
     .globl \name
@@ -774,9 +727,9 @@ FUNC_ENTRY _rk3566_debug_uart_init
     #define UART_LCR_OFFSET		       (0x0c)	/* Line Control Register */
     #define UART_MCR_OFFSET		       (0x10)	/* Modem Control Register */
     #define UART_LSR_OFFSET		       (0x14)	/* Line Status Register */
-    #define UART_MSR_OFFSET            (0x18)  /* Modern Status Register */
+    #define UART_MSR_OFFSET            (0x18)   /* Modern Status Register */
     #define UART_SCR_OFFSET		       (0x1c)	/* Scratch Register */
-    #define UART_USR_OFFSET            (0x7c)  /* Uart Status Register */
+    #define UART_USR_OFFSET            (0x7c)   /* Uart Status Register */
     #define UART_LSR_THRE		       (0x20)	/* Transmit-hold-register empty */
     #define UART_LCR_STOP              (0x04)
     #define UART_LCR_DLAB              (0x80)

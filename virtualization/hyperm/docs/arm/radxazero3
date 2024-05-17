@@ -18,11 +18,36 @@ RADXA ZERO 3 PORTING NOTES
         (a) how to invoke the exception -> cpu_init()
 
 
+- 2024/05/17 -
 
+    (1) early serial debug interfaces (should upgrade)
 
+------------------------------------------------------------
+U-Boot uses Flat Image Tree (FIT) as a standard file format
+for packaging images that it it reads and boots.
 
+[board].its
++
+vmlinux.bin.gz mkimage + dtc              xfer to target
+ramdisk        -------------▶ [board].itb --------------▶ boot
+[board].dtb                         ▲
+                                    |
+                                'new FIT'
 
+@ image tree source (.its)
+@ image tree blob (.itb)
 
+scp images to certain directory of rootfs.
+
+reboot to uboot:
+ext4ls   <device dev:part> <directory>
+ext4load <device dev:part> <load address> <path to image>
+
+bootm <addr0>[:<img0>] <addr1>[:<img1>] <addrn>[:<fdt>]
+addr0 - address of legacy image to boot
+addr1 - address of legacy image to use as ramdisk
+addrn - address of legacy image to use as FDT
+------------------------------------------------------------
 
 
 

@@ -1,11 +1,11 @@
 #!/bin/bash
 
-OPT=$1
-DEBUG=$2
 OUT=build
-ELF=$OUT/hyperm.bin
-DISK=$OUT/disk.img
+ELF=$OUT/hyperm.img
+DISK=$OUT/udisk.img
 PLAT=$(uname -m)
+KADDR=0x00200000
+in_asm=
 
 ccsetup() {
     if [ "$PLAT" == "x86_64" ];then
@@ -22,11 +22,12 @@ ccsetup() {
 usage() {
 printf "usage: ./cook.sh [options]
 options:
-    config - set up configuration for hyperm
-    rmall  - remove all built objects
-    build  - build hyperm
-    clean  - clean built objects
-    debug  - QEMU emulation [on debug mode]
+    -h               help information
+    -C               set up configuration for hyperm
+    -r               remove all built objects
+    -b               build all images
+    -c               clean built objects
+    -q [on/off]      QEMU emulation [on debug mode]
 "
 }
 
@@ -45,7 +46,7 @@ create_disk_image() {
         cp -f ./build/tests/arm64/virt-v8/basic/firmware.bin ./build/disk/images/arm64/virt-v8/firmware.bin
         cp -f ./tests/arm64/virt-v8/linux/nor_flash.list ./build/disk/images/arm64/virt-v8/nor_flash.list
         cp -f ./tests/arm64/virt-v8/xscript/one_guest_virt-v8.xscript ./build/disk/boot.xscript
-        genext2fs -B 1024 -b 32768 -d ./build/disk ./build/disk.img
+        genext2fs -B 1024 -b 24576 -d ./build/disk ./build/disk.img
         echo "---------------------------------------------------------------------"
     fi
 }
@@ -53,8 +54,8 @@ create_disk_image() {
 ubootable() {
     if [ -f "build/hyperm.bin" ];then
         mkimage -A arm64 -O linux -T kernel \
-            -C none -a 0x3cebc000 -e 0x3cebc000 \
-            -n "Hyperm VMM" -d build/hyperm.bin build/uhyperm.bin
+            -C none -a $KADDR -e $KADDR \
+            -n "Hyperm VMM" -d build/hyperm.bin build/hyperm.img
     else
         echo "Build hyperm.bin first!!"
     fi
@@ -76,6 +77,15 @@ build() {
     ubootable
 }
 
+# foundation_v8() {
+#     /bsp/pro/toolchains/armcc-64/bin/aarch64-none-linux-gnu-gcc -nostdlib -nostdinc -e _start -Wl,--build-id=none -Wl,-Ttext=0x80000000 \
+#         -DGENTIMER_FREQ=100000000 -DUART_PL011 -DUART_PL011_BASE=0x1c090000 -DGICv2 \
+#         -DGIC_DIST_BASE=0x2c001000 -DGIC_CPU_BASE=0x2c002000 -DSPIN_LOOP_ADDR=0x8000fff8 \
+#         -DIMAGE=./build/hyperm.bin -DDTB=./build/arch/arm/dts/arm/foundation-v8-gicv2.dtb \
+#         -DINITRD=./build/disk.img ./docs/arm/foundation_v8_boot.S -o ./build/foundation_v8_boot.axf
+#     ../../../Foundation_Platformpkg/models/Linux64_GCC-9.3/Foundation_Platform --no-gicv3 --no-sve --image ./build/foundation_v8_boot.axf --network=nat
+# }
+
 config() {
     make -j$(nproc) menuconfig O=$OUT V=1
 }
@@ -91,68 +101,91 @@ cleanall() {
     cd tools/openconf && make clean
 }
 
-debug() {
-    case $DEBUG in
-        on)
-            qemu-system-aarch64 \
-                -machine virt,virtualization=on \
-                -cpu cortex-a53 \
-                -m 512M \
-                -initrd $DISK \
-                -kernel $ELF \
-                -append 'vmm.bootcmd="vfs mount initrd /;vfs run /boot.xscript;vfs cat /system/banner.txt"' \
-                -nographic \
-                -d in_asm
-            ;;
-        off)
-            qemu-system-aarch64 \
-                -machine virt,virtualization=on \
-                -cpu cortex-a53 \
-                -m 512M \
-                -initrd $DISK \
-                -kernel $ELF \
-                -append 'vmm.bootcmd="vfs mount initrd /;vfs run /boot.xscript;vfs cat /system/banner.txt"' \
-                -nographic
-            ;;
-        *)
-            usage
-            ;;
-    esac
+
+build_all_images() {
+    # set CROSS_COMPILE toolchains if necessary
+    ccsetup
+    echo "Start Compiling ..."
+    echo "---------------------------------------------------------------------"
+    begin=$(date +%s)
+    build
+    end=$(date +%s)
+    tts=$(($end-$begin))
+    echo "---------------------------------------------------------------------"
+    echo "Done building hyperm within $(($tts/60)) min $(($tts%60)) sec"
+    echo "---------------------------------------------------------------------"
 }
 
 main() {
+    if [ -z $in_asm ];then
+        usage
+        exit
+    fi
 
+    if [ ! -z $in_asm ];then
+        case $in_asm in
+            on)
+                qemu-system-aarch64 \
+                    -machine virt,virtualization=on \
+                    -cpu cortex-a53 \
+                    -m 512M \
+                    -initrd $DISK \
+                    -kernel $ELF \
+                    -append 'vmm.bootcmd="vfs mount initrd /;vfs run /boot.xscript;vfs cat /system/banner.txt"' \
+                    -nographic \
+                    -d in_asm
+                ;;
+            off)
+                qemu-system-aarch64 \
+                    -machine virt,virtualization=on \
+                    -cpu cortex-a53 \
+                    -m 512M \
+                    -initrd $DISK \
+                    -kernel $ELF \
+                    -append 'vmm.bootcmd="vfs mount initrd /;vfs run /boot.xscript;vfs cat /system/banner.txt"' \
+                    -nographic
+                ;;
+            *)
+                usage
+                ;;
+        esac
+    fi
+}
 
+while getopts 'q:hbCrcf' OPT; do
     case $OPT in
-        build)
-            # set CROSS_COMPILE toolchains if necessary
-            ccsetup
-            echo "Start Compiling ..."
-            echo "---------------------------------------------------------------------"
-            begin=$(date +%s)
-            build
-            end=$(date +%s)
-            tts=$(($end-$begin))
-            echo "---------------------------------------------------------------------"
-            echo "Done building hyperm within $(($tts/60)) min $(($tts%60)) sec"
-            echo "---------------------------------------------------------------------"
+        'b')
+            build_all_images
+            exit
             ;;
-        config)
+        'C')
             config
+            exit
             ;;
-        clean)
+        'c')
             clean
+            exit
             ;;
-        rmall)
+        'r')
             cleanall
+            exit
             ;;
-        debug)
-            debug
+        'q')
+            in_asm=$OPTARG
+            ;;
+        # 'f')
+        #     foundation_v8
+        #     exit
+        #     ;;
+        'h')
+            usage
+            exit
             ;;
         *)
             usage
+            exit
             ;;
     esac
-}
+done
 
-main $1 $2
+main

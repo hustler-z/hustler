@@ -109,7 +109,7 @@ int __init arch_cpu_final_init(void)
 void __init cpu_init(void)
 {
 #ifdef CONFIG_EARLY_DEBUG_UART
-    _debug_serial_puts("\rCPU Initialization C routine started ...\n\r");
+    _debug_serial_puts("\rC routine kicked\n\r");
 #endif
 
 	/* Initialize VMM (APIs only available after this) */

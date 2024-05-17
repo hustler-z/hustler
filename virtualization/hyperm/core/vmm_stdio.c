@@ -34,6 +34,10 @@
 #include <libs/stringlib.h>
 #include <libs/mathlib.h>
 
+#ifdef CONFIG_EARLY_DEBUG_UART
+extern void _debug_serial_puts(char *str);
+#endif
+
 #define PAD_RIGHT	1
 #define PAD_ZERO	2
 #define PAD_ALTERNATE	4
@@ -148,6 +152,7 @@ int vmm_printchars(struct vmm_chardev *cdev, char *ch, u32 num_ch, bool block)
 		for (i = 0; i < num_ch; i++) {
 			arch_defterm_early_putc(ch[i]);
 		}
+        // _debug_serial_puts("\rBUG info store\n\r");
 		rc = VMM_OK;
 	}
 

@@ -23,7 +23,7 @@
 #include <vmm_types.h>
 
 #ifdef CONFIG_EARLY_DEBUG_UART
-
+// -------------------------------------------------------------------
 #define MAX_NBYTES                (8 + 3)
 #define UART_8250_BASE            (0xfe660000UL)
 /**
@@ -161,13 +161,13 @@ void __attribute__ ((section(".entry"))) _debug_serial_hexdump(char *prefix, u32
  * 0b1000 - EL2
  * 0b1100 - EL3
  */
-char *el0t_info = "\rCurrent Exception Level:  EL0t\n\r";
-char *el1t_info = "\rCurrent Exception Level:  EL1t\n\r";
-char *el1h_info = "\rCurrent Exception Level:  EL1h\n\r";
-char *el2t_info = "\rCurrent Exception Level:  EL2t\n\r";
-char *el2h_info = "\rCurrent Exception Level:  EL2h\n\r";
-char *el3t_info = "\rCurrent Exception Level:  EL3t\n\r";
-char *el3h_info = "\rCurrent Exception Level:  EL3h\n\r";
+char *el0t_info = "\rCurrent Exception Level:\tEL0t\n\r";
+char *el1t_info = "\rCurrent Exception Level:\tEL1t\n\r";
+char *el1h_info = "\rCurrent Exception Level:\tEL1h\n\r";
+char *el2t_info = "\rCurrent Exception Level:\tEL2t\n\r";
+char *el2h_info = "\rCurrent Exception Level:\tEL2h\n\r";
+char *el3t_info = "\rCurrent Exception Level:\tEL3t\n\r";
+char *el3h_info = "\rCurrent Exception Level:\tEL3h\n\r";
 
 void __attribute__ ((section(".entry"))) early_debug_el(void)
 {
@@ -205,11 +205,9 @@ void __attribute__ ((section(".entry"))) early_debug_el(void)
     _debug_serial_puts(el_info);
 }
 
-void __attribute__ ((section(".entry"))) early_debug_sp(void)
+void __attribute__ ((section(".entry"))) early_daif_disable(void)
 {
-    u32 arch_sp;
-
-    asm volatile ("mrs %0, sp_el2" : "=r" (arch_sp));
-    _debug_serial_hexdump("\rCurrent stack pointer:    \t0x", arch_sp);
+    asm volatile ("msr daifset, #0x0f");
 }
+// -------------------------------------------------------------------
 #endif

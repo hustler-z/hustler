@@ -486,6 +486,10 @@ static void __init init_bootcpu(void)
 	vmm_set_cpu_possible(vmm_smp_processor_id(), TRUE);
 	vmm_set_cpu_present(vmm_smp_processor_id(), TRUE);
 
+#ifdef CONFIG_EARLY_DEBUG_UART
+    _debug_serial_puts("\r- CPU presents -\n\r");
+#endif
+
 	/* Print version string */
 	vmm_printf("\n");
 	vmm_printver();

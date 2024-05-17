@@ -25,6 +25,11 @@
 
 #include <cpu_defines.h>
 
+#ifdef CONFIG_EARLY_DEBUG_UART_INASM
+__debug_proc_setup:
+    .string "\rBoot-time processor setup\n\r"
+#endif
+
 /*
  *	Boot-time processor setup
  *
@@ -38,16 +43,21 @@
  */
 	.globl proc_setup
 proc_setup:
-	ic	iallu				/* I+BTB cache invalidate */
+#ifdef CONFIG_EARLY_DEBUG_UART_INASM
+    adr x0, __debug_proc_setup
+    bl  _debug_serial_puts
+#endif
+
+	ic	    iallu				/* I+BTB cache invalidate */
 	tlbi	alle2is				/* invalidate I + D TLBs */
 	dsb	sy
 
 	adr	x5, v8_crval
 	ldr	x6, [x5, #0]
 	ldr	x7, [x5, #8]
-   	mrs 	x0, sctlr_el2			/* read control register */
-	bic	x0, x0, x6			/* clear bits them */
-	orr	x0, x0, x7			/* set them */
+   	mrs 	x0, sctlr_el2		/* read control register */
+	bic	x0, x0, x6			    /* clear bits them */
+	orr	x0, x0, x7			    /* set them */
 	ret
 
 	/*                W
@@ -64,7 +74,7 @@ v8_crval:
 	.dword	0x00001005 /* mmuset */
 
 #ifdef CONFIG_SMP
-	/* 
+	/*
 	 * Retrive SMP ID of current processor
 	 */
 	.globl arch_smp_id
@@ -72,7 +82,7 @@ arch_smp_id:
 	mrs	x0, tpidr_el2
 	ret
 
-	/* 
+	/*
 	 * Setup SMP ID of current processor
 	 */
 	.globl proc_setup_smp_id

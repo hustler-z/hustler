@@ -192,24 +192,18 @@ virtual_size_t __attribute__ ((section(".entry")))
     _fdt_size(virtual_addr_t dtb_start)
 {
 	u32 *src = (u32 *)dtb_start;
-    u32 rev = rev32(src[0]);
-    u32 fdt_size;
+    u32 fdt_magic = rev32(src[0]);
 
-#ifdef CONFIG_EARLY_DEBUG_UART
-    _debug_serial_hexdump("\rFDT magic:              \t0x", rev);
-#endif
-	if (rev != FDT_MAGIC) {
-#ifdef CONFIG_EARLY_DEBUG_UART
-        _debug_serial_puts("\rShit, we hang!!\r\n");
-#endif
+	if (fdt_magic != FDT_MAGIC) {
+#ifdef CONFIG_FDT_MAFIC_CHECK_FAIL_HANG
 		while (1); /* Hang !!! */
+#else
+        _debug_serial_puts("\rFDT magic invalid\n\r");
+#endif
 	}
 
-    fdt_size = rev32(src[1]);
-#ifdef CONFIG_EARLY_DEBUG_UART
-    _debug_serial_hexdump("\rFDT size:               \t0x", fdt_size);
-#endif
-	return fdt_size;
+
+	return rev32(src[1]);
 }
 
 void __attribute__ ((section(".entry")))
@@ -236,6 +230,7 @@ void __attribute__ ((section(".entry")))
 #ifdef CONFIG_EARLY_DEBUG_UART
     _debug_serial_init();
 #endif
+
 	/* Init ttbl_base and next_ttbl */
 	lpae_entry.ttbl_base = to_load_pa((virtual_addr_t)&stage1_pgtbl_root);
 	lpae_entry.next_ttbl =
@@ -280,15 +275,7 @@ void __attribute__ ((section(".entry")))
 	 */
 	__setup_initial_ttbl(&lpae_entry, exec_start, exec_end, load_start,
 			     AINDEX_NORMAL_WB, TRUE);
-#ifdef CONFIG_EARLY_DEBUG_UART
-    _debug_serial_puts("\r----------------- EARLY DEBUG INFO -----------------\n\r");
-    _debug_serial_puts("\rSet up initial translation table ...\n\r");
-    _debug_serial_hexdump("\rExecution start address:\t0x", (u32)exec_start);
-    _debug_serial_hexdump("\rExecution end address:  \t0x", (u32)exec_end);
-    _debug_serial_hexdump("\rDTB start address:      \t0x", (u32)dtb_start);
-    _debug_serial_hexdump("\rLoad start address:     \t0x", (u32)load_start);
-    _debug_serial_hexdump("\rLoad end address:       \t0x", (u32)load_end);
-#endif
+
 	/* Compute and save devtree addresses */
 	*dt_phys_base = dtb_start & TTBL_L3_MAP_MASK;
 	*dt_virt_base = exec_start - _fdt_size(dtb_start);
@@ -300,8 +287,8 @@ void __attribute__ ((section(".entry")))
 	__setup_initial_ttbl(&lpae_entry, *dt_virt_base,
 			     *dt_virt_base + *dt_virt_size, *dt_phys_base,
 			     AINDEX_NORMAL_WB, TRUE);
+
 #ifdef CONFIG_EARLY_DEBUG_UART
-    early_debug_el();
-    _debug_serial_puts("\r----------------- EARLY DEBUG INFO -----------------\n\r");
+    _debug_serial_puts("\rDone ttbl setup\n\r");
 #endif
 }
