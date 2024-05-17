@@ -1,0 +1,74 @@
+.eclair-analysis:
+  stage: analyze
+  tags:
+    - eclair-analysis
+  variables:
+    ECLAIR_OUTPUT_DIR: "ECLAIR_out"
+    ANALYSIS_KIND: "normal"
+    ENABLE_ECLAIR_BOT: "n"
+    AUTO_PR_BRANCH: "staging"
+    AUTO_PR_REPOSITORY: "xen-project/xen"
+  script:
+    - ./automation/scripts/eclair 2>&1 | tee "${LOGFILE}"
+  artifacts:
+    when: always
+    paths:
+      - "${ECLAIR_OUTPUT_DIR}/*.log"
+      - "${ECLAIR_OUTPUT_DIR}/*.txt"
+      - '*.log'
+    reports:
+      codequality: gl-code-quality-report.json
+  rules:
+    - if: $WTOKEN == null
+      when: never
+    - when: always
+  needs: []
+
+.eclair-analysis:triggered:
+  extends: .eclair-analysis
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $WTOKEN && $CI_PROJECT_PATH =~ /^xen-project\/people\/.*$/
+      when: manual
+      allow_failure: true
+    - !reference [.eclair-analysis, rules]
+
+eclair-x86_64:
+  extends: .eclair-analysis:triggered
+  variables:
+    LOGFILE: "eclair-x86_64.log"
+    VARIANT: "X86_64"
+    RULESET: "monitored"
+
+eclair-ARM64:
+  extends: .eclair-analysis:triggered
+  variables:
+    LOGFILE: "eclair-ARM64.log"
+    VARIANT: "ARM64"
+    RULESET: "monitored"
+
+.eclair-analysis:on-schedule:
+  extends: .eclair-analysis
+  rules:
+    - if: $CI_PIPELINE_SOURCE != "schedule"
+      when: never
+    - !reference [.eclair-analysis, rules]
+
+eclair-x86_64:on-schedule:
+  extends: .eclair-analysis:on-schedule
+  variables:
+    VARIANT: "X86_64"
+    RULESET: "accepted"
+    ANALYSIS_KIND: "${RULESET}-scheduled"
+    LOGFILE: "eclair-${VARIANT}-${RULESET}.log"
+  allow_failure: true
+
+eclair-ARM64:on-schedule:
+  extends: .eclair-analysis:on-schedule
+  variables:
+    VARIANT: "ARM64"
+    RULESET: "accepted"
+    ANALYSIS_KIND: "${RULESET}-scheduled"
+    LOGFILE: "eclair-${VARIANT}-${RULESET}.log"
+  allow_failure: true
