@@ -2,6 +2,17 @@
 ARMv8 Achitecture Registers
 ---------------------------------------------------------------------------
 
+Argument registers (X0-X7) <参数寄存器>
+    用于将参数传递给函数并返回结果.
+Caller-saved temporary registers (X9-X15) <调用者>
+    如果调用者需要在调用另一个函数时保留一些寄存器中的任何值，则调用者必
+    须将受影响的寄存器保存在自己的堆栈帧中.
+Callee-saved registers (X19-X29) <被调用者>
+    保存在被调用者内部。 只要在返回前保存并恢复，就可以在被调用的子程序中
+    修改.
+Registers with a special purpose (X8, X16-X18, X29, X30) <特殊目的寄存器>
+
+---------------------------------------------------------------------------
 ACCDATA_EL1: Accelerator Data
 
 ACTLR_EL1: Auxiliary Control Register (EL1)
@@ -112,6 +123,12 @@ DACR32_EL2: Domain Access Control Register
 
 DAIF: Interrupt Mask Bits
 
+---------------------------------------------------------------------------
+用于清除或设置单个异常掩码位:
+    msr daifclr, #<imm4>
+    msr daifset, #<imm4>
+---------------------------------------------------------------------------
+
 DBGAUTHSTATUS_EL1: Debug Authentication Status register
 DBGBCR<n>_EL1: Debug Breakpoint Control Registers
 DBGBVR<n>_EL1: Debug Breakpoint Value Registers
@@ -156,6 +173,11 @@ ERXSTATUS_EL1: Selected Error Record Primary Status Register
 ESR_EL1: Exception Syndrome Register (EL1)
 ESR_EL2: Exception Syndrome Register (EL2)
 ESR_EL3: Exception Syndrome Register (EL3)
+
+---------------------------------------------------------------------------
+异常状态寄存器(Exception Syndrome Register, ESR_ELn)包含允许异常处理程序
+确定异常原因的信息.
+---------------------------------------------------------------------------
 
 FAR_EL1: Fault Address Register (EL1)
 FAR_EL2: Fault Address Register (EL2)
@@ -396,6 +418,23 @@ SCR_EL3: Secure Configuration Register
 SCTLR_EL1: System Control Register (EL1)
 SCTLR_EL2: System Control Register (EL2)
 SCTLR_EL3: System Control Register (EL3)
+
+---------------------------------------------------------------------------
+    mrs x0, sctlr_el1
+    orr x0, x0, #(1<<2)      - Set [C] bit and enable data caching
+    orr x0, x0, #(1<<12)     - Set [I] bit and enable instruction caching
+    msr sctlr_el1, x0
+---------------------------------------------------------------------------
+Byte-ordering controled by SCTLR_ELn.EE
+
+                               3  2  1  0
+               Little Endian   |78|56|34|12|
+             /
+0x12345678 -+
+             \                 0  1  2  3
+               Big Endian      |12|34|56|78|
+---------------------------------------------------------------------------
+
 SCXTNUM_EL0: EL0 Read/Write Software Context Number
 SCXTNUM_EL1: EL1 Read/Write Software Context Number
 SCXTNUM_EL2: EL2 Read/Write Software Context Number
@@ -403,11 +442,32 @@ SCXTNUM_EL3: EL3 Read/Write Software Context Number
 SDER32_EL2: AArch32 Secure Debug Enable Register
 SDER32_EL3: AArch32 Secure Debug Enable Register
 SPSel: Stack Pointer Select
+
+---------------------------------------------------------------------------
+    msr spsel, #0       - switch to sp_el0
+---------------------------------------------------------------------------
+
 SPSR_abt: Saved Program Status Register (Abort mode)
 
 SPSR_EL1: Saved Program Status Register (EL1)
 SPSR_EL2: Saved Program Status Register (EL2)
 SPSR_EL3: Saved Program Status Register (EL3)
+
+---------------------------------------------------------------------------
+异常发生时，CPSR中的处理器状态将保存在相关的程序状态保存寄存器
+SPSR中. SPSR保存着异常发生之前的PSTATE的值，用于在异常返回时
+恢复PSTATE的值.
+
+31                    21                  9         4        0
++-+-+-+-+---- ... ---+--+--+--- ... -----+-+-+-+-+-+-+--------+
+|N|Z|C|V|            |SS|IL|             |D|A|I|F| |M| M[3:0] |
++-+-+-+-+---- ... ---+--+--+--- ... -----+-+-+-+-+-+-+--------+
+
+SS     - Software Step Bit
+IL     - Illegal Execution State Bit
+M[4]   - 异常发生时的执行状态，0表示AArch64
+M[3:0] - 异常发生时的mode或异常级别
+---------------------------------------------------------------------------
 
 SPSR_fiq: Saved Program Status Register (FIQ mode)
 SPSR_irq: Saved Program Status Register (IRQ mode)
@@ -521,6 +581,11 @@ BR: Branch to Register.
 BRAA, BRAAZ, BRAB, BRABZ: Branch to Register, with pointer authentication.
 BRB: Branch Record Buffer: an alias of SYS.
 BRK: Breakpoint instruction.
+
+---------------------------------------------------------------------------
+    brk #<imm16>      - 进入监视器模式调试，其中有片上调试监视器代码
+---------------------------------------------------------------------------
+
 BTI: Branch Target Identification.
 CAS, CASA, CASAL, CASL: Compare and Swap word or doubleword in memory.
 CASB, CASAB, CASALB, CASLB: Compare and Swap byte in memory.
@@ -626,6 +691,11 @@ GCSSTTR: Guarded Control Stack unprivileged Store.
 GMI: Tag Mask Insert.
 HINT: Hint instruction.
 HLT: Halt instruction.
+
+---------------------------------------------------------------------------
+    hlt #<imm16>      - 进入停止模式调试，其中连接外部调试硬件
+---------------------------------------------------------------------------
+
 HVC: Hypervisor Call.
 IC: Instruction Cache operation: an alias of SYS.
 IRG: Insert Random Tag.
@@ -971,6 +1041,9 @@ XPACD, XPACI, XPACLRI: Strip Pointer Authentication Code.
 YIELD: YIELD.
 
 ---------------------------------------------------------------------------
+    stp x0, x1, [sp, #-16]!       - Push x0 and x1 to the stack
+    ldp x0, x1, [sp], #16         - Pop x0 and x1 off the stack
+---------------------------------------------------------------------------
 TrustZone
 ---------------------------------------------------------------------------
 
@@ -992,6 +1065,84 @@ architecture.
     +--------------------------------------------------------------+
     |                   Firmware/Secure Monitor                    |  EL3
     +--------------------------------------------------------------+
+
+
+---------------------------------------------------------------------------
+Byte Alignment
+
+数据和代码必须满足适当的对齐方式. 访问对齐会影响ARM内核的性能.
+
+.align  <n> - n^2字节对齐
+.balign <n> - n^2字节对齐 -> (ARM Compiler 6)
+---------------------------------------------------------------------------
+
+distributor和CPU interface在复位时都被禁用. GIC必须在复位后初始化，然后
+才能向内核提供中断.
+
+GICD_CTLR - 启用distributor和CPU interface
+
+通用中断控制器(GIC)支持在多核系统中的内核之间路由软件(SPI)生成私有(PPI)
+和共享的外围中断(SPI).
+
+GIC架构提供的寄存器可用于管理中断源和中断行为，以及在多核系统中将中断路
+由到各个内核。以使软件能够屏蔽、启用和禁用来自单个源的中断，对(在硬件中)
+单个源进行优先级排序并生成软件中断. GIC接受在系统级别断言的中断，并可以
+向它所连接的每个内核发送信号，从而可能导致发生IRQ或FIQ异常.
+
+软件生成中断(SGI)
+专用外设中断(PPI)
+共享外设中断(SPI)
+局部特定外设中断(LPI)
+
+Distributor: 系统中的所有中断源都连接到distributor. Distributor提供寄存
+器来控制各个中断的属性，例如优先级、状态、安全性、路由信息和启用状态.
+distributor通过附加的CPU接口确定将哪个中断转发到内核.
+
+CPU Interface: cpu通过它接收中断. CPU接口提供寄存器来屏蔽、识别和控制转
+发到该内核的中断状态. 系统中的每个内核都有一个单独的CPU接口.
+
+中断传递的优先级和目标core都在distributor中配置. 外围设备distributor发送
+的中断都处于待处理状态(如果它已经处于活动状态，则处于活动和待处理状态).
+distributor确定最高优先级的待处理的中断，可以传递到core并将其转发到CPU接
+口，在CPU接口处，中断依次发送给core，此时core接受FIQ或IRQ异常. core执行
+异常处理程序作为响应. 处理程序从CPU接口寄存器中查询中断ID并开始执行中断
+服务程序. 完成后，处理程序必须写入CPU接口寄存器以报告处理结束.
+
+当core接受了中断，就跳转到顶层中断向量表并且开始执行。顶层的中断处理程序
+从CPU interface读取寄存器以获得中断 ID.
+
+读取寄存器除了返回中断ID外，还会导致中断在distributor中被标记为活active.
+一旦知道中断ID(识别中断源)，顶层处理程序就可以调度特定于设备的中断处理程
+序来服务中断.
+
+当中断处理程序完成执行时，顶层处理程序将相同的中断ID写入CPU接口块中的中断
+结束(EoI)寄存器，指示中断处理结束。
+
+除了移除活动状态，使最终的中断状态为Inactive或pending(如果状态为active
+and pending)，这使CPU接口能够将更多挂起的中断转发到core.
+
+---------------------------------------------------------------------------
+MMU
+
+63                                             0
++-----------+---------- ... ----------+--------+
+|TTBR select|                         |PA[n:0]|
++-----------+---------- ... ----------+--------+
+
+VA[63:42]=1 -> TTBR1
+VA[63:42]=0 -> TTBR0
+
+---------------------------------------------------------------------------
+    msr ttbr0_el1, x0  - Set TTBR0
+    msr ttbr1_el1, x1  - Set TTBR1
+    msr tcr_el1, x2    - Set TCR
+    isb	- The ISB forces these changes to be seen before the MMU is enabled
+    mrs x0, sctlr_el1  - Read System Control Register configuration data
+    orr x0, x0, #1     - Set [M] bit and enable the MMU.
+    msr sctlr_el1, x0  - Write System Control Register configuration data
+    isb	- The ISB forces these changes to be seen by the next instruction
+---------------------------------------------------------------------------
+
 
 
 ---------------------------------------------------------------------------
