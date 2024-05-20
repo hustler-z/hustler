@@ -1,5 +1,0 @@
-if (APP STREQUAL "shell")
-	add_subdirectory(shell)
-else()
-	RETURN()
-endif()

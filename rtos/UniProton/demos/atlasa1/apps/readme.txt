@@ -1,1 +1,0 @@
-编译生成atlsa1.bin，用于适配atlasA1拉起rtos

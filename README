@@ -1,37 +1,34 @@
-Hustler's Projects
-2024/04/23 TUE
+----------------------------------------
+Hustler's Projects        2024/04/23 TUE
+----------------------------------------
 Self-education
 
-# My way to be a better OS developer
+My way to be a better OS developer
 
 Hierarchy Overview
+----------------------------------------
 .
 ├── bootloader
 │   ├── docs
 │   └── u-boot
-├── hustle
-│   ├── basics
+├── core
+│   ├── arm
 │   ├── busybox
-│   ├── components
+│   ├── rtos        - MIT license
+│   └── tools
+├── hypervisor
 │   ├── docs
-│   ├── hustleos
-│   └── scripts
-├── linux          - GPL-2.0 license
+│   ├── hyperm      - GPL-2.0 license
+│   ├── hyperx      - GPL-2.0 license
+│   └── xen
+├── linux           - GPL-2.0 license
 │   ├── docs
-│   ├── v4.19.y
+│   ├── syspeek
 │   ├── v5.10.y
-│   ├── v5.15.y
-│   ├── v6.1.y
-│   └── v6.7.y
-├── rtos
-│   ├── docs
-│   ├── LiteOS     - BSD-3-Clause license
-│   └── UniProton  - MulanPSL-2.0
-└── virtualization
-    ├── docs
-    ├── hyperm     - GPL-2.0 license
-    └── hyperx     - GPL-2.0 license
+│   └── v6.1.y
+└── README
 
+----------------------------------------
 # Respect to all open-source developers
 
 I am far from being an OS expert, it
@@ -41,3 +38,4 @@ but embrace challenges and the beauty
 of various OS products.
 
 Note: education purpose only
+----------------------------------------
