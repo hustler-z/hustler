@@ -1,12 +1,26 @@
-----------------------------------------
-Hustler's Projects        2024/04/23 TUE
-----------------------------------------
-Self-education
+---------------------------------------------
+                _____ _____      _____ ____
+ /\__/\ /\  /\ / ___//_  _//\   / ___// __ \
+ \  __ \\ \_\ \\___ \ / / / /_ / ___\ | __ /
+  \_\ \_\\____//____/ \_/ \___\\____\ \_| \/
 
-My way to be a better OS developer
+---------------------------------------------
+Hustler's Projects             2024/04/23 TUE
+---------------------------------------------
+
+# Respect to all open-source developers
+
+I'm far from being an OS expert, it took me
+two years to make the decision.
+
+With lots to learn, I stuck and struggled a
+lot. The thing that drive me forward is
+determination.
+
+I wanna be a OS expert, dive deep, and more.
 
 Hierarchy Overview
-----------------------------------------
+---------------------------------------------
 .
 ├── bootloader
 │   ├── docs
@@ -14,28 +28,19 @@ Hierarchy Overview
 ├── core
 │   ├── arm
 │   ├── busybox
-│   ├── rtos        - MIT license
+│   ├── rtos          - MIT license
 │   └── tools
 ├── hypervisor
 │   ├── docs
-│   ├── hyperm      - GPL-2.0 license
-│   ├── hyperx      - GPL-2.0 license
+│   ├── hypos         - personal project
 │   └── xen
-├── linux           - GPL-2.0 license
+├── linux
 │   ├── docs
 │   ├── syspeek
-│   ├── v5.10.y
-│   └── v6.1.y
+│   ├── v5.10.y       - GPL-2.0 license
+│   └── v6.1.y        - GPL-2.0 license
 └── README
 
-----------------------------------------
-# Respect to all open-source developers
-
-I am far from being an OS expert, it
-took me two years to make the decision.
-lots to learn, lots of distraction,
-but embrace challenges and the beauty
-of various OS products.
-
+---------------------------------------------
 Note: education purpose only
-----------------------------------------
+---------------------------------------------

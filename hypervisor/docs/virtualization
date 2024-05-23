@@ -119,7 +119,7 @@ Hypercall Implementation
 ----------------------------------------------------------------------
 Projects to learn:
 
-(a) hyperm is based on xvisor
+(a) xvisor
 
     +-----------------+                            +--------+
     | Guest User space|                            |        |
@@ -145,7 +145,7 @@ Projects to learn:
 Normal vCPU - A vCPU belonging to Guest/VM
 Orphan vCPU - A vCPU belonging to hypervisor for background processing
 
-(b) hyperx is based on kvmtool
+(b) kvmtool
 
     +-------------------------------------------------------+
     |                   Host User Space                     |
