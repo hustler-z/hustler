@@ -1,0 +1,30 @@
+------------------------------------------------------------
+This bare-metal project is of personal interest.
+------------------------------------------------------------
+           ___  __  ____
+ /\_/\/\/\/ _ \/  \/ __/
+ \  _ \  / ___/ / /\__ \
+  \/ \/_/\/   \__/ /___/ PIECE OF CRAP
+
+hypos - bare-metal type-1 hypervisor for fun. lots of things
+to learn, I thought why not put them all together into one
+tiny project.
+
+My view for this project:
+
+(1) Fully debugable ARMv8 (arm64) hypervisor (from scratch)
+    trace infos through the whole project.
+    (i.e. from assembly to C)
+
+(2) Can be run on QEMU
+
+(3) Key components
+    (a) Console (Terminal)
+    (b) Debug LED
+    (c) CPU vituraliztion
+    (d) Memory vituraliztion
+
+(4) Set up and compile easily
+
+Under Development
+------------------------------------------------------------
