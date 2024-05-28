@@ -7,13 +7,6 @@
  */
 
 #include <cpu_mmu.h>
-#include <arch_lpae.h>
-
-/* This function defined in arch_mmu.S
- */
-extern void boot_cpu_mem_setup(void);
-
-SET_PGTBL(boot_pgtbl, 1);
 
 /* To build 4-level page tables:
  * level 0 VA[47:39] point to level 1

@@ -1,17 +1,14 @@
 /**
  * Hustler's Project
  *
- * File:  vcore_cpu.h
+ * File:  cpu_mem.h
  * Date:  2024/05/22
  * Usage:
  */
 
-#ifndef _VCORE_CPU_H
-#define _VCORE_CPU_H
+#ifndef _CPU_MEM_H
+#define _CPU_MEM_H
 // ------------------------------------------------------------------------
 
-
-
-
 // ------------------------------------------------------------------------
-#endif /* _VCORE_CPU_H */
+#endif /* _CPU_MEM_H */

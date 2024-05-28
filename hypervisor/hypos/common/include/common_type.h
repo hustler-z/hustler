@@ -21,8 +21,12 @@ typedef unsigned short     u16;
 typedef unsigned int       u32;
 typedef unsigned long      u64; /* ARM64 case */
 
+typedef unsigned long      size_t;
 
-
+typedef u16                __le16;
+typedef u32                __le32;
+typedef u64                __le64;
+#define NULL               ((void *)0)
 
 // ------------------------------------------------------------------------
 #endif /* _COMMON_TYPE_H */

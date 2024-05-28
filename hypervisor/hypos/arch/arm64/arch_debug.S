@@ -14,7 +14,7 @@
     ldrb  w\c, [\xb, #UART_LSR]
     and w\c, w\c, #UART_LSR_THRE
     cmp w\c, #UART_LSR_THRE
-    b.ne 1b
+    bne 1b
 .endm
 
 .macro early_uart_transmit xb wt
@@ -23,7 +23,7 @@
 
 ENTRY(early_uart_init)
     ldr  x23, =ARCH_EARLY_UART_PA
-    # early_uart_init x23, 0
+
     INFO("- UART enabled -\r\n")
     ret
 END(early_uart_init)
@@ -49,7 +49,7 @@ ENTRY(asm_putn)
     early_uart_transmit x23, w2
     lsl   x0, x0, #4
     subs  x3, x3, #1
-    bne  1b
+    bne   1b
     ret
 END(asm_putn)
 

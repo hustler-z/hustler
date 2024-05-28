@@ -11,12 +11,12 @@
 #include <rk3568.h>
 
 #ifdef __cplusplus
-#define __I     volatile
+#define __I   volatile
 #else
-#define __I     volatile const
+#define __I   volatile const
 #endif
-#define __O     volatile
-#define __IO    volatile
+#define __O   volatile
+#define __IO  volatile
 
 struct board_uart_regs {
     union {

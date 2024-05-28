@@ -208,29 +208,81 @@
 #define HCR_BSU_SHIFT             10
 #define HCR_FB_MASK               0x000000200
 #define HCR_FB_SHIFT              9
+/* Virtual SError interrupt pending
+ */
 #define HCR_VSE_MASK              0x000000100
 #define HCR_VSE_SHIFT             8
+/* Virtual IRQ interrupt pending
+ */
 #define HCR_VI_MASK               0x000000080
 #define HCR_VI_SHIFT              7
+/* Virtual FIQ interrupt pending
+ */
 #define HCR_VF_MASK               0x000000040
 #define HCR_VF_SHIFT              6
+
+/* Physical SError interrupt Routing
+ * When executing at any Exception level, and EL2 is
+ * enabled in the current Security state:
+ * (a) Physical SError interrupts are taken to EL2, unless
+ * they are routed to EL3.
+ * (b) When the value of HCR_EL2.TGE is 0, then Virtual
+ * SError interrupts are enabled.
+ */
 #define HCR_AMO_MASK              0x000000020
 #define HCR_AMO_SHIFT             5
+
+/* Physical IRQ Routing
+ * When executing at any Exception level, and EL2 is
+ * enabled in the current Security state:
+ * (a) Physical IRQ interrupts are taken to EL2, unless
+ * they are routed to EL3.
+ * (b) When the value of HCR_EL2.TGE is 0, then Virtual
+ * IRQ interrupts are enabled.
+ */
 #define HCR_IMO_MASK              0x000000010
 #define HCR_IMO_SHIFT             4
+
+/* Physical FIQ Routing
+ * When executing at any Exception level, and EL2 is
+ * enabled in the current Security state:
+ * (a) Physical FIQ interrupts are taken to EL2, unless
+ * they are routed to EL3.
+ * (b) When HCR_EL2.TGE is 0, then Virtual FIQ interrupts
+ * are enabled.
+ */
 #define HCR_FMO_MASK              0x000000008
 #define HCR_FMO_SHIFT             3
 #define HCR_PTW_MASK              0x000000004
 #define HCR_PTW_SHIFT             2
 #define HCR_SWIO_MASK             0x000000002
 #define HCR_SWIO_SHIFT            1
+
+/* Virtualization enable,  Enables stage 2 address
+ * translation for the EL1&0 translation regime,
+ * when EL2 is enabled in the current Security state.
+ */
 #define HCR_VM_MASK               0x000000001
 #define HCR_VM_SHIFT              0
 #define ARCH_HCR_EL2_SET          (HCR_AMO_MASK | \
-                                  HCR_IMO_MASK | \
-                                  HCR_FMO_MASK | \
+                                  HCR_IMO_MASK |  \
+                                  HCR_FMO_MASK |  \
                                   HCR_VM_MASK)
+// ------------------------------------------------------------------------
+#define __stringify(x...)    #x
 
-#define ARCH_TTBR0_EL2_SET        0x0 /* TBD */
+#define WRITE_SYSREG64(v, name) do {                          \
+    uint64_t _r = (v);\
+    asm volatile("msr "__stringify(name)", %0" : : "r" (_r)); \
+} while (0)
+
+#define READ_SYSREG64(name) ({                                \
+    uint64_t _r;                                              \
+    asm volatile("mrs  %0, "__stringify(name) : "=r" (_r));   \
+    _r; })
+
+#define READ_SYSREG(name)          READ_SYSREG64(name)
+#define WRITE_SYSREG(v, name)      WRITE_SYSREG64(v, name)
+
 #endif /* _ARCH_SYSREG_H */
 // ------------------------------------------------------------------------

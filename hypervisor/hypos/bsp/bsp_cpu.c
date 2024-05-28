@@ -15,7 +15,7 @@
 #include <cpu_gic.h>
 #include <cpu_mmu.h>
 
-static void bsp_print_hypos_tag(void)
+static void bsp_hypos_tags(void)
 {
     bsp_print("                  _____ _____      _____ ____  \n");
     bsp_print(" /A__/A  /A  /A  / ___//_  _//A   / ___// __ A \n");
@@ -26,13 +26,15 @@ static void bsp_print_hypos_tag(void)
 
 void __init bsp_cpu_setup(void)
 {
-    board_serial_setup();
-
-    bsp_print_hypos_tag();
-
-    board_timer_setup();
+    cpu_mmu_setup();
 
     cpu_gic_setup();
 
-    cpu_mmu_setup();
+    board_serial_setup();
+
+    board_timer_setup();
+
+    board_clk_setup();
+
+    bsp_hypos_tags();
 }

@@ -1,17 +1,16 @@
 /**
  * Hustler's Project
  *
- * File:  vcore_cpu.h
- * Date:  2024/05/22
+ * File:  common_config.h
+ * Date:  2024/05/24
  * Usage:
  */
 
-#ifndef _VCORE_CPU_H
-#define _VCORE_CPU_H
+#ifndef _COMMON_CONFIG_H
+#define _COMMON_CONFIG_H
 // ------------------------------------------------------------------------
 
 
 
-
 // ------------------------------------------------------------------------
-#endif /* _VCORE_CPU_H */
+#endif /* _COMMON_CONFIG_H */

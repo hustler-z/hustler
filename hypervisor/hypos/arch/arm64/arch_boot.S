@@ -28,94 +28,51 @@
 #include <arch_debug.h>
 #include <arch_sysreg.h>
 
-    .section .entry,"ax",%progbits
-    .globl   boot
-boot:
-    /* Save bootloader arguments in x0 */
-    mov  x21, x0
+.macro boot_args_store, xn, sym, tmp
+    adr \tmp, \sym
+    str \xn, [\tmp]
+.endm
 
+    .section .entry,"ax",%progbits
+
+GLOBAL(boot)
+    /* Hang if not on boot cpu (i.e., cpu0) */
+    mrs x1, mpidr_el1
+    and x1, x1, #0xFF
+    cbz x1, save_boot_args
+    b   hang
+
+save_boot_args:
+    /* (a) save bootloader x0 (boot_parm)
+     * (c) compute paddr offset and save it
+     */
+    boot_args_store x0, boot_parm, x1
+
+    ldr x0, =boot
+    adr x19, boot
+    sub x20, x19, x0
+
+boot_cpu:
     /* Disable all exception */
-    msr daifset, 0xF
+    msr daifset, #0xF
 
     /* Early Debug UART Initialization */
     bl  early_uart_init
 
-    /* Hang if not in EL2 */
-    TAGS("- Current EL ")
-    mrs x2, CurrentEL
-    print_reg x2
-    TAGS(" -\r\n")
-    cmp x2, #ARCH_ARM64_EL2T
-
-    beq hyp_entry
-
-    /* shall never reach here */
-    TAGS("- hypos must be booted in EL2 -\r\n")
-
-hang:
-    wfi
-    b   hang
-
-hyp_entry:
-    /* Hang if _code_start is not 4k aligned */
-    ldr  x1, _code_start
-page_size_align:
-    movn x2, #0xFFF
-    ands x3, x2, x1
-    cmp  x3, x2
-    blt  hang
-
-    TAGS("- SysReg Setup -\r\n")
-
-    /* Set up Memory Attribute Indirection Register (EL2)
-     *
-     */
-    ldr x0, mair_set
-    msr mair_el2, x0
-
-    /* Set up Translation Control Register (EL2)
-     * controls stage 1 of EL2 & EL0 translation regime
-     */
-    ldr x0, tcr_set
-    msr tcr_el2, x0
-
-    /* Set up Virtualization Translation Control Register (EL2)
-     * controls stage 2 of EL1 & EL0 translation regime
-     */
-    ldr x0, vtcr_set
-    msr vtcr_el2, x0
-
-    /* Set up Hypervisor Configuration Register (EL2)
-     * defines various ops trapped to EL2
-     */
-    ldr x0, hcr_set
-    msr hcr_el2, x0
-
-    /* Set up Vector Base Address Register (EL2)
-     * (self-explanatory)
-     */
-    ldr x0, =hyp_vectors
-    msr vbar_el2, x0
-
-    dsb sy
-    isb
-
-    TAGS("- Vectors Setup -\r\n")
-
     /* Zero out bss section */
-    ldr  x0, _bss_start
-    ldr  x1, _bss_end
-zero:
-    subs x2, x1, x0
-    ble  done
-    str  xzr, [x0]
-    add  x0, x0, 8
-    b    zero
-done:
+    bl  zero_bss
+
+    b   el2_entry
+
+bsp_entry:
+    /* MMU early setup */
+    bl  arch_bootcpu_mmu_setup
+
+    msr daifclr, #0xF
 
     /* use SP_ELx and setup hyp stack
      */
-    msr SPSel, #1
+    msr spsel, #1
     ldr x0, _hyp_stack_end
     mov sp, x0
 
@@ -125,15 +82,93 @@ done:
     b   bsp_setup
 
 // ------------------------------------------------------------------------
-GLOBAL(mair_set)
-    .dword ARCH_MAIR_EL2_SET
 
-GLOBAL(tcr_set)
-    .dword ARCH_TCR_EL2_SET
+ENTRY(el2_entry)
+    /* Hang if not in EL2 */
+    TAGS("- Current EL ")
+    mrs  x7, CurrentEL
+    print_reg x7
+    TAGS(" -\r\n")
+    cmp  x7, #ARCH_ARM64_EL2T
+    b.eq el2_setup
 
-GLOBAL(vtcr_set)
-    .dword ARCH_VTCR_EL2_SET
+    /* shall never reach here */
+    TAGS("- hypos must be booted in EL2 -\r\n")
 
+    b   hang
+
+el2_setup:
+    TAGS("- Set HCR -\r\n")
+
+    /* Set up Hypervisor Configuration Register (EL2)
+     * defines various ops trapped to EL2
+     */
+    ldr x0, hcr_set
+    msr hcr_el2, x0
+
+    TAGS("- Set VBAR -\r\n")
+    /* Set up Vector Base Address Register (EL2)
+     * (self-explanatory)
+     */
+    ldr x0, =hyp_vectors
+    msr vbar_el2, x0
+
+    dsb sy
+    isb
+
+    b   bsp_entry
+END(el2_entry)
+
+ENTRY(zero_bss)
+    TAGS("- Zero out BSS -\r\n")
+
+    ldr  x0, _bss_start
+    ldr  x1, _bss_end
+zero:
+    subs x2, x1, x0
+    b.le done
+    str  xzr, [x0]
+    add  x0, x0, 8
+    b    zero
+done:
+    ret
+END(zero_bss)
+
+hang:
+    TAGS("- CPU Hang -\r\n")
+1:
+    wfi
+    b   1b
+// ------------------------------------------------------------------------
+#if 0
+/* Under Development
+ */
+ENTRY(__context_switch)
+    add     x8, x0, #vcpu_saved_context
+    mov     x9, sp
+    stp     x19, x20, [x8], #16
+    stp     x21, x22, [x8], #16
+    stp     x23, x24, [x8], #16
+    stp     x25, x26, [x8], #16
+    stp     x27, x28, [x8], #16
+    stp     x29, x9, [x8], #16
+    str     lr, [x8]
+
+    add     x8, x1, #vcpu_saved_context
+    ldp     x19, x20, [x8], #16
+    ldp     x21, x22, [x8], #16
+    ldp     x23, x24, [x8], #16
+    ldp     x25, x26, [x8], #16
+    ldp     x27, x28, [x8], #16
+    ldp     x29, x9, [x8], #16
+    ldr     lr, [x8]
+    mov     sp, x9
+    ret
+END(__context_switch)
+#endif
+// ------------------------------------------------------------------------
 GLOBAL(hcr_set)
     .dword ARCH_HCR_EL2_SET
+GLOBAL(boot_parm)
+    .dword 0x0
 // ------------------------------------------------------------------------
