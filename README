@@ -28,17 +28,20 @@ Hierarchy Overview
 ├── core
 │   ├── arm
 │   ├── busybox
-│   ├── rtos          - MIT license
+│   ├── rtos
 │   └── tools
-├── hypervisor
-│   ├── docs
-│   ├── hypos         - personal project
-│   └── xen
+├── hypos               - personal project
+│   ├── bsp
+│   ├── doc
+│   ├── hyp
+│   ├── lib
+│   ├── Makefile
+│   └── README
 ├── linux
 │   ├── docs
 │   ├── syspeek
-│   ├── v5.10.y       - GPL-2.0 license
-│   └── v6.1.y        - GPL-2.0 license
+│   ├── v5.10.y         - GPL-2.0 license
+│   └── v6.1.y          - GPL-2.0 license
 └── README
 
 ---------------------------------------------
