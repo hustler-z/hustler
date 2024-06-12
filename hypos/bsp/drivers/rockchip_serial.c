@@ -40,6 +40,7 @@ static int rockchip_serial_probe(struct hypos_device *dev)
 
 HYPOS_SET_DRIVER(rockchip_uart) = {
     .name = "rockchip_uart",
+    .enabled = HYP_DRV_ENABLED,
     .type = HYP_DT_SERIAL,
     .probe = rockchip_serial_probe,
     .ops = &ns16550_serial_ops,

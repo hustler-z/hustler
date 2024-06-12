@@ -28,7 +28,7 @@ struct hypos_globl {
     unsigned int        console_enable;
     unsigned int        keyboard_enable;
     struct hlist_head   *pw_list;
-    struct hypos_device *root_dev;
+    struct hypos_device_table *dev_tbl;
     struct funcjmp      *fjmp;
     struct arch_globl   arch;
 };
@@ -50,8 +50,6 @@ enum hypos_globl_flags {
  */
 int glb_setup(void);
 
-void set_glb_device(struct hypos_globl *glb,
-        struct hypos_device *dev);
 bool glb_is_initialized(void);
 
 #endif /* !__ASSEMBLY__ */

@@ -41,12 +41,6 @@ int __bootfunc glb_setup(void)
     return 0;
 };
 
-void set_glb_device(struct hypos_globl *glb,
-        struct hypos_device *dev)
-{
-    glb->root_dev = dev;
-}
-
 bool glb_is_initialized(void)
 {
     if (!glb || !(glb->flags & GLB_INITIALIZED))

@@ -112,15 +112,18 @@ void putc(const char c)
     }
 }
 
+extern void asm_puts(const char *s);
+
 void puts(const char *s)
 {
     if (glb_is_initialized() &&
             (glb->flags & GLB_DEV_INITIALIZED))
         fputs(stdout, s);
-    else {
+    else if (glb_is_initialized()) {
         pre_console_puts(s);
         serial_puts(s);
-    }
+    } else
+        asm_puts(s);
 }
 
 void flush(void)
@@ -185,12 +188,6 @@ int cd_count[MAX_FILES];
     for (i = 0;							                         \
          i < cd_count[file] && (dev = console_devices[file][i]); \
          i++)
-
-static void console_devices_set(int file, struct stdio_dev *dev)
-{
-    console_devices[file][0] = dev;
-    cd_count[file] = 1;
-}
 
 static int console_getc(int file)
 {
@@ -999,10 +996,21 @@ int run_commandf(const char *fmt, ...)
     return run_command(console_buffer, 0);
 }
 
+static void hypos_stamp(void)
+{
+    pr("                __________    _________  \n");
+    pr(" /A__/A /A  /A / ___/_  _/A  / ___/ __ A \n");
+    pr(" V  __ AV A_V AV___A / // /_/ ___AA __ / \n");
+    pr("  V_A V_AV____/____/ V/ V___A____AV/  V  HYPOS\n");
+    pr("\n");
+}
+
 int __bootfunc console_setup(void)
 {
     /* TODO
      */
+    hypos_stamp();
+
     if (!glb->console_enable) {
         hyp_dbg("Console been disbale\n");
         force_kick_guests_up();

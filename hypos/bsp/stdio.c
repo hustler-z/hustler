@@ -9,6 +9,7 @@
 #include <bsp/sdev.h>
 #include <bsp/alloc.h>
 #include <bsp/serial.h>
+#include <bsp/keyboard.h>
 #include <asm-generic/globl.h>
 #include <generic/errno.h>
 #include <lib/strops.h>
@@ -58,7 +59,7 @@ static int stdio_serial_tstc(struct stdio_dev *dev)
     return serial_tstc();
 }
 
-static void drv_system_init (void)
+static void drv_system_init(void)
 {
     struct stdio_dev dev;
 
@@ -168,18 +169,6 @@ int stdio_deregister_dev(struct stdio_dev *dev, int force)
 
 int stdio_init_tables(void)
 {
-#if NEEDS_MANUAL_RELOC
-    /* already relocated for current ARM implementation */
-    ulong relocation_offset = gd->reloc_off;
-    int i;
-
-    /* relocate hypos_device name pointers */
-    for (i = 0; i < (sizeof (stdio_names) / sizeof (char *)); ++i) {
-        stdio_names[i] = (char *) (((ulong) stdio_names[i]) +
-                        relocation_offset);
-    }
-#endif
-
     /* Initialize the list */
     INIT_LIST_HEAD(&devs.list);
 
@@ -199,13 +188,7 @@ int stdio_add_devices(void)
          * environment variable. That work probably makes more sense
          * when stdio itself is converted to driver model.
          */
-        for (ret = first_device_check(HYP_DT_KEYBRD, &dev);
-                dev;
-                ret = next_device_check(&dev)) {
-            if (ret)
-                hyp_dbg("%s: Failed to probe keyboard '%s' (ret=%d)\n",
-                       __func__, dev->name, ret);
-        }
+        keyboard_setup();
     }
 
     drv_system_init();

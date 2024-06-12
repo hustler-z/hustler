@@ -6,6 +6,7 @@
  * Usage:
  */
 
+#include <asm-generic/section.h>
 #include <generic/memory.h>
 #include <asm/ttbl.h>
 
@@ -23,8 +24,8 @@ extern ttbl_t hypos_fixmap[PGTBL_TTBL_ENTRIES];
  * level 2 VA[29:21] point to level 3
  * level 3 VA[20:12] point to PA [11:0]
  */
-void cpu_mem_setup(void)
+int __bootfunc mem_setup(void)
 {
-
+    return 0;
 }
 // --------------------------------------------------------------

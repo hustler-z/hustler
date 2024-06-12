@@ -214,9 +214,19 @@ FUNC_LOCAL(page_table_setup)
     cmp  x1, x0
     blt  1b
 
-    /* Note
+    /* Note Identity Mapping
+     *
      * Identity mapping is needed when hypos is loaded exactly at
      * HYPERVISOR_VIRT_START.
+     *
+     *     :                    XXX: while enabling MMU, something
+     *     |inst                might gets weird due to CPU
+     *     ▼                    intruction pipeline, etc. In
+     * --------- enabling MMU   this case, ID mapping is needed
+     *     |inst                to ensure correct memory accesses.
+     *     :
+     *     ▼
+     *
      * ----------------------------------------------------------
      * VA                        IDMAP
      *

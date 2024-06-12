@@ -394,6 +394,7 @@ const struct serial_ops ns16550_serial_ops = {
 
 HYPOS_SET_DRIVER(ns16550) = {
     .name = "ns16550",
+    .enabled = HYP_DRV_DISABLED,
     .type = HYP_DT_SERIAL,
     .probe = ns16550_serial_probe,
     .ops = &ns16550_serial_ops,

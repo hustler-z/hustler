@@ -319,7 +319,7 @@ void its_inv(u32 device_id, u32 event_id);
 void its_sync(u64 target);
 void its_int(u32 device_id, u32 event_id);
 
-void cpu_gicv3_setup(void);
+int gicv3_setup(void);
 
 // --------------------------------------------------------------
 #endif /* _GENERIC_GICV3_H */

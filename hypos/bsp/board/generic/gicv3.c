@@ -8,6 +8,7 @@
 
 #include <generic/gicv3.h>
 #include <asm/barrier.h>
+#include <asm-generic/section.h>
 #include <lib/strops.h>
 
 struct gicv3_its_ctlr_if *gic_its;
@@ -995,8 +996,8 @@ void its_int(u32 device_id, u32 event_id)
  */
 
 // --------------------------------------------------------------
-void cpu_gicv3_setup(void)
+int __bootfunc gicv3_setup(void)
 {
-
+    return 0;
 }
 // --------------------------------------------------------------

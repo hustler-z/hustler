@@ -9,7 +9,6 @@
 bsp-y += console.o
 bsp-y += setup.o
 bsp-y += command.o
-bsp-y += cpu.o
 bsp-y += print.o
 bsp-y += alloc.o
 bsp-y += process.o

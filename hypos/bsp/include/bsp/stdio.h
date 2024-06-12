@@ -38,7 +38,7 @@ int vscnpr(char *buf, size_t size, const char *fmt,
 #define HYPOS_VMM_DEBUG_ON     (1)
 #if HYPOS_VMM_DEBUG_ON
 #define hyp_dbg(fmt, ...) \
-    pr("<hypos> "fmt, ##__VA_ARGS__)
+    pr("<hypos-debug> "fmt, ##__VA_ARGS__)
 #else
 #define hyp_dbg(fmt, ...)
 #endif

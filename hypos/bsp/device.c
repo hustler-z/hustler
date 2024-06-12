@@ -9,36 +9,23 @@
 #include <asm-generic/globl.h>
 #include <bsp/device.h>
 #include <bsp/alloc.h>
+#include <bsp/stdio.h>
 #include <generic/errno.h>
 #include <generic/type.h>
 #include <lib/strops.h>
 // --------------------------------------------------------------
 extern struct hypos_globl *glb;
 
-static struct hypos_driver_info root_info = {
-    .name = "root_driver",
-};
-
+static struct hypos_device_table device_table[HYP_DT_NR];
 // --------------------------------------------------------------
-void *dev_get_priv(const struct hypos_device *dev)
-{
-    if (!dev)
-        return NULL;
-
-    return dev->priv;
-}
-
-void *dev_get_plat(const struct hypos_device *dev)
-{
-    if (!dev)
-        return NULL;
-
-    return dev->plat;
-}
-
 void dev_set_priv(struct hypos_device *dev, void *priv)
 {
     dev->priv = priv;
+}
+
+void *dev_get_priv(const struct hypos_device *dev)
+{
+    return dev->priv;
 }
 
 void dev_set_plat(struct hypos_device *dev, void *plat)
@@ -46,105 +33,85 @@ void dev_set_plat(struct hypos_device *dev, void *plat)
     dev->plat = plat;
 }
 
+void *dev_get_plat(const struct hypos_device *dev)
+{
+    return dev->plat;
+}
+
 int dev_get_type(struct hypos_device *dev)
 {
     return dev->type;
 }
 // --------------------------------------------------------------
-
-/* Use hypos_device type id to traverse the hypos_devices
- * to find the first device and next device, and so on.
- */
-int first_device_check(enum hypos_device_type type,
-        struct hypos_device **devp)
+static int hypos_device_bind(struct hypos_driver *drv,
+        struct hypos_device_table *table)
 {
-    /* TODO */
-    return 0;
-}
+    struct hypos_device *dev;
 
-int next_device_check(struct hypos_device **devp)
-{
-    /* TODO */
-    return 0;
-}
-
-// --------------------------------------------------------------
-struct hypos_driver *lists_driver_lookup_name(const char *name)
-{
-    struct hypos_driver *drv =
-        _entry_start(struct hypos_driver, hypos_driver);
-    const int n_ents = _entry_count(struct hypos_driver, hypos_driver);
-    struct hypos_driver *entry;
-
-    for (entry = drv; entry != drv + n_ents; entry++) {
-        if (!strcmp(name, entry->name))
-            return entry;
+    dev = balloc(sizeof(struct hypos_device));
+    if (!dev) {
+        hyp_dbg("[dev] allocate device failed!!\n");
+        return -ENOMEM;
     }
 
-    /* Not found */
-    return NULL;
-}
+    dev->driver = drv;
+    dev->name = drv->name;
 
-static int hypos_device_bind(struct hypos_device *parent,
-        const struct hypos_driver *drv, const char *name,
-        void *plat, struct hypos_device **devp)
-{
-    /* TODO
-     */
+    INIT_LIST_HEAD(&dev->head);
+
+    list_add(&dev->head, &table[drv->type].entry);
+
     return 0;
 }
 
-static int hypos_device_bind_by_name(struct hypos_device *parent,
-        const struct hypos_driver_info *info, struct hypos_device **devp)
+static int hypos_device_scan_and_probe(void)
 {
-    struct hypos_driver *drv;
-    int ret;
+    struct hypos_driver
+        *each,
+        *entry = _entry_start(struct hypos_driver, hypos_driver);
+    const int n_ents = _entry_count(struct hypos_driver, hypos_driver);
+    int idx, ret;
 
-    drv = lists_driver_lookup_name(info->name);
-    ret = hypos_device_bind(parent, drv, info->name,
-            (void *)info->plat, devp);
-    if (ret)
-        return ret;
+    for (idx = 0; idx < n_ents; idx++) {
+        each = entry + idx;
+        if (hypos_driver_enabled(each)) {
+            ret = hypos_device_bind(each, glb->dev_tbl);
+            if (!ret)
+                each->probe(each->devp);
+        } else {
+            hyp_dbg("[dev] %s has been disabled!!\n",
+                    each->name);
+            ret = -ENODEV;
+        }
+    }
 
     return ret;
 }
 
-static int hypos_device_probe(struct hypos_device *dev)
+static void hypos_device_table_setup(struct hypos_device_table *table)
 {
-    /* avoid 'const' member
-     */
-    struct hypos_driver *drv = (struct hypos_driver *)dev->driver;
+    int idx;
 
-    if (drv->probe)
-        return drv->probe(dev);
+    for (idx = 0; idx < HYP_DT_NR; idx++) {
+        INIT_LIST_HEAD(&table[idx].entry);
+    }
 
-    return -1;
+    glb->dev_tbl = table;
 }
 
-static int hypos_device_scan(void)
-{
-    /* TODO
-     */
-    return 0;
-}
-
-int hypos_device_setup(void)
+int device_setup(void)
 {
     int ret = -1;
 
     if (!glb_is_initialized())
         return ret;
 
-    ret = hypos_device_bind_by_name(NULL, &root_info,
-            &(glb->root_dev));
+    hypos_device_table_setup(device_table);
+
     if (ret)
         return ret;
 
-    ret = hypos_device_probe(glb->root_dev);
-    if (ret)
-        return ret;
-
-    ret = hypos_device_scan();
+    ret = hypos_device_scan_and_probe();
     if (ret)
         return ret;
 

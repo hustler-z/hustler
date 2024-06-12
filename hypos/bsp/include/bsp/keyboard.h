@@ -37,6 +37,6 @@ struct keyboard_ops {
 };
 
 #define keyboard_get_ops(dev) ((struct keyboard_ops *)(dev)->driver->ops)
-
+int keyboard_setup(void);
 // --------------------------------------------------------------
 #endif /* _BSP_KEYBOARD_H */

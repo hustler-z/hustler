@@ -75,6 +75,14 @@
 #define DO_CODE_ALIGN(align...) LASTARG(ARM_FUNCTION_ALIGNMENT, ## align)
 #endif
 
+#define GLOBAL(name)         \
+    .globl name;             \
+    name:
+
+#define ENTRY(name, align)   \
+    .globl name;             \
+    .balign align;           \
+    name:
 
 #define FUNC(name, align...) \
         SYM(name, FUNC, GLOBAL, DO_CODE_ALIGN(align))
@@ -92,6 +100,12 @@
 
 #define END(name)                \
     .size name, . - name
+
+// --------------------------------------------------------------
+#define __HEAD   .section .boot.head, "ax", %progbits
+#define __ENTRY  .section .boot.entry, "ax", %progbits
+#define __TTBL   .section .boot.ttbl, "ax", %progbits
+// --------------------------------------------------------------
 
 /* :lo12: A special notation is used to
  *        add only the lowest 12 bits of

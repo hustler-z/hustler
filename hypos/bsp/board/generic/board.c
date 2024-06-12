@@ -11,12 +11,13 @@
 
 // --------------------------------------------------------------
 
-void __bootfunc board_setup(void)
+int __bootfunc board_setup(void)
 {
 #ifdef __RK3568__
 #include <rk3568/board.h>
     board_debug_uart_init();
 #endif
+    return 0;
 }
 
 // --------------------------------------------------------------

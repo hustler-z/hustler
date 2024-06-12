@@ -53,7 +53,7 @@ label:  .asciz msg;                         \
 
 #define DBG(string) PR_SECT(.rodata.debug, string)
 
-.macro print_reg xb
+.macro dump_reg xb
     mov   x0, \xb
     mov   x4, lr
     bl    asm_putn

@@ -111,7 +111,7 @@
 
 // --------------------------------------------------------------
     .align 11                   /* 4096 (2 << 11) byte */
-LABEL(hyp_vectors)
+GLOBAL(hyp_vectors)
     hyp_ventry hyp_syn_el2t
     hyp_ventry hyp_irq_el2t
     hyp_ventry hyp_fiq_el2t

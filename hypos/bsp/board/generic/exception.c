@@ -81,7 +81,7 @@ void show_regs(struct hyp_regs *regs)
 
 void do_bad_sync(struct hyp_regs *regs)
 {
-
+    dump_far(regs->esr);
 }
 
 /*
@@ -89,7 +89,7 @@ void do_bad_sync(struct hyp_regs *regs)
  */
 void do_bad_irq(struct hyp_regs *regs)
 {
-
+    dump_far(regs->esr);
 }
 
 /*
@@ -97,7 +97,7 @@ void do_bad_irq(struct hyp_regs *regs)
  */
 void do_bad_fiq(struct hyp_regs *regs)
 {
-
+    dump_far(regs->esr);
 }
 
 /*
@@ -105,7 +105,7 @@ void do_bad_fiq(struct hyp_regs *regs)
  */
 void do_bad_error(struct hyp_regs *regs)
 {
-
+    dump_far(regs->esr);
 }
 
 /*

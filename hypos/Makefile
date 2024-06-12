@@ -99,6 +99,7 @@ cc_objdump = $(Q)mkdir -p `dirname $(1)`; \
 cc_readelf = $(Q)mkdir -p `dirname $(1)`; \
              echo "READELF  $(patsubst %.elf,%.sec,$(subst $(OUTPUT)/,,$(1)))"; \
              $(READELF) -S -lW $(1) > $(patsubst %.elf,%.sec,$(1)); \
+			 echo "OBJDUMP  $(patsubst %.elf,%.hdr,$(subst $(OUTPUT)/,,$(1)))"; \
 			 $(OBJDUMP) -h $(1) > $(patsubst %.elf,%.hdr,$(1))
 
 cc_objcopy = $(Q)mkdir -p `dirname $(1)`; \

@@ -18,6 +18,7 @@ u64 __notrace timer_get_us(void);
 u64 get_timer(u64 base);
 u64 timer_get_boot_us(void);
 void udelay(unsigned long usec);
+int timer_setup(void);
 
 // ------------------------------------------------------------------------
 #endif /* _GENERIC_TIMER_H */

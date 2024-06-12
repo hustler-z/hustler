@@ -10,7 +10,7 @@
 #define _GENERIC_MEMORY_H
 // --------------------------------------------------------------
 
-void cpu_mem_setup(void);
+int mem_setup(void);
 
 // --------------------------------------------------------------
 #endif /* _GENERIC_MEMORY_H */

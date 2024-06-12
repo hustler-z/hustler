@@ -8,8 +8,12 @@
 
 // --------------------------------------------------------------
 
-/* Note that registers below:
+/* Note
  * --------------------------------------------------------------
+ * The requirements are:
+ * MMU = off, D-cache = off, I-cache = on or off,
+ * x0 = physical address to the FDT blob.
+ *
  * x19        - paddr start
  * x20        - phys offset
  * x21        - bootloader argument
@@ -23,21 +27,35 @@
 
 // --------------------------------------------------------------
 
-    .section .boot.entry, "ax", %progbits
+    __HEAD
 
 /* Note kickoff - hypos Code Entry Point
  */
-FUNC(kickoff)
+GLOBAL(_head)
+    b    _entry
+    .long   0
+    .quad   __hypos_end - _head /* code size */
+    .quad   0
+    .quad   0
+    .quad   0
+    .quad   0
+    .ascii  "ARM\x64"
+    .long   0
+
+    __ENTRY
+
+_entry:
+
     /* Disable all exception */
     msr  DAIFSet, #0xF
 
     /* (a) save bootloader x0 (boot_parm)
-     * (c) compute paddr offset and save it
+     * (c) compute phys offset and save it
      */
     mov  x21, x0
 
-    ldr  x0,  =kickoff
-    adr  x19, kickoff
+    ldr  x0,  =_head
+    adr  x19, _head
     sub  x20, x19, x0
 
     /* Early Debug UART Initialization */
@@ -52,11 +70,10 @@ FUNC(kickoff)
 
 bootcpu:
     DBG("- (CPU) 0x")
-    print_reg x1
+    dump_reg x1
     DBG(" -\r\n")
 
     b    el2_entry
-END(kickoff)
 
 // --------------------------------------------------------------
 
@@ -74,12 +91,11 @@ FUNC_LOCAL(bootcpu_entry)
      */
     msr  SPSel, #1
 
-    ldr  lr, =bootcpu_switched
-
+    ldr  lr, =runtime_switched
     /* MMU early setup */
     b    bootcpu_mmu_setup
 
-bootcpu_switched:
+runtime_switched:
     /* Enable all exception */
     msr  DAIFClr, #0xF
 
@@ -117,7 +133,7 @@ END(bootsmp_entry)
 FUNC_LOCAL(el2_entry)
     DBG("- (EL)  0x")
     mrs  x7, CurrentEL
-    print_reg x7
+    dump_reg x7
     DBG(" -\r\n")
 
     /* Hang if not in EL2 */
@@ -180,16 +196,26 @@ END(el2_entry)
  * BSS needs to be zeroed out before C sequence.
  */
 FUNC_LOCAL(zero_bss)
-    DBG("- BSS Section -\r\n")
+    DBG("- Time to clear out BSS -\r\n")
 
-    ldr  x0, =__bss_start
-    ldr  x1, =__bss_end
+#if 1
+    adr_l x5, __bss_start
+    DBG("- BSS [0x")
+    dump_reg x5
+    DBG(" - 0x")
+    adr_l x6, __bss_end
+    dump_reg x6
+    DBG(" ] -\r\n")
+#endif
+
+    adr_l x0, __bss_start
+    adr_l x1, __bss_end
 
 1:  str  xzr, [x0], #8
     cmp  x0, x1
     blt  1b
 
-    DBG("- Zero out BSS -\r\n")
+    DBG("- Zeroed out BSS -\r\n")
 
     ret
 END(zero_bss)

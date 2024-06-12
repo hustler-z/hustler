@@ -11,10 +11,15 @@
 #include <bsp/alloc.h>
 #include <bsp/cpu.h>
 #include <bsp/sdev.h>
+#include <bsp/percpu.h>
 #include <bsp/console.h>
 #include <generic/exit.h>
 #include <generic/board.h>
+#include <generic/gicv3.h>
+#include <generic/memory.h>
 #include <bsp/bootchain.h>
+
+unsigned long __percpu_offset[NR_CPU];
 
 /* TODO
  * --------------------------------------------------------------
@@ -27,13 +32,25 @@
  * --------------------------------------------------------------
  */
 static boot_func_t hypos_boot_sequence[] = {
+    board_setup,
+
+    /* Interrupt Controller Setup
+     */
+    gicv3_setup,
+
+    timer_setup,
+
+    /* Hypos memory Setup
+     */
+    mem_setup,
+
     /* should set up glb early before any use cases;
      */
     glb_setup,
 
-    /* TODO architectual boot flow
+    /* Peripheral Setup
      */
-
+    device_setup,
 
     console_setup,
 };
@@ -41,10 +58,6 @@ static boot_func_t hypos_boot_sequence[] = {
 void bsp_setup(unsigned long phys_offset,
         unsigned long boot_args)
 {
-    /* Some basic setups before normal booting process.
-     */
-    board_setup();
-
     /* Normal booting process, initiate hypos services. my
      * goal here is to implement basic console and be able
      * to run basic virtual machine on this by executing a

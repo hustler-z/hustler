@@ -8,7 +8,7 @@
 
 OUTPUT_FORMAT("elf64-littleaarch64")
 OUTPUT_ARCH("aarch64")
-ENTRY(kickoff)
+ENTRY(_head)
 
 /* Program Headers => Segments
  *
@@ -32,15 +32,16 @@ SECTIONS
 
     .boot : {
         __boot_start = .;
+        *(.boot.head)
         *(.boot.entry)
-        *(.boot.setup)
         /* Ensure boot identity map is page-size
          * aligned.
          */
         . = ALIGN(0x1000);
-        __boot_idmap_start = .;
-        *(.boot.idmap)
-        __boot_idmap_end = .;
+        __boot_ttbl_start = .;
+        *(.boot.ttbl)
+        __boot_ttbl_end = .;
+        *(.boot.setup)
         *(.boot .boot.*)
         . = ALIGN(8);
         __boot_end = .;
@@ -91,7 +92,7 @@ SECTIONS
         __bss_start = .;
         *(.bss.percpu)
         *(.bss .bss.*)
-        . = ALIGN(8);
+        . = ALIGN(0x1000);
         __bss_end = .;
     } : data
 

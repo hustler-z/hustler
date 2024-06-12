@@ -6,6 +6,7 @@
  * Usage:
  */
 
+#include <asm-generic/section.h>
 #include <generic/timer.h>
 #include <asm/barrier.h>
 #include <bsp/period.h>
@@ -88,5 +89,10 @@ void udelay(unsigned long usec)
         __udelay(kv);
         usec -= kv;
     } while (usec);
+}
+// --------------------------------------------------------------
+int __bootfunc timer_setup(void)
+{
+    return 0;
 }
 // --------------------------------------------------------------

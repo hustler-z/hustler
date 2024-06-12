@@ -10,7 +10,7 @@
 #define _GENERIC_BOARD_H
 // --------------------------------------------------------------
 
-void board_setup(void);
+int board_setup(void);
 
 // --------------------------------------------------------------
 #endif /* _GENERIC_BOARD_H */

@@ -7,6 +7,7 @@
  */
 
 #include <bsp/keyboard.h>
+#include <bsp/alloc.h>
 #include <generic/errno.h>
 #include <lib/strops.h>
 // --------------------------------------------------------------
@@ -62,7 +63,7 @@ static int keyboard_getc(struct stdio_dev *sdev)
     return -ENOSYS;
 }
 
-static int keyboard_pre_probe(struct hypos_device *dev)
+static int __keyboard_setup(struct hypos_device *dev)
 {
     struct keyboard_priv *priv = dev_get_priv(dev);
     struct stdio_dev *sdev = &priv->sdev;
@@ -80,5 +81,16 @@ static int keyboard_pre_probe(struct hypos_device *dev)
         return ret;
 
     return 0;
+}
+
+int keyboard_setup(void)
+{
+    struct hypos_device *dev;
+
+    dev = balloc(sizeof(struct hypos_device));
+    if (!dev)
+        return -ENOMEM;
+
+    return __keyboard_setup(dev);
 }
 // --------------------------------------------------------------
