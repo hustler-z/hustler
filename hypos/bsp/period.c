@@ -12,7 +12,7 @@
 
 #include <bsp/period.h>
 #include <bsp/alloc.h>
-#include <bsp/stdio.h>
+#include <bsp/debug.h>
 #include <lib/strops.h>
 // --------------------------------------------------------------
 #define PERIODIC_MAX_CPU_US         1000
@@ -32,7 +32,7 @@ struct periodic_work *periodic_work_register(
 
     work = bcalloc(1, sizeof(struct periodic_work));
     if (!work) {
-        hyp_dbg("Memory allocation error\n");
+        DEBUG("Memory allocation error\n");
         return NULL;
     }
 
@@ -82,7 +82,7 @@ void periodic_work_run(void)
 
             if ((cpu_time > PERIODIC_MAX_CPU_US) &&
                 (!work->already_warned)) {
-                hyp_dbg("periodic work %s took too long: %ldus vs %dus max\n",
+                DEBUG("periodic work %s took too long: %ldus vs %dus max\n",
                        work->name, cpu_time,
                        PERIODIC_MAX_CPU_US);
 

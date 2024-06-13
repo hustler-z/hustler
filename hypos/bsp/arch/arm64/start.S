@@ -6,8 +6,6 @@
  * Usage: armv8 boot process
  */
 
-// --------------------------------------------------------------
-
 /* Note
  * --------------------------------------------------------------
  * The requirements are:
@@ -24,12 +22,11 @@
 #include <asm/define.h>
 #include <asm/debug.h>
 #include <asm/sysregs.h>
-
 // --------------------------------------------------------------
 
     __HEAD
 
-/* Note kickoff - hypos Code Entry Point
+/* Note hypos Code Entry Point
  */
 GLOBAL(_head)
     b    _entry
@@ -75,8 +72,6 @@ bootcpu:
 
     b    el2_entry
 
-// --------------------------------------------------------------
-
 /* Note Boot CPU Initialization
  * --------------------------------------------------------------
  * (a) Set up page table
@@ -86,11 +81,6 @@ bootcpu:
  * --------------------------------------------------------------
  */
 FUNC_LOCAL(bootcpu_entry)
-    /* Ensure we use SP_EL2 to handle any
-     * exceptions occured at EL2.
-     */
-    msr  SPSel, #1
-
     ldr  lr, =runtime_switched
     /* MMU early setup */
     b    bootcpu_mmu_setup
@@ -145,6 +135,7 @@ FUNC_LOCAL(el2_entry)
     b    boot_failed
 
 el2_setup:
+
     /* Set up Hypervisor Configuration Register (EL2)
      * defines various ops trapped to EL2
      */
@@ -172,7 +163,7 @@ el2_setup:
     msr  TCR_EL2, x0
 
     /* Set up Virtualization Translation Control Register (EL2)
-     * controls stage 2 of EL1 & EL0 translation regime
+     * controls stage 2 of EL1 & EL0 translation regime.
      */
     DBG("- Set VTCR_EL2 -\r\n")
     ldr  x0, =VTCR_EL2_SET
@@ -185,8 +176,12 @@ el2_setup:
     ldr  x0, =hyp_vectors
     msr  VBAR_EL2, x0
 
-    dsb  sy
     isb
+
+    /* Ensure we use SP_EL2 to handle any
+     * exceptions occured at EL2.
+     */
+    msr  SPSel, #1
 
     b    bootcpu_entry
 END(el2_entry)
@@ -228,7 +223,6 @@ FUNC(boot_failed)
 1:  wfi
     b    1b
 END(boot_failed)
-// --------------------------------------------------------------
 
 /* Note with this, [31:0] => AFF3, AFF2, AFF1, AFF0
  */

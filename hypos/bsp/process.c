@@ -9,7 +9,7 @@
 #include <bsp/process.h>
 
 // ------------------------------------------------------------------------
-void bsp_process_setup(void)
+void process_setup(void)
 {
 
 }

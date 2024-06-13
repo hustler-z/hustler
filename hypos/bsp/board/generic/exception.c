@@ -9,7 +9,7 @@
 
 #include <generic/ccattr.h>
 #include <generic/exception.h>
-#include <bsp/stdio.h>
+#include <bsp/debug.h>
 // --------------------------------------------------------------
 static void dump_far(unsigned long esr)
 {
@@ -28,21 +28,21 @@ static void dump_far(unsigned long esr)
         return;
     }
 
-    asm("mrs	%0, CurrentEL": "=r" (el));
+    asm("mrs %0, CurrentEL": "=r" (el));
 
     switch (el >> 2) {
     case 1:
-        asm("mrs	%0, FAR_EL1": "=r" (far));
+        asm("mrs %0, FAR_EL1": "=r" (far));
         break;
     case 2:
-        asm("mrs	%0, FAR_EL2": "=r" (far));
+        asm("mrs %0, FAR_EL2": "=r" (far));
         break;
     default:
         /* don't print anything to make output pretty */
         return;
     }
 
-    pr(", far 0x%lx", far);
+    MSG(", far 0x%lx", far);
 }
 
 static void dump_instr(struct hyp_regs *regs)
@@ -50,31 +50,31 @@ static void dump_instr(struct hyp_regs *regs)
     u32 *addr = (u32 *)(regs->elr & ~3UL);
     int i;
 
-    pr("code: ");
+    MSG("code: ");
     for (i = -4; i < 1; i++)
-        pr(i == 0 ? "(%08x) " : "%08x ", addr[i]);
-    pr("\n");
+        MSG(i == 0 ? "(%08x) " : "%08x ", addr[i]);
+    MSG("\n");
 }
 
 void show_regs(struct hyp_regs *regs)
 {
-    pr("elr: %016lx lr : %016lx\n", regs->elr, regs->lr);
-    pr("x0 : %016lx x1 : %016lx\n", regs->x0,  regs->x1);
-    pr("x2 : %016lx x3 : %016lx\n", regs->x2,  regs->x3);
-    pr("x4 : %016lx x5 : %016lx\n", regs->x4,  regs->x5);
-    pr("x6 : %016lx x7 : %016lx\n", regs->x6,  regs->x7);
-    pr("x8 : %016lx x9 : %016lx\n", regs->x8,  regs->x9);
-    pr("x10: %016lx x11: %016lx\n", regs->x10, regs->x11);
-    pr("x12: %016lx x13: %016lx\n", regs->x12, regs->x13);
-    pr("x14: %016lx x15: %016lx\n", regs->x14, regs->x15);
-    pr("x16: %016lx x17: %016lx\n", regs->x16, regs->x17);
-    pr("x18: %016lx x19: %016lx\n", regs->x18, regs->x19);
-    pr("x20: %016lx x21: %016lx\n", regs->x20, regs->x21);
-    pr("x22: %016lx x23: %016lx\n", regs->x22, regs->x23);
-    pr("x24: %016lx x25: %016lx\n", regs->x24, regs->x25);
-    pr("x26: %016lx x27: %016lx\n", regs->x26, regs->x27);
-    pr("x28: %016lx fp : %016lx\n", regs->x28, regs->fp);
-    pr("\n");
+    MSG("elr: %016lx lr : %016lx\n", regs->elr, regs->lr);
+    MSG("x0 : %016lx x1 : %016lx\n", regs->x0,  regs->x1);
+    MSG("x2 : %016lx x3 : %016lx\n", regs->x2,  regs->x3);
+    MSG("x4 : %016lx x5 : %016lx\n", regs->x4,  regs->x5);
+    MSG("x6 : %016lx x7 : %016lx\n", regs->x6,  regs->x7);
+    MSG("x8 : %016lx x9 : %016lx\n", regs->x8,  regs->x9);
+    MSG("x10: %016lx x11: %016lx\n", regs->x10, regs->x11);
+    MSG("x12: %016lx x13: %016lx\n", regs->x12, regs->x13);
+    MSG("x14: %016lx x15: %016lx\n", regs->x14, regs->x15);
+    MSG("x16: %016lx x17: %016lx\n", regs->x16, regs->x17);
+    MSG("x18: %016lx x19: %016lx\n", regs->x18, regs->x19);
+    MSG("x20: %016lx x21: %016lx\n", regs->x20, regs->x21);
+    MSG("x22: %016lx x23: %016lx\n", regs->x22, regs->x23);
+    MSG("x24: %016lx x25: %016lx\n", regs->x24, regs->x25);
+    MSG("x26: %016lx x27: %016lx\n", regs->x26, regs->x27);
+    MSG("x28: %016lx fp : %016lx\n", regs->x28, regs->fp);
+    MSG("\n");
 
     dump_instr(regs);
 }

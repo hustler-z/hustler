@@ -8,15 +8,24 @@
 
 #ifndef _ARCH_BARRIER_H
 #define _ARCH_BARRIER_H
-// ------------------------------------------------------------------------
+// --------------------------------------------------------------
 
 /* Instruction Synchronization Barrier flushes the pipeline in the
  * PE and is a context synchronization event.
+ *
+ * Used to guarantee that any subsequent instructions are fetched,
+ * again, so that privilege and access are checked with the current
+ * MMU configuration.
  */
 #define isb()           asm volatile("isb" : : : "memory")
 
 /* Data Synchronization Barrier is a memory barrier that ensures the
  * completion of memory accesses.
+ *
+ * Enforces the same ordering as the Data Memory Barrier, but has
+ * the additional effect of blocking execution of any further
+ * instructions, not just loads or stores, or both, until
+ * synchronization is complete.
  */
 #define dsb(scope)      asm volatile("dsb " #scope : : : "memory")
 
@@ -90,5 +99,5 @@
     local_save_flags(x);        \
     local_irq_disable();        \
 })
-// ------------------------------------------------------------------------
+// --------------------------------------------------------------
 #endif /* _ARCH_BARRIER_H */

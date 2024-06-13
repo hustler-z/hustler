@@ -8,6 +8,8 @@
 
 #include <generic/ccattr.h>
 #include <lib/sort.h>
+#include <lib/strops.h>
+#include <lib/math.h>
 
 void qsort(void  *base,
     size_t nel,

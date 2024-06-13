@@ -37,7 +37,7 @@ END(early_uart_init)
 
 /* Note Print String
  *
- * void asm_puts(char *str);
+ * void asm_puts(const char *str);
  */
 FUNC(asm_puts)
     early_uart_ready x23, 1
@@ -48,6 +48,17 @@ FUNC(asm_puts)
 1:
     ret
 END(asm_puts)
+
+/* Note use during early boot time
+ *
+ * void arch_puts(const char *s,
+ *         unsigned long base);
+ */
+FUNC(arch_puts)
+    mov  x23, x1
+    bl   asm_puts
+    ret
+END(arch_puts)
 
 /* Note Print Number
  *

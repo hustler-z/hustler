@@ -11,9 +11,9 @@
 #include <generic/errno.h>
 #include <generic/timer.h>
 #include <bsp/command.h>
-#include <bsp/stdio.h>
 #include <bsp/console.h>
 #include <bsp/period.h>
+#include <bsp/debug.h>
 #include <lib/strops.h>
 
 // --------------------------------------------------------------
@@ -98,7 +98,7 @@ static int cmd_call(struct cmd_tbl *cmdtp, int flag, int argc,
 
     result = cmdtp->cmd_rep(cmdtp, flag, argc, argv, repeatable);
     if (result)
-        hyp_dbg("Command failed, result=%d\n", result);
+        DEBUG("Command failed, result=%d\n", result);
     return result;
 }
 
@@ -111,7 +111,7 @@ struct cmd_tbl *find_cmd(const char *cmd)
 
 int cmd_usage(const struct cmd_tbl *cmdtp)
 {
-    hyp_dbg("%s - %s\n\n", cmdtp->name, cmdtp->usage);
+    DEBUG("%s - %s\n\n", cmdtp->name, cmdtp->usage);
     return 1;
 }
 
@@ -124,7 +124,7 @@ enum command_ret_t cmd_process(int flag, int argc, char *const argv[],
     /* Look up command in command table */
     cmdtp = find_cmd(argv[0]);
     if (cmdtp == NULL) {
-        hyp_dbg("Unknown command '%s' - try 'help'\n", argv[0]);
+        DEBUG("Unknown command '%s' - try 'help'\n", argv[0]);
         return 1;
     }
 

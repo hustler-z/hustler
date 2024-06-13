@@ -35,13 +35,6 @@ int vsnpr(char *buf, size_t size, const char *fmt,
 int vscnpr(char *buf, size_t size, const char *fmt,
         va_list args);
 
-#define HYPOS_VMM_DEBUG_ON     (1)
-#if HYPOS_VMM_DEBUG_ON
-#define hyp_dbg(fmt, ...) \
-    pr("<hypos-debug> "fmt, ##__VA_ARGS__)
-#else
-#define hyp_dbg(fmt, ...)
-#endif
 // --------------------------------------------------------------
 #define stdin		0
 #define stdout		1

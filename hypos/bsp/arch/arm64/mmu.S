@@ -10,40 +10,32 @@
 #include <asm/debug.h>
 #include <asm/sysregs.h>
 #include <asm/ttbl.h>
+
 // --------------------------------------------------------------
 
-
-/* +-------------+
- * | Reserved    |               TTBR0_EL2
- * +-------------+            +-------------+
- * |             |   FIXMAP   |             |
- * | Peripherals |----------->| Translation |
- * |             |            |    Table    |
- * +-------------+            |             |
- * |             |            +-------------+
- * |             |
- * |             |
- * : Reserved    :
- * |             |
- * |             |
- * |             |
- * +-------------+
- * |             |
- * | ROM         |
- * |             |                   STAGE 2
- * +-------------+                +-----------> VA
- * |             |               /     PA
- * |             |   STAGE 1    /       \
- * | RAM         |-----------> +  @VTTBR_EL2/VSTTBR_EL2
- * |             |     IPA
- * |             |       \
- * +-------------+   @TTBRx_EL1
- * | Reserved    |
- * +-------------+
+/* Note
+ * The MMU uses the most significant bits of the Virtual Address
+ * to index entries in a translation table and establish which
+ * block is being accessed. The MMU translates the Virtual
+ * Addresses of code and data to the Physical Addresses in the
+ * actual system. The translation is carried out automatically in
+ * hardware and is transparent to the application. In addition to
+ * address translation, the MMU controls memory access permissions,
+ * memory ordering, and cache policies for each region of memory.
+ *
+ * +-------------------+           +-------------------+
+ * | Application (EL0) | TTBRn_EL1 |  Physical Memory  |
+ * +-------------------+ ---------▶| map seen by Guest |
+ * |   Guest OS (EL1)  |           |       (IPA)       |
+ * +-------------------+           +-------------------+
+ *                                           | VTTBR0_EL2
+ *                                           ▼
+ * +-------------------+ TTBR0_EL2 +-------------------+
+ * |  Hypervisor (EL2) | ---------▶|   Real Physical   |
+ * +-------------------+           |  Memory Map (PA)  |
+ *                                 +-------------------+
  */
 
-
-// --------------------------------------------------------------
 .macro flush_local_tlb
     dsb  nshst
     tlbi alle2
@@ -56,16 +48,28 @@
     add \xb, \xb, x20 /* paddr offset */
 .endm
 
-/*  Note ubfx takes (PGTBL_TTBL_SHIFT) bit field from bit postion
- *  [ PGTBL_LEVEL_SHIFT(lvl) ] in the [virt] and place it in
- *  [slot]
+/* Note ubfx takes (PGTBL_TTBL_SHIFT) bit field from bit postion
+ * [ PGTBL_LEVEL_SHIFT(lvl) ] in the [virt] and place it in
+ * [slot]
  *
- *  +--------------+--------------+--------------+--------------+
- *  | TBL0 [47:39] | TBL1 [38:30] | TBL2 [29:21] | TBL3 [20:12] | ...
- *  +--------------+--------------+--------------+--------------+
+ * When use a 4kB granule size, the hardware can use a 4-level
+ * look up process. The 48-bit address has nine address bits per
+ * level translated, that is 512 entries each, with the final 12
+ * bits selecting a byte within the 4kB coming directly from the
+ * original address.
  *
- *  For instance,
- *  Page table level 0 index shift: (3 - 0) * (12 - 3) + 12 = 39
+ * +--------------+--------------+--------------+--------------+
+ * | TBL0 [47:39] | TBL1 [38:30] | TBL2 [29:21] | TBL3 [20:12] | ...
+ * +--------------+--------------+--------------+--------------+
+ *        |                                             |
+ *        ▼                                             ▼
+ * Table Descriptors &                          Page Descriptors
+ * Block Descriptors
+ *
+ * Maximum entries in table = 512
+ *
+ * For instance,
+ * Page table level 0 index shift: (3 - 0) * (12 - 3) + 12 = 39
  *
  *      47           39
  *       +--------------+ ... (virt)
@@ -88,7 +92,7 @@
  * +----------------+----------------------------------+-----------+
  *  63            48 47                              12 11         0
  *
- * Basic Logic
+ * XXX: Basic Logic
  * -----------------------------------------------------------------
  *
  *  PGTBL 0
@@ -105,21 +109,23 @@
  */
 .macro create_ttbl_entry_from_paddr, ptbl, tbl, virt, lvl, tmp1, tmp2
     get_ttbl_slot \tmp1, \virt, \lvl /* get table index */
-    mov   \tmp2, #TTBL_ENTRY_DEF
-    orr   \tmp2, \tmp2, \tbl /* set up lower attributes */
-    adr_l \tbl,  \ptbl /* tbl => pc-relative address of ptbl */
+    mov   \tmp2, #TTBL_ENTRY_MEM
+    orr   \tmp2, \tmp2, \tbl         /* set up lower attributes */
+    adr_l \tbl,  \ptbl               /* tbl => pc-relative address of ptbl */
     str   \tmp2, [\tbl, \tmp1, lsl #3]
 .endm
 
+/* Note create a page table entry in \ptbl to \tbl
+ */
 .macro create_ttbl_entry, ptbl, tbl, virt, lvl, tmp1, tmp2, tmp3
     load_paddr \tmp1, \tbl
     create_ttbl_entry_from_paddr \ptbl, \tmp1, \virt, \lvl, \tmp2, \tmp3
 .endm
 
-/* 0xFFFFFFFFFFFFF000 - PGTBL3_MASK
+/* 0xFFFFFFFFFFFFF000 - PGTBL_LEVEL_MASK(3)
  */
-.macro create_map_entry, ptbl, virt, phys, tmp1, tmp2, tmp3, type=TTBL_ENTRY_DEF
-    and   \tmp3, \phys, #PGTBL3_MASK /* tmp3 = PAGE_ALIGNED(phys) */
+.macro create_map_entry, ptbl, virt, phys, tmp1, tmp2, tmp3, type=TTBL_ENTRY_MEM
+    and   \tmp3, \phys, #PGTBL_LEVEL_MASK(3) /* tmp3 = PAGE_ALIGNED(phys) */
     get_ttbl_slot \tmp1, \virt, 3
     mov   \tmp2, #\type
     orr   \tmp2, \tmp2, \tmp3
@@ -128,7 +134,7 @@
 .endm
 
 // --------------------------------------------------------------
-    .section .boot.idmap, "ax", %progbits
+    __TTBL
 
 /* Note MMU setup for boot CPU
  */
@@ -147,67 +153,77 @@ FUNC(bootcpu_mmu_setup)
 
     b    remove_idmap
 END(bootcpu_mmu_setup)
-// --------------------------------------------------------------
 
 /* Note Page Table Setup
- *                               L3
- * L0                            +---+
- * +---+     L1                  |   |
- * |   | --▶ +---+     L2        :   : x 4
- * :   :     |   | --▶ +---+     |   |
- * |   |     :   :     |   | --▶ +---+
- * +---+     |   |     :   :
- *           +---+     |   |
- *                     +---+ --▶ +---+
- *                               |   |
- *                               :   : fixmap
- *                               |   |
- *                               +---+
+ * DB  -  Block Descriptors
+ * DT  -  Table Descriptors
+ *                                 Level-(2)
+ *                                 :      :
+ *                                 +------+
+ *                                 |  DB  | - Memory Region
+ *             Level-(1)           +------+
+ *             :      :            :      :
+ *             +------+            +------+
+ *             |  DB  |            |  DT  | ----- ~ --▶
+ *             +------+            +------+
+ *             :      :            :      :
+ *             +------+            |      |
+ *             |  DT  | ----- ~ --▶+------+
+ *             +------+   |
+ *             :      : Index
+ * +------+    |      |   |
+ * | TTBR |---▶+------+ -----
+ * +------+
+ *
+ * XXX: Indexed by bits from the input address. Each lookup level
+ *      resolves additional bits.
  */
-
 FUNC_LOCAL(page_table_setup)
     ldr  x0, =HYPERVISOR_VIRT_START
 
-    /* boot_pgtbl0 -> boot_pgtbl1 */
     create_ttbl_entry boot_pgtbl0, boot_pgtbl1, x0, 0, x1, x2, x3
-
-    /* boot_pgtbl1 -> boot_pgtbl2 */
     create_ttbl_entry boot_pgtbl1, boot_pgtbl2, x0, 1, x1, x2, x3
 
     load_paddr x4, boot_pgtbl3
     ldr  x1, =HYPERVISOR_VIRT_START
 
-.rept DATA_NR_ENTRIES(2) /* DATA, BSS, etc., sections */
+.rept DATA_NR_ENTRIES(2)
     mov  x0, x4
-
-    /* boot_pgtbl2 -> boot_pgtbl3 */
     create_ttbl_entry_from_paddr boot_pgtbl2, x0, x1, 2, x2, x3
-    add  x1, x1, #PGTBL2_SIZE
+    add  x1, x1, #PGTBL_LEVEL_SIZE(2)
     add  x4, x4, #PAGE_SIZE
 .endr
 
-    /* Map hypos */
+#if 1
+    DBG("- HYPOS [0x")
+    ldr  x5, =__hypos_start
+    dump_reg x5
+    DBG(" ~ 0x")
+    ldr  x6, =__hypos_end
+    dump_reg x6
+    DBG("] -\r\n")
+#endif
+
+    /* Map hypos code */
     ldr  x0, =__hypos_start
     ldr  x1, =__hypos_end
     sub  x0, x1, x0
 
-    /* Number of pages * PTE size
-     * PTE size = 8 bytes (64 bits)
+    /* Number of pages * PTE size, PTE size = 8 bytes (64 bits)
      */
     lsr  x0, x0, #PAGE_SHIFT
     lsl  x0, x0, #3
 
-    /* x19            - paddr start
-     * PGTBL3_SHIFT   - 12
+    /* x19                    - paddr start
+     * PGTBL_LEVEL_SHIFT(3)   - 12
      */
     adr_l x4, boot_pgtbl3
-    lsr  x2, x19, #PGTBL3_SHIFT
-    lsl  x2, x2,  #PGTBL3_SHIFT
-    mov  x3, #TTBL_ENTRY_DEF
+    lsr  x2, x19, #PGTBL_LEVEL_SHIFT(3)
+    lsl  x2, x2,  #PGTBL_LEVEL_SHIFT(3)
+    mov  x3, #TTBL_ENTRY_MEM
     orr  x2, x2, x3
 
     mov  x1, xzr
-
 1:  str  x2, [x4, x1]
     add  x2, x2, #PAGE_SIZE /* next page */
     add  x1, x1, #8         /* next slot */
@@ -219,14 +235,20 @@ FUNC_LOCAL(page_table_setup)
      * Identity mapping is needed when hypos is loaded exactly at
      * HYPERVISOR_VIRT_START.
      *
-     *     :                    XXX: while enabling MMU, something
-     *     |inst                might gets weird due to CPU
+     *     :                    XXX: while enabling MMU, things
+     *     |inst                might get weird due to CPU
      *     ▼                    intruction pipeline, etc. In
      * --------- enabling MMU   this case, ID mapping is needed
      *     |inst                to ensure correct memory accesses.
      *     :
      *     ▼
      *
+     * XXX: Out-of-order Execution
+     * Many processors support out-of-order execution of non-
+     * dependent instructions. Whenever an instruction is stalled
+     * while it waits for the result of a preceding instruction,
+     * the processor can execute subsequent instructions that do
+     * not have a dependency.
      * ----------------------------------------------------------
      * VA                        IDMAP
      *
@@ -238,19 +260,19 @@ FUNC_LOCAL(page_table_setup)
     ret
 
 1:  get_ttbl_slot x0, x19, 0
-    cmp  x0, #PGTBL0_SLOT
+    cmp  x0, #PGTBL0_OFFSET(HYPERVISOR_VIRT_START)
     beq  1f
     create_ttbl_entry boot_pgtbl0, boot_idmap1, x19, 0, x0, x1, x2
     b    from_boot_idmap1
 
 1:  get_ttbl_slot x0, x19, 1
-    cmp  x0, #PGTBL1_SLOT
+    cmp  x0, #PGTBL1_OFFSET(HYPERVISOR_VIRT_START)
     beq  1f
     create_ttbl_entry boot_pgtbl1, boot_idmap2, x19, 1, x0, x1, x2
     b    from_boot_idmap2
 
 1:  get_ttbl_slot x0, x19, 2
-    cmp  x0, #PGTBL2_SLOT
+    cmp  x0, #PGTBL2_OFFSET(HYPERVISOR_VIRT_START)
     beq  pgtbl_fatal
     create_ttbl_entry boot_pgtbl2, boot_idmap3, x19, 2, x0, x1, x2
     b    from_boot_idmap3
@@ -266,20 +288,17 @@ from_boot_idmap3:
      * we set debug uart vaddr fixmap.
      */
     ldr  x0, =DEBUG_UART_VA
-    create_map_entry hypos_fixmap, x0, x23, x1, x2, x3, type=TTBL_ENTRY_DEM
-
+    create_map_entry hypos_fixmap, x0, x23, x1, x2, x3, type=TTBL_ENTRY_DEV
     ldr  x0, =FIXMAP_ADDR(0)
-
-    /* pgtbl2 -> fixmap */
     create_ttbl_entry boot_pgtbl2, hypos_fixmap, x0, 2, x1, x2, x3
 
-    DBG("- Set boot PGTBL -\r\n")
+    DBG("- Set Boot Page Table -\r\n")
 
     ret
 
 pgtbl_fatal:
 
-    DBG("- Set boot PGTBL failed -\r\n")
+    DBG("- Set Boot Page Table failed -\r\n")
 
     b    boot_failed
 END(page_table_setup)
@@ -289,6 +308,7 @@ END(page_table_setup)
 FUNC_LOCAL(mmu_enable)
     mov  x4, x0
     mov  x5, x1
+    DBG("- Turn on MMU -\r\n")
 
     flush_local_tlb
 
@@ -298,9 +318,11 @@ FUNC_LOCAL(mmu_enable)
     isb
 
     mrs  x0, SCTLR_EL2
-    orr  x0, x0, #SCTLR_Axx_ELx_M /* Enable MMU */
-    orr  x0, x0, #SCTLR_Axx_ELx_C /* Enable D-cache */
-    orr  x0, x0, #SCTLR_Axx_ELx_I /* Enable I-cache */
+    orr  x0, x0, #SCTLR_Axx_ELx_M  /* Enable MMU */
+    orr  x0, x0, #SCTLR_Axx_ELx_C  /* Enable D-cache */
+    orr  x0, x0, #SCTLR_Axx_ELx_I  /* Enable I-cache */
+    orr  x0, x0, #SCTLR_A64_ELx_SA /* Enable SP Alignment Check */
+    orr  x0, x0, #SCTLR_Axx_ELx_A  /* Enable Alignment Check */
     orr  x0, x0, x5
     dsb  sy
     msr  SCTLR_EL2, x0
@@ -315,33 +337,34 @@ END(mmu_enable)
 
 /* Note
  * Identity Mapping  -  1:1 Mapping
- * x19 = paddr(kickoff)
+ * x19               =  paddr(_head)
  */
 FUNC_LOCAL(remove_idmap)
     DBG("- Remove Idmap -\r\n")
 
     get_ttbl_slot x1, x19, 0
-    cmp   x1, #PGTBL0_SLOT /* PGTBL0_SLOT: 0x14 */
+    cmp   x1, #PGTBL0_OFFSET(HYPERVISOR_VIRT_START) /* 0x14 */
     beq   1f
 
+    DBG("- From Boot Page Table 0 -\r\n")
     ldr   x0, =boot_pgtbl0
-    DBG("- Remove from Boot pgtbl 0 -\r\n")
     str   xzr, [x0, x1, lsl #3]
-    DBG("- Done -\r\n")
     b     idmap_removed
 
 1:  get_ttbl_slot x1, x19, 1
-    cmp   x1, #PGTBL1_SLOT
+    cmp   x1, #PGTBL1_OFFSET(HYPERVISOR_VIRT_START)
     beq   1f
 
+    DBG("- From Boot Page Table 1 -\r\n")
     ldr   x0, =boot_pgtbl1
     str   xzr, [x0, x1, lsl #3]
     b     idmap_removed
 
 1:  get_ttbl_slot x1, x19, 2
-    cmp   x1, #PGTBL2_SLOT
+    cmp   x1, #PGTBL2_OFFSET(HYPERVISOR_VIRT_START)
     beq   idmap_removed
 
+    DBG("- From Boot Page Table 2 -\r\n")
     ldr   x0, =boot_pgtbl2
     str   xzr, [x0, x1, lsl #3]
 
@@ -353,7 +376,6 @@ idmap_removed:
     ret
 END(remove_idmap)
 
-// --------------------------------------------------------------
 FUNC(switch_ttbr_id)
     dsb  ish
     isb
@@ -378,7 +400,6 @@ FUNC(switch_ttbr_id)
 
     ret
 END(switch_ttbr_id)
-// --------------------------------------------------------------
 
 /* Note When stage 1 MMU disabled:
  *

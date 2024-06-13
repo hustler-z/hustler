@@ -13,8 +13,8 @@ arma-y += hypervisor.o
 arma-y += smp.o
 arma-y += mmu.o
 arma-y += timer.o
+arma-y += spinlock.o
 
-armc-y += spinlock.o
 armc-y += boot.o
 armc-y += gicv3.o
 armc-y += exception.o

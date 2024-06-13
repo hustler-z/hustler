@@ -6,6 +6,8 @@
  * Usage: general initialization
  */
 
+#include <asm/ttbl.h>
+#include <asm/setup.h>
 #include <asm-generic/globl.h>
 #include <bsp/process.h>
 #include <bsp/alloc.h>
@@ -32,7 +34,13 @@ unsigned long __percpu_offset[NR_CPU];
  * --------------------------------------------------------------
  */
 static boot_func_t hypos_boot_sequence[] = {
+    arch_setup,
+
     board_setup,
+
+    /* Set up page table
+     */
+    ttbl_setup,
 
     /* Interrupt Controller Setup
      */

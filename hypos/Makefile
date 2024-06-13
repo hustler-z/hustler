@@ -135,7 +135,6 @@ $(ELF): $(hyposo)
 ###
 # Compile submodules
 ###
-
 $(archao): $(PATH_ARCH)/%.o: $(SPATH_ARCH)/%.S
 	$(call cc_as,$@,$<)
 $(archco): $(PATH_ARCH)/%.o: $(SPATH_ARCH)/%.c
@@ -156,22 +155,25 @@ $(libsco): $(PATH_LIBS)/%.o: $(SPATH_LIBS)/%.c
 .PHONY: tags
 tags:
 	@set -e; rm -rf tags GTAGS GPATH GRTAGS; \
+	echo "TAGS     (done)";                  \
 	$(all_sources) | gtags -f -;             \
 	$(all_sources) | xargs ctags --languages=Asm,c,c++,Make -R
 
 .PHONY: remove
 remove:
-	@rm -rf tags GTAGS GPATH GRTAGS
+	@rm -rf tags GTAGS GPATH GRTAGS;         \
+	echo "TAGS     (removed)"
 
 .PHONY: clean
 clean:
-	@rm -rf $(OUTPUT)
+	@rm -rf $(OUTPUT);                       \
+	echo "CLEAN    (done)"
 
 .PHONY: help
 help:
-	@echo "make         - build hypos binary"
-	@echo "make clean   - clean all objects"
-	@echo "make tags    - build ctags and gtags"
-	@echo "make remove  - remove all tags"
+	@echo "make         - build hypos binary";    \
+	 echo "make clean   - clean all objects";     \
+	 echo "make tags    - build ctags and gtags"; \
+	 echo "make remove  - remove all tags"
 
 # ----------------------------------------------------------

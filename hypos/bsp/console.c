@@ -10,7 +10,7 @@
 #include <asm-generic/section.h>
 #include <bsp/console.h>
 #include <bsp/command.h>
-#include <bsp/stdio.h>
+#include <bsp/debug.h>
 #include <bsp/env.h>
 #include <bsp/serial.h>
 #include <bsp/alloc.h>
@@ -112,18 +112,15 @@ void putc(const char c)
     }
 }
 
-extern void asm_puts(const char *s);
-
 void puts(const char *s)
 {
     if (glb_is_initialized() &&
             (glb->flags & GLB_DEV_INITIALIZED))
         fputs(stdout, s);
-    else if (glb_is_initialized()) {
+    else {
         pre_console_puts(s);
         serial_puts(s);
-    } else
-        asm_puts(s);
+    }
 }
 
 void flush(void)
@@ -661,7 +658,7 @@ int console_parse_line(char *line, char *argv[])
         *line++ = '\0';		/* terminate current arg	 */
     }
 
-    hyp_dbg("** Too many args (max. %d) **\n", SYS_MAXARGS);
+    DEBUG("** Too many args (max. %d) **\n", SYS_MAXARGS);
 
     return nargs;
 }
@@ -870,7 +867,7 @@ int console_run_command_list(char *cmd, int flag)
             *next = '\0';
             /* run only non-empty commands */
             if (*line) {
-                hyp_dbg("** exec: \"%s\"\n", line);
+                DEBUG("** exec: \"%s\"\n", line);
                 if (console_run_command(line, 0) < 0) {
                     rcode = 1;
                     break;
@@ -986,10 +983,10 @@ int run_commandf(const char *fmt, ...)
     va_end(args);
 
     if (nbytes < 0) {
-        hyp_dbg("I/O internal error occurred.\n");
+        DEBUG("I/O internal error occurred.\n");
         return -EIO;
     } else if (nbytes >= SYS_CBSIZE) {
-        hyp_dbg("'fmt' size:%d exceeds the limit(%d)\n",
+        DEBUG("'fmt' size:%d exceeds the limit(%d)\n",
              nbytes, SYS_CBSIZE);
         return -ENOSPC;
     }
@@ -998,11 +995,11 @@ int run_commandf(const char *fmt, ...)
 
 static void hypos_stamp(void)
 {
-    pr("                __________    _________  \n");
-    pr(" /A__/A /A  /A / ___/_  _/A  / ___/ __ A \n");
-    pr(" V  __ AV A_V AV___A / // /_/ ___AA __ / \n");
-    pr("  V_A V_AV____/____/ V/ V___A____AV/  V  HYPOS\n");
-    pr("\n");
+    MSG("                __________    _________  \n");
+    MSG(" /A__/A /A  /A / ___/_  _/A  / ___/ __ A \n");
+    MSG(" V  __ AV A_V AV___A / // /_/ ___AA __ / \n");
+    MSG("  V_A V_AV____/____/ V/ V___A____AV/  V  HYPOS\n");
+    MSG("\n");
 }
 
 int __bootfunc console_setup(void)
@@ -1012,7 +1009,7 @@ int __bootfunc console_setup(void)
     hypos_stamp();
 
     if (!glb->console_enable) {
-        hyp_dbg("Console been disbale\n");
+        DEBUG("Console been disbale\n");
         force_kick_guests_up();
     } else {
         __console_loop();

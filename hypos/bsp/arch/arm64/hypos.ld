@@ -34,10 +34,6 @@ SECTIONS
         __boot_start = .;
         *(.boot.head)
         *(.boot.entry)
-        /* Ensure boot identity map is page-size
-         * aligned.
-         */
-        . = ALIGN(0x1000);
         __boot_ttbl_start = .;
         *(.boot.ttbl)
         __boot_ttbl_end = .;
@@ -92,7 +88,7 @@ SECTIONS
         __bss_start = .;
         *(.bss.percpu)
         *(.bss .bss.*)
-        . = ALIGN(0x1000);
+        . = ALIGN(8);
         __bss_end = .;
     } : data
 

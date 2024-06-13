@@ -18,6 +18,7 @@
  * 16K         | 14         | 11
  * 64K         | 16         | 13
  */
+
 #define TTBL_SHIFT(n)          ((n) - 3)
 #define TTBL_ENTRIES(n)        (_AC(1, U) << (TTBL_SHIFT(n)))
 #define TTBL_ENTRY_MASK(n)     (TTBL_ENTRIES(n) - 1)
@@ -27,14 +28,6 @@
 /* 0x01FF */
 #define PGTBL_TTBL_ENTRY_MASK  TTBL_ENTRY_MASK(PAGE_SHIFT)
 
-#define LEVEL_ORDER(n, lvl)    ((3-(lvl)) * (TTBL_SHIFT(n)))
-#define LEVEL_SHIFT(n, lvl)    (LEVEL_ORDER(n, lvl) + (n))
-#define LEVEL_SIZE(n, lvl)     (_AT(paddr_t, 1) << (LEVEL_SHIFT(n, lvl)))
-#define PGTBL_LEVEL_SHIFT(lvl) LEVEL_SHIFT(PAGE_SHIFT, lvl)
-#define PGTBL_LEVEL_ORDER(lvl) LEVEL_ORDER(PAGE_SHIFT, lvl)
-#define PGTBL_LEVEL_SIZE(lvl)  LEVEL_SIZE(PAGE_SHIFT, lvl)
-#define PGTBL_LEVEL_MASK(lvl)  (~(PGTBL_LEVEL_SIZE(lvl) - 1))
-
 /* Page Table Settings
  * LEVEL             SHIFT           SIZE            MASK
  * --------------------------------------------------------------------
@@ -43,18 +36,14 @@
  * 2                 21              2  MB           0xFFFFFFFFFFE00000
  * 3                 12              4  KB           0xFFFFFFFFFFFFF000
  */
-#define PGTBL0_SHIFT           PGTBL_LEVEL_SHIFT(0)
-#define PGTBL0_MASK            PGTBL_LEVEL_MASK(0)
-#define PGTBL0_SIZE            PGTBL_LEVEL_SIZE(0)
-#define PGTBL1_SHIFT           PGTBL_LEVEL_SHIFT(1)
-#define PGTBL1_MASK            PGTBL_LEVEL_MASK(1)
-#define PGTBL1_SIZE            PGTBL_LEVEL_SIZE(1)
-#define PGTBL2_SHIFT           PGTBL_LEVEL_SHIFT(2)
-#define PGTBL2_MASK            PGTBL_LEVEL_MASK(2)
-#define PGTBL2_SIZE            PGTBL_LEVEL_SIZE(2)
-#define PGTBL3_SHIFT           PGTBL_LEVEL_SHIFT(3)
-#define PGTBL3_MASK            PGTBL_LEVEL_MASK(3)
-#define PGTBL3_SIZE            PGTBL_LEVEL_SIZE(3)
+
+#define LEVEL_ORDER(n, lvl)    ((3-(lvl)) * (TTBL_SHIFT(n)))
+#define LEVEL_SHIFT(n, lvl)    (LEVEL_ORDER(n, lvl) + (n))
+#define LEVEL_SIZE(n, lvl)     (_AT(paddr_t, 1) << (LEVEL_SHIFT(n, lvl)))
+#define PGTBL_LEVEL_SHIFT(lvl) LEVEL_SHIFT(PAGE_SHIFT, lvl)
+#define PGTBL_LEVEL_ORDER(lvl) LEVEL_ORDER(PAGE_SHIFT, lvl)
+#define PGTBL_LEVEL_SIZE(lvl)  LEVEL_SIZE(PAGE_SHIFT, lvl)
+#define PGTBL_LEVEL_MASK(lvl)  (~(PGTBL_LEVEL_SIZE(lvl) - 1))
 
 /* --------------------------------------------------------------------
  * Translation Table (stage 1 and stage 2)
@@ -79,12 +68,7 @@
  * --------------------------------------------------------------------
  */
 
-#define IDMAP_AREA_NR          20
-#define IDMAP_SLOT_BITS        39
-#define IDMAP_SLOT(slot)       (_AT(vaddr_t, slot) << IDMAP_SLOT_BITS)
-#define ARCH_VM_MAPPING        IDMAP_SLOT(IDMAP_AREA_NR)
-
-#define DATA_VIRT_START        (ARCH_VM_MAPPING + _AT(vaddr_t, MB(2)))
+#define DATA_VIRT_START        PAGE_ALIGN(0x00000A0000000000)
 #define DATA_VIRT_SIZE         _AT(vaddr_t, MB(8))
 #define DATA_NR_ENTRIES(lvl)   (DATA_VIRT_SIZE / PGTBL_LEVEL_SIZE(lvl))
 
@@ -101,7 +85,6 @@
 #define GUEST_HEAP_VIRT_START  (HYPER_HEAP_VIRT_START + HYPER_HEAP_VIRT_SIZE)
 #define GUEST_HEAP_VIRT_SIZE   _AT(vaddr_t, GB(2))
 
-/* 0x0000 0A00 0020 0000 */
 #define HYPERVISOR_VIRT_START  DATA_VIRT_START
 #define HYPERVISOR_VIRT_END    (GUEST_HEAP_VIRT_START + GUEST_HEAP_VIRT_SIZE)
 
@@ -111,7 +94,10 @@
 #define PGTBL2_LINEAR_OFFSET(va) ((va) >> PGTBL_LEVEL_SHIFT(2))
 #define PGTBL3_LINEAR_OFFSET(va) ((va) >> PGTBL_LEVEL_SHIFT(3))
 
-/*
+/* Page Table Levelx Index
+ *  +--------------+--------------+--------------+--------------+
+ *  | TBL0 [47:39] | TBL1 [38:30] | TBL2 [29:21] | TBL3 [20:12] | ...
+ *  +--------------+--------------+--------------+--------------+
  */
 #define PGTBL_OFFSET(offs)   (_AT(unsigned int, offs) & PGTBL_TTBL_ENTRY_MASK)
 #define PGTBL0_OFFSET(va)    PGTBL_OFFSET(PGTBL0_LINEAR_OFFSET(va))
@@ -119,22 +105,9 @@
 #define PGTBL2_OFFSET(va)    PGTBL_OFFSET(PGTBL2_LINEAR_OFFSET(va))
 #define PGTBL3_OFFSET(va)    PGTBL_OFFSET(PGTBL3_LINEAR_OFFSET(va))
 
-/* Page Table Levelx Index
- *  +--------------+--------------+--------------+--------------+
- *  | TBL0 [47:39] | TBL1 [38:30] | TBL2 [29:21] | TBL3 [20:12] | ...
- *  +--------------+--------------+--------------+--------------+
- */
-#define PGTBL0_SLOT          PGTBL0_OFFSET(HYPERVISOR_VIRT_START)
-#define PGTBL1_SLOT          PGTBL1_OFFSET(HYPERVISOR_VIRT_START)
-#define PGTBL2_SLOT          PGTBL2_OFFSET(HYPERVISOR_VIRT_START)
-#define PGTBL3_SLOT          PGTBL3_OFFSET(HYPERVISOR_VIRT_START)
-
 // --------------------------------------------------------------
-#define TTBL_ENTRY_DEF  0xF7F /* nG=1 AF=1 SH=11 AP=01 NS=1 AI=111 T=1 V=1 */
-#define TTBL_ENTRY_MEM  0xF7D /* nG=1 AF=1 SH=11 AP=01 NS=1 AI=111 T=0 V=1 */
-
-#define TTBL_ENTRY_DEV  0xE71 /* nG=1 AF=1 SH=10 AP=01 NS=1 AI=100 T=0 V=1 */
-#define TTBL_ENTRY_DEM  0xE73 /* nG=1 AF=1 SH=10 AP=01 NS=1 AI=100 T=1 V=1 */
+#define TTBL_ENTRY_MEM  0xF7F /* nG=1 AF=1 SH=11 AP=01 NS=1 AI=111 T=1 V=1 */
+#define TTBL_ENTRY_DEV  0xE73 /* nG=1 AF=1 SH=10 AP=01 NS=1 AI=100 T=1 V=1 */
 // --------------------------------------------------------------
 
 #ifndef __ASSEMBLY__
@@ -163,12 +136,13 @@
  *
  * Large Physical Address Extension (TTBL) - ARMv7-A Long Descriptor
  * format.
+ *
  * @ttbl_t - translation table entry
  */
 
 typedef struct __packed {
-    unsigned long valid:1;
-    unsigned long table:1;
+    unsigned long valid: 1;
+    unsigned long table: 1;
 
     /* Memory Attributes
      *
@@ -212,7 +186,7 @@ typedef struct __packed {
     /* Base address of block or next table
      * [47:12]
      */
-    unsigned long long base: 36;
+    unsigned long base: 36;
 
     /* [51:48] reserved set as zeros
      */
@@ -233,10 +207,11 @@ typedef struct __packed {
 /* For the purpose of page table walking
  */
 typedef struct __packed {
-    unsigned long table:1;
-    unsigned long pad2:10;
-    unsigned long long base:36;
-    unsigned long pad1:16;
+    unsigned long valid: 1;
+    unsigned long table: 1;
+    unsigned long pad2: 10;
+    unsigned long base: 36;
+    unsigned long pad1: 16;
 } ttbl_walk_t;
 
 typedef union {
@@ -244,6 +219,9 @@ typedef union {
     ttbl_entry_t  ttbl;
     ttbl_walk_t   walk;
 } ttbl_t;
+
+int mmu_enabled(void);
+int ttbl_setup(void);
 
 #endif /* !__ASSEMBLY__ */
 // --------------------------------------------------------------

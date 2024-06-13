@@ -29,6 +29,8 @@
  * are specified by initializing VBAR_ELn registers.
  */
 
+#include <asm/debug.h>
+
 // --------------------------------------------------------------
 
 /* Stack pushing/popping register pairs
@@ -132,4 +134,34 @@ GLOBAL(hyp_vectors)
     hyp_ventry guest_fiq_compat
     hyp_ventry guest_serror_compat
 END(hyp_vectors)
+// --------------------------------------------------------------
+.macro smc_ventry label
+    .align 7
+\label:
+    DBG("- SMC Exception -\r\n")
+    b  .
+.endm
+
+    .align 11
+GLOBAL(smc_vectors)
+    smc_ventry smc_sync_sp0
+    smc_ventry smc_irq_sp0
+    smc_ventry smc_fiq_sp0
+    smc_ventry smc_serror_sp0
+
+    smc_ventry smc_sync_spx
+    smc_ventry smc_irq_spx
+    smc_ventry smc_fiq_spx
+    smc_ventry smc_serror_spx
+
+    smc_ventry hyp_syn
+    smc_ventry hyp_irq
+    smc_ventry hyp_fiq
+    smc_ventry hyp_serror
+
+    smc_ventry hyp_syn_compat
+    smc_ventry hyp_irq_compat
+    smc_ventry hyp_fiq_compat
+    smc_ventry hyp_serror_compat
+END(smc_vectors)
 // --------------------------------------------------------------

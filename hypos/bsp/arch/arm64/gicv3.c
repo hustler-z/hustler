@@ -184,7 +184,8 @@ unsigned int get_running_priority(void)
     return READ_SYSREG(ICC_EL1(RPR));
 }
 
-void send_sgi_grp0(unsigned int id, unsigned int mode,
+void send_sgi_grp0(unsigned int id,
+        unsigned int mode,
         unsigned int targets)
 {
     id |= mode;
@@ -192,7 +193,8 @@ void send_sgi_grp0(unsigned int id, unsigned int mode,
     WRITE_SYSREG(id, ICC_EL1(SGI0R));
 }
 
-void send_sgi_grp1(unsigned int id, unsigned int mode,
+void send_sgi_grp1(unsigned int id,
+        unsigned int mode,
         unsigned int targets)
 {
     id |= mode;
@@ -200,7 +202,8 @@ void send_sgi_grp1(unsigned int id, unsigned int mode,
     WRITE_SYSREG(id, ICC_EL1(SGI1R));
 }
 
-void send_alias_sgi_grp1(unsigned int id, unsigned int mode,
+void send_alias_sgi_grp1(unsigned int id,
+        unsigned int mode,
         unsigned int targets)
 {
     id |= mode;

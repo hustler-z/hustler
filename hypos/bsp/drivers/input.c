@@ -9,6 +9,7 @@
 #include <generic/timer.h>
 #include <bsp/input.h>
 #include <bsp/sdev.h>
+#include <bsp/debug.h>
 #include <bsp/check.h>
 #include <bsp/console.h>
 #include <lib/math.h>
@@ -208,7 +209,7 @@ static int input_queue_ascii(struct input_config *config, int ch)
 			return -1; /* buffer full */
 		config->fifo_in++;
 	}
-	hyp_dbg(" {%02x} ", ch);
+	DEBUG(" {%02x} ", ch);
 	config->fifo[config->fifo_in] = (unsigned char)ch;
 
 	return 0;
@@ -292,7 +293,7 @@ static struct input_key_xlate *process_modifier(struct input_config *config,
 #ifdef CONFIG_DM_KEYBOARD
 			if (ops->update_leds) {
 				if (ops->update_leds(dev, config->leds))
-					hyp_dbg("Update keyboard's LED failed\n");
+					DEBUG("Update keyboard's LED failed\n");
 			}
 #endif
 		}
@@ -346,7 +347,7 @@ static int input_check_keycodes(struct input_config *config,
 {
 	/* Select the 'plain' xlate table to start with */
 	if (!config->num_tables) {
-		hyp_dbg("%s: No xlate tables: cannot decode keys\n", __func__);
+		DEBUG("%s: No xlate tables: cannot decode keys\n", __func__);
 		return -1;
 	}
 
@@ -431,7 +432,7 @@ static int input_keycodes_to_ascii(struct input_config *config,
 	}
 
 	if (ch_count > max_chars) {
-		hyp_dbg("%s: Output char buffer overflow size=%d, need=%d\n",
+		DEBUG("%s: Output char buffer overflow size=%d, need=%d\n",
 		      __func__, max_chars, ch_count);
 		return -1;
 	}
@@ -505,10 +506,10 @@ int input_add_keycode(struct input_config *config, int new_keycode,
 
     if (!release && new_keycode != -1)
         keycode[count++] = new_keycode;
-    hyp_dbg("\ncodes for %02x/%d: ", new_keycode, release);
+    DEBUG("\ncodes for %02x/%d: ", new_keycode, release);
     for (i = 0; i < count; i++)
-        hyp_dbg("%02x ", keycode[i]);
-    hyp_dbg("\n");
+        DEBUG("%02x ", keycode[i]);
+    DEBUG("\n");
 
     /* Don't output any ASCII characters if this is a key release */
     return _input_send_keycodes(config, keycode, count, !release);
@@ -520,7 +521,7 @@ int input_add_table(struct input_config *config, int left_keycode,
     struct input_key_xlate *table;
 
     if (config->num_tables == INPUT_MAX_MODIFIERS) {
-        hyp_dbg("%s: Too many modifier tables\n", __func__);
+        DEBUG("%s: Too many modifier tables\n", __func__);
         return -1;
     }
 

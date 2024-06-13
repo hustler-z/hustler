@@ -9,9 +9,9 @@
 #ifndef _BSP_PROCESS_H
 #define _BSP_PROCESS_H
 // --------------------------------------------------------------
+#include <asm-generic/section.h>
 
-
-void bsp_process_setup(void);
+void __bootfunc process_setup(void);
 
 // --------------------------------------------------------------
 #endif /* _BSP_PROCESS_H */

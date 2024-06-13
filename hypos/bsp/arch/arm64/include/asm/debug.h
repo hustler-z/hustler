@@ -60,17 +60,25 @@ label:  .asciz msg;                         \
     mov   lr, x4
 .endm
 
-/* Early stamp for walking thru the assembly code
- */
-.macro stamp  ch
-    ldr   x2, =ARCH_EARLY_UART_PA
-    mov   w3, \ch
-    strb  w3, [x2]
-.endm
+#else /* __ASSEMBLY__ */
 
-// #define BOOT_ARGS_DEBUG    (1)
+void arch_puts(const char *s, unsigned long base);
 
-#endif /* __ASSEMBLY__ */
+static inline void arch_debug(const char *s)
+{
+    unsigned long base;
+
+    if (mmu_enabled())
+        base = DEBUG_UART_VA;
+    else
+        base = DEBUG_UART_PA;
+
+    /* XXX: Implemented in debug.S
+     */
+    arch_puts(s, base);
+}
+
+#endif /* !__ASSEMBLY__ */
 
 // --------------------------------------------------------------
 #endif /* _ARCH_DEBUG_H */

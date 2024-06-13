@@ -9,7 +9,7 @@
 #include <asm-generic/globl.h>
 #include <bsp/device.h>
 #include <bsp/alloc.h>
-#include <bsp/stdio.h>
+#include <bsp/debug.h>
 #include <generic/errno.h>
 #include <generic/type.h>
 #include <lib/strops.h>
@@ -50,7 +50,7 @@ static int hypos_device_bind(struct hypos_driver *drv,
 
     dev = balloc(sizeof(struct hypos_device));
     if (!dev) {
-        hyp_dbg("[dev] allocate device failed!!\n");
+        DEBUG("[dev] allocate device failed!!\n");
         return -ENOMEM;
     }
 
@@ -79,7 +79,7 @@ static int hypos_device_scan_and_probe(void)
             if (!ret)
                 each->probe(each->devp);
         } else {
-            hyp_dbg("[dev] %s has been disabled!!\n",
+            DEBUG("[dev] %s has been disabled!!\n",
                     each->name);
             ret = -ENODEV;
         }
