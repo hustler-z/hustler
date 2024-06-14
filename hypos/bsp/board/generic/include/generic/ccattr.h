@@ -24,6 +24,8 @@
 
 #define __always_inline    inline __attribute__((__always_inline__))
 
+#define barrier()          __asm__ __attribute__("": : :"memory")
+
 #define RELOC_HIDE(ptr, off)   ({          \
     unsigned long __ptr;                   \
     __asm__ ("" : "=r"(__ptr) : "0"(ptr)); \

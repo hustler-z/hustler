@@ -13,7 +13,7 @@
 
 #include <generic/type.h>
 
-struct hyp_regs {
+struct hypos_regs {
     u64 x0;
     u64 x1;
     u64 x2;
@@ -48,8 +48,8 @@ struct hyp_regs {
     u64 lr;      /* x30 */
 
     u64 sp;
+    u64 pc;      /* ELR_EL2 */
 
-    u64 elr;     /* ELR_EL2 */
     u64 cpsr;    /* SPSR_EL2 */
     u64 esr;     /* ESR_EL2 */
 
@@ -64,6 +64,11 @@ struct hyp_regs {
     /* AArch64 guests only */
     u64 sp_el0;
     u64 sp_el1, elr_el1;
+};
+
+struct hypos_cpu {
+    struct hypos_regs hypos_regs;
+    u32 flags;
 };
 
 #endif /* !__ASSEMBLY__ */

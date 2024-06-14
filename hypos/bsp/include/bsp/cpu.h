@@ -14,9 +14,7 @@
 #include <rk3568/board.h>
 #endif
 
-#define NR_CPU     NR_BOARD_CPU
-
-void bsp_cpu_setup(void);
+#define NR_CPUS  NR_BOARD_CPU
 
 // --------------------------------------------------------------
 #endif /* _BSP_CPU_H */

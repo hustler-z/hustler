@@ -20,6 +20,7 @@ else
 CROSS_COMPILE ?=
 endif
 CC          := $(CROSS_COMPILE)gcc
+CX          := $(CROSS_COMPILE)cpp
 LD          := $(CROSS_COMPILE)ld
 AS          := $(CROSS_COMPILE)as
 OBJCOPY     := $(CROSS_COMPILE)objcopy
@@ -72,8 +73,7 @@ PATH_BSPS    := $(OUTPUT)/bsp
 PATH_HYPS    := $(OUTPUT)/hyp
 PATH_LIBS    := $(OUTPUT)/lib
 
-ldscript     := bsp/arch/$(ARCH)/hypos.ld
-
+lds          := $(addprefix $(PATH_ARCH)/,$(lds-y))
 bspsco       := $(addprefix $(PATH_BSPS)/,$(bsp-y))
 archco       := $(addprefix $(PATH_ARCH)/,$(armc-y))
 archao       := $(addprefix $(PATH_ARCH)/,$(arma-y))
@@ -83,7 +83,7 @@ drivco       := $(addprefix $(PATH_DRIV)/,$(drivers-y))
 hypsco       := $(addprefix $(PATH_HYPS)/,$(hyps-y))
 libsco       := $(addprefix $(PATH_LIBS)/,$(libs-y))
 
-hyposo       := $(archao) $(archco) $(bspsco) $(brdgco) \
+hyposo       := $(archco) $(archao) $(bspsco) $(brdgco) \
                 $(brdtco) $(drivco) $(hypsco) $(libsco)
 # ----------------------------------------------------------
 ifeq ($(V),1)
@@ -117,6 +117,10 @@ cc_cc      = $(Q)mkdir -p `dirname $(1)`; \
 cc_as      = $(Q)mkdir -p `dirname $(1)`; \
              echo "AS       $(subst $(OUTPUT)/,,$(1))"; \
              $(CC) $(ASFLAGS) $(INCDIRS) -c $(2) -o $(1)
+
+cc_lds     = $(Q)mkdir -p `dirname $(1)`; \
+             echo "LDS      $(subst $(OUTPUT)/,,$(1))"; \
+			 $(CX) -P $(ASFLAGS) $(INCDIRS) -DLINKER_SCRIPT -o $(1) $(2)
 # ----------------------------------------------------------
 define all_sources
 	(find $(WKDIR) -type f -name '*.[chS]' -print)
@@ -127,8 +131,8 @@ all: $(BIN)
 $(BIN): $(ELF)
 	$(call cc_objcopy,$@,$<)
 
-$(ELF): $(hyposo)
-	$(call cc_ld,$@,$(ldscript),$^)
+$(ELF): $(hyposo) $(lds)
+	$(call cc_ld,$@,$(lds),$(filter-out $(lds),$^))
 	$(call cc_objdump,$@)
 	$(call cc_readelf,$@)
 
@@ -151,6 +155,8 @@ $(hypsco): $(PATH_HYPS)/%.o: $(SPATH_HYPS)/%.c
 	$(call cc_cc,$@,$<)
 $(libsco): $(PATH_LIBS)/%.o: $(SPATH_LIBS)/%.c
 	$(call cc_cc,$@,$<)
+$(lds): $(PATH_ARCH)/%.lds: $(SPATH_ARCH)/%.lds.S
+	$(call cc_lds,$@,$<)
 # ----------------------------------------------------------
 .PHONY: tags
 tags:

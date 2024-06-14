@@ -17,7 +17,7 @@
 static unsigned char __initdata boot_cpu_stack[STACK_SIZE]
     __attribute__((__aligned__(STACK_SIZE)));
 
-struct init_info init_stack = {
+struct arch_stack boot_stack = {
     .stack = boot_cpu_stack,
     .cpuid = 0,
 };

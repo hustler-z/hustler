@@ -45,9 +45,9 @@ static void dump_far(unsigned long esr)
     MSG(", far 0x%lx", far);
 }
 
-static void dump_instr(struct hyp_regs *regs)
+static void dump_instr(struct hypos_regs *regs)
 {
-    u32 *addr = (u32 *)(regs->elr & ~3UL);
+    u32 *addr = (u32 *)(regs->pc & ~3UL);
     int i;
 
     MSG("code: ");
@@ -56,9 +56,9 @@ static void dump_instr(struct hyp_regs *regs)
     MSG("\n");
 }
 
-void show_regs(struct hyp_regs *regs)
+void show_regs(struct hypos_regs *regs)
 {
-    MSG("elr: %016lx lr : %016lx\n", regs->elr, regs->lr);
+    MSG("elr: %016lx lr : %016lx\n", regs->pc,  regs->lr);
     MSG("x0 : %016lx x1 : %016lx\n", regs->x0,  regs->x1);
     MSG("x2 : %016lx x3 : %016lx\n", regs->x2,  regs->x3);
     MSG("x4 : %016lx x5 : %016lx\n", regs->x4,  regs->x5);
@@ -79,7 +79,7 @@ void show_regs(struct hyp_regs *regs)
     dump_instr(regs);
 }
 
-void do_bad_sync(struct hyp_regs *regs)
+void do_bad_sync(struct hypos_regs *regs)
 {
     dump_far(regs->esr);
 }
@@ -87,7 +87,7 @@ void do_bad_sync(struct hyp_regs *regs)
 /*
  * do_bad_irq handles the impossible case in the Irq vector.
  */
-void do_bad_irq(struct hyp_regs *regs)
+void do_bad_irq(struct hypos_regs *regs)
 {
     dump_far(regs->esr);
 }
@@ -95,7 +95,7 @@ void do_bad_irq(struct hyp_regs *regs)
 /*
  * do_bad_fiq handles the impossible case in the Fiq vector.
  */
-void do_bad_fiq(struct hyp_regs *regs)
+void do_bad_fiq(struct hypos_regs *regs)
 {
     dump_far(regs->esr);
 }
@@ -103,7 +103,7 @@ void do_bad_fiq(struct hyp_regs *regs)
 /*
  * do_bad_error handles the impossible case in the Error vector.
  */
-void do_bad_error(struct hyp_regs *regs)
+void do_bad_error(struct hypos_regs *regs)
 {
     dump_far(regs->esr);
 }
@@ -111,7 +111,7 @@ void do_bad_error(struct hyp_regs *regs)
 /*
  * do_sync handles the Synchronous Abort exception.
  */
-void do_sync(struct hyp_regs *regs)
+void do_sync(struct hypos_regs *regs)
 {
 
 }
@@ -119,7 +119,7 @@ void do_sync(struct hyp_regs *regs)
 /*
  * do_irq handles the Irq exception.
  */
-void do_irq(struct hyp_regs *regs)
+void do_irq(struct hypos_regs *regs)
 {
 
 }
@@ -127,7 +127,7 @@ void do_irq(struct hyp_regs *regs)
 /*
  * do_fiq handles the Fiq exception.
  */
-void do_fiq(struct hyp_regs *regs)
+void do_fiq(struct hypos_regs *regs)
 {
 
 }
@@ -138,7 +138,7 @@ void do_fiq(struct hyp_regs *regs)
  * it is defined with weak attribute and can be redefined
  * in processor specific code.
  */
-void __weak do_error(struct hyp_regs *regs)
+void __weak do_error(struct hypos_regs *regs)
 {
 
 }

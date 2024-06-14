@@ -58,7 +58,7 @@
 
 /* Memory Layout
  * --------------------------------------------------------------------
- * HYPERVISOR_VIRT_START
+ * HYPOS_VIRT_START
  * IDENTITY MAPPING RESERVED
  * 8MB    DATA_VIRT_SIZE               - bss, data, etc.
  * 2MB    FIXMAP_VIRT_SIZE             - FIXMAP
@@ -85,8 +85,8 @@
 #define GUEST_HEAP_VIRT_START  (HYPER_HEAP_VIRT_START + HYPER_HEAP_VIRT_SIZE)
 #define GUEST_HEAP_VIRT_SIZE   _AT(vaddr_t, GB(2))
 
-#define HYPERVISOR_VIRT_START  DATA_VIRT_START
-#define HYPERVISOR_VIRT_END    (GUEST_HEAP_VIRT_START + GUEST_HEAP_VIRT_SIZE)
+#define HYPOS_VIRT_START  DATA_VIRT_START
+#define HYPOS_VIRT_END    (GUEST_HEAP_VIRT_START + GUEST_HEAP_VIRT_SIZE)
 
 /* Calculate the offsets into the pagetbls for a given VA */
 #define PGTBL0_LINEAR_OFFSET(va) ((va) >> PGTBL_LEVEL_SHIFT(0))

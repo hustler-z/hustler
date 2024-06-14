@@ -6,6 +6,9 @@
  * Usage: linker script for hypos project
  */
 
+#include <asm/page.h>
+#include <asm/ttbl.h>
+
 OUTPUT_FORMAT("elf64-littleaarch64")
 OUTPUT_ARCH("aarch64")
 ENTRY(_head)
@@ -26,7 +29,7 @@ PHDRS {
 
 SECTIONS
 {
-    . = 0x00200000;
+    . = HYPOS_VIRT_START;
 
     __hypos_start = .;
 
@@ -43,7 +46,7 @@ SECTIONS
         __boot_end = .;
     } : text
 
-    . = ALIGN(0x1000);
+    . = ALIGN(PAGE_SIZE);
 
     .text : {
         __text_start = .;
@@ -52,7 +55,7 @@ SECTIONS
         __text_end = .;
     } : text
 
-    . = ALIGN(0x1000);
+    . = ALIGN(PAGE_SIZE);
 
     .rodata : {
         __rodata_start = .;
@@ -61,7 +64,7 @@ SECTIONS
         __rodata_end = .;
     } : text
 
-    . = ALIGN(0x1000);
+    . = ALIGN(PAGE_SIZE);
 
     .data : {
         __data_start = .;
@@ -71,7 +74,7 @@ SECTIONS
         __data_end = .;
     } : data
 
-    . = ALIGN(0x1000);
+    . = ALIGN(PAGE_SIZE);
 
     /* Use for storing global data:
      * (a) device drivers
@@ -82,7 +85,7 @@ SECTIONS
         . = ALIGN(8);
     } : data
 
-    . = ALIGN(0x1000);
+    . = ALIGN(PAGE_SIZE);
 
     .bss : {
         __bss_start = .;
@@ -92,28 +95,28 @@ SECTIONS
         __bss_end = .;
     } : data
 
-    . = ALIGN(0x1000);
+    . = ALIGN(PAGE_SIZE);
 
     .heap : {
         __heap_start = .;
         *(.heap)
-        . = . + 0x1000;
+        . = . + PAGE_SIZE;
         . = ALIGN(8);
         __heap_end = .;
     }
 
-    . = ALIGN(0x1000);
+    . = ALIGN(PAGE_SIZE);
 
     .hyp_stack : {
         __hyp_stack_start = .;
-        . = . + 0x1000;
+        . = . + STACK_SIZE;
         . = ALIGN(8);
         __hyp_stack_end = .;
     }
 
     .guest_stack : {
         __guest_stack_start = .;
-        . = . + 0x1000;
+        . = . + STACK_SIZE;
         . = ALIGN(8);
         __guest_stack_end = .;
     }

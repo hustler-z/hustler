@@ -13,7 +13,7 @@
 
 #include <asm/hypregs.h>
 
-struct init_info {
+struct arch_stack {
     unsigned char *stack;
     unsigned int  cpuid;
 };

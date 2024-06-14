@@ -10,6 +10,8 @@
 #define _ARCH_GICV3_H
 // --------------------------------------------------------------
 
+#ifndef __ASSEMBLY__
+
 /* CPU Interfaces
  * -----------------------------------------------------------------------
  * Physical CPU Interface | Virtualization Control | Virtual CPU Interface
@@ -83,6 +85,8 @@ void send_sgi_grp1(unsigned int id, unsigned int mode,
 void send_alias_sgi_grp1(unsigned int id, unsigned int mode,
         unsigned int targets);
 #endif /* ICC_ELx */
+
+#endif /* !__ASSEMBLY__ */
 // --------------------------------------------------------------
 
 #endif /* _ARCH_GICV3_H */

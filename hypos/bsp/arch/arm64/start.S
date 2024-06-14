@@ -16,12 +16,17 @@
  * x20        - phys offset
  * x21        - bootloader argument
  * x23        - debug uart address
+ *
+ * XXX: Keep in mind that the very start address is linked to
+ *      HYPOS_VIRT_START, and loaded at any 4k-aligned address.
  * --------------------------------------------------------------
  */
 
 #include <asm/define.h>
 #include <asm/debug.h>
 #include <asm/sysregs.h>
+#include <asm/gicv3.h>
+
 // --------------------------------------------------------------
 
     __HEAD
@@ -70,39 +75,33 @@ bootcpu:
     dump_reg x1
     DBG(" -\r\n")
 
-    b    el2_entry
+    bl   el2_entry
 
-/* Note Boot CPU Initialization
- * --------------------------------------------------------------
- * (a) Set up page table
- * (b) Enable MMU
- * (c) Set boot CPU stack
- * (d) Enter C
- * --------------------------------------------------------------
- */
-FUNC_LOCAL(bootcpu_entry)
     ldr  lr, =runtime_switched
+
     /* MMU early setup */
     b    bootcpu_mmu_setup
 
 runtime_switched:
+    /* Zero out bss section */
+    bl   zero_bss
+
+    /* Set up traps */
+    bl   setup_traps
+
     /* Enable all exception */
     msr  DAIFClr, #0xF
 
-    /* Zero out bss section */
-    bl   zero_bss
+    DBG("- BSP Setup -\r\n")
 
     /* setup hyp stack and ready for C
      */
     ldr  x3, =__hyp_stack_end
     mov  sp, x3
 
-    DBG("- BSP Setup -\r\n")
-
     mov  x0, x20 /* phys_offset */
     mov  x1, x21
     b    bsp_setup
-END(bootcpu_entry)
 
 /* TODO
  * SMP boot entry: after bootcpu's up, time to kick other cpus up
@@ -136,13 +135,6 @@ FUNC_LOCAL(el2_entry)
 
 el2_setup:
 
-    /* Set up Hypervisor Configuration Register (EL2)
-     * defines various ops trapped to EL2
-     */
-    DBG("- Set HCR_EL2 -\r\n")
-    ldr  x0, =HCR_EL2_SET
-    msr  HCR_EL2, x0
-
     /* Set up Memory Attribute Indirection Register (EL2)
      */
     DBG("- Set MAIR_EL2 -\r\n")
@@ -162,20 +154,6 @@ el2_setup:
     bfi  x0, x1, #16, #3
     msr  TCR_EL2, x0
 
-    /* Set up Virtualization Translation Control Register (EL2)
-     * controls stage 2 of EL1 & EL0 translation regime.
-     */
-    DBG("- Set VTCR_EL2 -\r\n")
-    ldr  x0, =VTCR_EL2_SET
-    msr  VTCR_EL2, x0
-
-    /* Set up Vector Base Address Register (EL2)
-     * (self-explanatory)
-     */
-    DBG("- Set VBAR_EL2 -\r\n")
-    ldr  x0, =hyp_vectors
-    msr  VBAR_EL2, x0
-
     isb
 
     /* Ensure we use SP_EL2 to handle any
@@ -183,7 +161,7 @@ el2_setup:
      */
     msr  SPSel, #1
 
-    b    bootcpu_entry
+    ret
 END(el2_entry)
 
 /* Note BSS - Better Save Space
@@ -195,12 +173,12 @@ FUNC_LOCAL(zero_bss)
 
 #if 1
     adr_l x5, __bss_start
-    DBG("- BSS [0x")
+    DBG("- BSS   [0x")
     dump_reg x5
-    DBG(" - 0x")
+    DBG(" ~ 0x")
     adr_l x6, __bss_end
     dump_reg x6
-    DBG(" ] -\r\n")
+    DBG("] -\r\n")
 #endif
 
     adr_l x0, __bss_start
@@ -214,6 +192,43 @@ FUNC_LOCAL(zero_bss)
 
     ret
 END(zero_bss)
+
+FUNC_LOCAL(setup_traps)
+    /* Set up Vector Base Address Register (EL2)
+     * (self-explanatory)
+     */
+    DBG("- Set VBAR_EL2 -\r\n")
+    ldr  x0, =hyp_vectors
+    msr  VBAR_EL2, x0
+
+    /* Monitor Debug Configuration Register (EL2)
+     * Provides EL2 configuration options for self-hosted
+     * debug and the Performance Monitors Extension.
+     */
+    DBG("- Set MDCR_EL2 -\r\n")
+    ldr  x0, =MDCR_EL2_SET
+    msr  MDCR_EL2, x0
+
+    /* Achitectural Feature Trap Register (EL2)
+     * Controls trapping to EL2 of accesses to CPACR,
+     * CPACR_EL1, trace, Activity Monitor, SVE, and
+     * Advanced SIMD and floating-point functionality.
+     */
+    DBG("- Set CPTR_EL2 -\r\n")
+    ldr  x0, =CPTR_EL2_SET
+    msr  CPTR_EL2, x0
+
+    /* Set up Hypervisor Configuration Register (EL2)
+     * To route exception to EL2, set HCR_EL2.{AMO, FMO, IMO}
+     */
+    DBG("- Set HCR_EL2 -\r\n")
+    ldr  x0, =HCR_EL2_SET
+    msr  HCR_EL2, x0
+
+    isb
+
+    ret
+END(setup_traps)
 
 /* Note hypos boot failed
  */

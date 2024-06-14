@@ -8,20 +8,18 @@
 
 #include <asm/ttbl.h>
 #include <asm/setup.h>
+#include <asm/debug.h>
 #include <asm-generic/globl.h>
 #include <bsp/process.h>
 #include <bsp/alloc.h>
 #include <bsp/cpu.h>
 #include <bsp/sdev.h>
-#include <bsp/percpu.h>
 #include <bsp/console.h>
 #include <generic/exit.h>
 #include <generic/board.h>
 #include <generic/gicv3.h>
 #include <generic/memory.h>
 #include <bsp/bootchain.h>
-
-unsigned long __percpu_offset[NR_CPU];
 
 /* TODO
  * --------------------------------------------------------------
@@ -66,6 +64,7 @@ static boot_func_t hypos_boot_sequence[] = {
 void bsp_setup(unsigned long phys_offset,
         unsigned long boot_args)
 {
+    arch_debug("[hypos] Welcome to C world\r\n");
     /* Normal booting process, initiate hypos services. my
      * goal here is to implement basic console and be able
      * to run basic virtual machine on this by executing a

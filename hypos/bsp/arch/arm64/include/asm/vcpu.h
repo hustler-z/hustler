@@ -33,7 +33,7 @@ struct arch_vcpu {
 
     void *stack;
 
-    struct mcpu_info *mcpu_info;
+    struct hypos_cpu *hypos_cpu_info;
 
     u64 far;
     u32 esr;

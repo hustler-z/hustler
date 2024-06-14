@@ -139,17 +139,17 @@
 /* Note MMU setup for boot CPU
  */
 FUNC(bootcpu_mmu_setup)
-    mov  x6, lr
+    mov  x17, lr
     bl   page_table_setup
 
     load_paddr x0, boot_pgtbl0
-    mov  x1, #0
+    ldr  x1, =SCTLR_EL2_SET
     bl   mmu_enable
 
     /* Switch to runtime mapping */
     ldr  x0, =1f
     br   x0
-1:  mov  lr, x6
+1:  mov  lr, x17
 
     b    remove_idmap
 END(bootcpu_mmu_setup)
@@ -179,13 +179,13 @@ END(bootcpu_mmu_setup)
  *      resolves additional bits.
  */
 FUNC_LOCAL(page_table_setup)
-    ldr  x0, =HYPERVISOR_VIRT_START
+    ldr  x0, =HYPOS_VIRT_START
 
     create_ttbl_entry boot_pgtbl0, boot_pgtbl1, x0, 0, x1, x2, x3
     create_ttbl_entry boot_pgtbl1, boot_pgtbl2, x0, 1, x1, x2, x3
 
     load_paddr x4, boot_pgtbl3
-    ldr  x1, =HYPERVISOR_VIRT_START
+    ldr  x1, =HYPOS_VIRT_START
 
 .rept DATA_NR_ENTRIES(2)
     mov  x0, x4
@@ -233,7 +233,7 @@ FUNC_LOCAL(page_table_setup)
     /* Note Identity Mapping
      *
      * Identity mapping is needed when hypos is loaded exactly at
-     * HYPERVISOR_VIRT_START.
+     * HYPOS_VIRT_START.
      *
      *     :                    XXX: while enabling MMU, things
      *     |inst                might get weird due to CPU
@@ -254,25 +254,28 @@ FUNC_LOCAL(page_table_setup)
      *
      * ----------------------------------------------------------
      */
-    ldr  x0, =HYPERVISOR_VIRT_START
+    ldr  x0, =HYPOS_VIRT_START
     cmp  x19, x0
     bne  1f
+
+    DBG("- Set Boot Page Table without ID Mapping -\r\n")
+
     ret
 
 1:  get_ttbl_slot x0, x19, 0
-    cmp  x0, #PGTBL0_OFFSET(HYPERVISOR_VIRT_START)
+    cmp  x0, #PGTBL0_OFFSET(HYPOS_VIRT_START)
     beq  1f
     create_ttbl_entry boot_pgtbl0, boot_idmap1, x19, 0, x0, x1, x2
     b    from_boot_idmap1
 
 1:  get_ttbl_slot x0, x19, 1
-    cmp  x0, #PGTBL1_OFFSET(HYPERVISOR_VIRT_START)
+    cmp  x0, #PGTBL1_OFFSET(HYPOS_VIRT_START)
     beq  1f
     create_ttbl_entry boot_pgtbl1, boot_idmap2, x19, 1, x0, x1, x2
     b    from_boot_idmap2
 
 1:  get_ttbl_slot x0, x19, 2
-    cmp  x0, #PGTBL2_OFFSET(HYPERVISOR_VIRT_START)
+    cmp  x0, #PGTBL2_OFFSET(HYPOS_VIRT_START)
     beq  pgtbl_fatal
     create_ttbl_entry boot_pgtbl2, boot_idmap3, x19, 2, x0, x1, x2
     b    from_boot_idmap3
@@ -292,7 +295,7 @@ from_boot_idmap3:
     ldr  x0, =FIXMAP_ADDR(0)
     create_ttbl_entry boot_pgtbl2, hypos_fixmap, x0, 2, x1, x2, x3
 
-    DBG("- Set Boot Page Table -\r\n")
+    DBG("- Set Boot Page Table with ID Mapping -\r\n")
 
     ret
 
@@ -303,7 +306,7 @@ pgtbl_fatal:
     b    boot_failed
 END(page_table_setup)
 
-/* Note Turn on the dcache and the MMU.
+/* Note Turn on the D-cache, I-cache and the MMU.
  */
 FUNC_LOCAL(mmu_enable)
     mov  x4, x0
@@ -321,8 +324,6 @@ FUNC_LOCAL(mmu_enable)
     orr  x0, x0, #SCTLR_Axx_ELx_M  /* Enable MMU */
     orr  x0, x0, #SCTLR_Axx_ELx_C  /* Enable D-cache */
     orr  x0, x0, #SCTLR_Axx_ELx_I  /* Enable I-cache */
-    orr  x0, x0, #SCTLR_A64_ELx_SA /* Enable SP Alignment Check */
-    orr  x0, x0, #SCTLR_Axx_ELx_A  /* Enable Alignment Check */
     orr  x0, x0, x5
     dsb  sy
     msr  SCTLR_EL2, x0
@@ -340,38 +341,35 @@ END(mmu_enable)
  * x19               =  paddr(_head)
  */
 FUNC_LOCAL(remove_idmap)
-    DBG("- Remove Idmap -\r\n")
+    DBG("- Remove ID Mapping -\r\n")
 
     get_ttbl_slot x1, x19, 0
-    cmp   x1, #PGTBL0_OFFSET(HYPERVISOR_VIRT_START) /* 0x14 */
+    cmp   x1, #PGTBL0_OFFSET(HYPOS_VIRT_START) /* 0x14 */
     beq   1f
 
-    DBG("- From Boot Page Table 0 -\r\n")
     ldr   x0, =boot_pgtbl0
     str   xzr, [x0, x1, lsl #3]
     b     idmap_removed
 
 1:  get_ttbl_slot x1, x19, 1
-    cmp   x1, #PGTBL1_OFFSET(HYPERVISOR_VIRT_START)
+    cmp   x1, #PGTBL1_OFFSET(HYPOS_VIRT_START)
     beq   1f
 
-    DBG("- From Boot Page Table 1 -\r\n")
     ldr   x0, =boot_pgtbl1
     str   xzr, [x0, x1, lsl #3]
     b     idmap_removed
 
 1:  get_ttbl_slot x1, x19, 2
-    cmp   x1, #PGTBL2_OFFSET(HYPERVISOR_VIRT_START)
+    cmp   x1, #PGTBL2_OFFSET(HYPOS_VIRT_START)
     beq   idmap_removed
 
-    DBG("- From Boot Page Table 2 -\r\n")
     ldr   x0, =boot_pgtbl2
     str   xzr, [x0, x1, lsl #3]
 
 idmap_removed:
     flush_local_tlb
 
-    DBG("- Idmap Removed -\r\n")
+    DBG("- ID Mapping Removed -\r\n")
 
     ret
 END(remove_idmap)

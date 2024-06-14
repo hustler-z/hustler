@@ -17,3 +17,4 @@ bsp-y += env.o
 bsp-y += device.o
 bsp-y += stdio.o
 bsp-y += check.o
+bsp-y += percpu.o

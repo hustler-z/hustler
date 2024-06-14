@@ -74,8 +74,7 @@
                                    BIT(20, UL) | BIT(21, UL) | BIT(24, UL) |\
                                    BIT(26, UL) | BIT(27, UL) | BIT(30, UL) |\
                                    BIT(31, UL) | (0xFFFFFFFFULL << 32))
-#define SCTLR_EL2_SET             (SCTLR_EL2_RES1    | SCTLR_A64_ELx_SA  |\
-                                   SCTLR_Axx_ELx_I)
+#define SCTLR_EL2_SET              SCTLR_EL2_RES1
 #define SCTLR_EL2_CLEAR           (SCTLR_EL2_RES0    | SCTLR_Axx_ELx_M   |\
                                    SCTLR_Axx_ELx_A   | SCTLR_Axx_ELx_C   |\
                                    SCTLR_Axx_ELx_WXN | SCTLR_Axx_ELx_EE)
@@ -99,6 +98,21 @@
 #define MAIR1VAL                  (_MAIR1(0x04, MT_DEVICE_nGnRE) | \
                                    _MAIR1(0xFF, MT_NORMAL))
 #define MAIR_EL2_SET              (MAIR1VAL << 32 | MAIR0VAL)
+
+#define MDCR_TDRA       (_AC(1,U) << 11)   /* Trap Debug ROM access */
+#define MDCR_TDOSA      (_AC(1,U) << 10)   /* Trap Debug-OS-related register access */
+#define MDCR_TDA        (_AC(1,U) << 9)    /* Trap Debug Access */
+#define MDCR_TDE        (_AC(1,U) << 8)    /* Route Soft Debug exceptions from EL1/EL1 to EL2 */
+#define MDCR_TPM        (_AC(1,U) << 6)    /* Trap Performance Monitors accesses */
+#define MDCR_TPMCR      (_AC(1,U) << 5)    /* Trap PMCR accesses */
+#define MDCR_EL2_SET    (MDCR_TDRA | MDCR_TDOSA | MDCR_TDA | MDCR_TPM | MDCR_TPMCR)
+
+#define CPTR_TAM       ((_AC(1,U) << 30))
+#define CPTR_TTA       ((_AC(1,U) << 20))  /* Trap trace registers */
+#define CPTR_CP(x)     ((_AC(1,U) << (x))) /* Trap Coprocessor x */
+#define CPTR_CP_MASK   ((_AC(1,U) << 14) - 1)
+#define CPTR_EL2_SET   ((CPTR_CP_MASK & ~(CPTR_CP(10) | CPTR_CP(11))) |\
+                         CPTR_TTA | CPTR_TAM)
 
 /* TCR_EL2 - Translation Control Register
  *
@@ -312,7 +326,19 @@
  * Virtual MMU Enable
  */
 #define HCR_VM                    (_AC(1, UL) << 0)
-#define HCR_EL2_SET               (HCR_VM | HCR_AMO | HCR_IMO | HCR_FMO)
+#define HCR_EL2_SET               (HCR_AMO | HCR_IMO | HCR_FMO)
+
+/* All ARMv8-A processors require the SMPEN bit to be set before
+ * enabling the MMU and cache to support hardware coherency.
+ */
+#define SMP_ENABLE_BIT            BIT(6, UL)
+
+/* The area of the instruction set space is reserved for
+ * IMPLEMENTATION DEFINED registers.
+ */
+#define IMPL_REGS(op1, cn, cm, op2) \
+    S3_ ## op1 ## _ ## cn ## _ ## cm ## _ ## op2
+
 // --------------------------------------------------------------
 #include <asm/alternative.h>
 

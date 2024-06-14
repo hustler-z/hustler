@@ -20,3 +20,6 @@ armc-y += gicv3.o
 armc-y += exception.o
 armc-y += ttbl.o
 armc-y += mutex.o
+armc-y += offset.o
+
+lds-y  += hypos.lds
