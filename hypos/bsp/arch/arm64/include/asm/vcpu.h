@@ -9,8 +9,7 @@
 #ifndef _ARCH_VCPU_H
 #define _ARCH_VCPU_H
 // --------------------------------------------------------------
-#include <asm/hypregs.h>
-#include <asm/setup.h>
+#include <asm/hcpu.h>
 #include <generic/type.h>
 
 struct arch_vcpu {
@@ -33,22 +32,22 @@ struct arch_vcpu {
 
     void *stack;
 
-    struct hypos_cpu *hypos_cpu_info;
+    struct hcpu *hcpu_info;
 
-    u64 far;
-    u32 esr;
+    register_t far;
+    register_t esr;
 
     register_t vbar;
     register_t ttbcr;
-    u64 ttbr0, ttbr1;
-    u64 par;
+    register_t ttbr0, ttbr1;
+    register_t par;
 
-    u64 mair;
-    u64 amair;
+    register_t mair;
+    register_t amair;
 
     register_t sctlr;
     register_t actlr;
-    u32 cpacr;
+    register_t cpacr;
 
     register_t tpidr_el0;
     register_t tpidr_el1;

@@ -8,10 +8,13 @@
 
 #include <generic/exit.h>
 #include <asm/exit.h>
+#include <bsp/debug.h>
 
 // --------------------------------------------------------------
 
 void hang(void) {
+    MSGH("Hypervisor crashed\n");
+
     for (;;)
         ;
 }

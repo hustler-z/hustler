@@ -62,21 +62,9 @@ label:  .asciz msg;                         \
 
 #else /* __ASSEMBLY__ */
 
-void arch_puts(const char *s, unsigned long base);
-
-static inline void arch_debug(const char *s)
-{
-    unsigned long base;
-
-    if (mmu_enabled())
-        base = DEBUG_UART_VA;
-    else
-        base = DEBUG_UART_PA;
-
-    /* XXX: Implemented in debug.S
-     */
-    arch_puts(s, base);
-}
+void early_putc(char c);
+void early_flush(void);
+void early_debug(const char *s);
 
 #endif /* !__ASSEMBLY__ */
 

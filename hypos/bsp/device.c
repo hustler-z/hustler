@@ -103,6 +103,8 @@ int device_setup(void)
 {
     int ret = -1;
 
+    MSGH("Device Platform Setup\n");
+
     if (!glb_is_initialized())
         return ret;
 

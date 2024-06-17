@@ -9,6 +9,7 @@
 #include <asm-generic/section.h>
 #include <generic/memory.h>
 #include <asm/ttbl.h>
+#include <bsp/debug.h>
 
 extern ttbl_t boot_pgtbl0[PGTBL_TTBL_ENTRIES];
 extern ttbl_t boot_pgtbl1[PGTBL_TTBL_ENTRIES];
@@ -26,6 +27,8 @@ extern ttbl_t hypos_fixmap[PGTBL_TTBL_ENTRIES];
  */
 int __bootfunc mem_setup(void)
 {
+    MSGH("Memory Allocator Setup\n");
+
     return 0;
 }
 // --------------------------------------------------------------

@@ -6,56 +6,62 @@
  * Usage:
  */
 
-#include <asm/hypregs.h>
-#include <asm/setup.h>
+#include <asm/hcpu.h>
 #include <lib/define.h>
 #include <hyp/sched.h>
 
+// --------------------------------------------------------------
 #define DEFINE(sym, val) \
-    asm volatile("\n.ascii \"->" #sym " %0 " #val "\"" : : "i" (val))
-
+	asm volatile("\n.ascii \"->" #sym " %0 " #val "\"" : : "i" (val))
 #define BLANK() asm volatile("\n.ascii \"->\"" : : )
-
 #define OFFSET(sym, str, mem) \
-    DEFINE(sym, offsetof(struct str, mem))
+	DEFINE(sym, offsetof(struct str, mem))
 
-#define COMMENT(x) \
-    asm volatile("\n.ascii \"->#" x "\"")
-
+/* Error: unaligned opcodes detected in executable segment!!!
+ * --------------------------------------------------------------
+ * XXX: How do we solve the problem above?
+ *      Obviously make those codes aligned.
+ * --------------------------------------------------------------
+ */
 void __offset__(void)
 {
-#if 0 /* Unaligned Opcode */
-    OFFSET(HYPOS_X0, hypos_regs, x0);
-    OFFSET(HYPOS_X1, hypos_regs, x1);
-    OFFSET(HYPOS_LR, hypos_regs, lr);
+    /* Hypervisor Registers
+     */
+    OFFSET(HCPU_X0, hcpu_regs, x0);
+    OFFSET(HCPU_X1, hcpu_regs, x1);
+    OFFSET(HCPU_LR, hcpu_regs, lr);
 
-    OFFSET(HYPOS_SP, hypos_regs, sp);
-    OFFSET(HYPOS_PC, hypos_regs, pc);
-    OFFSET(HYPOS_CPSR, hypos_regs, cpsr);
-    OFFSET(HYPOS_ESR, hypos_regs, esr);
+    OFFSET(HCPU_SP, hcpu_regs, sp);
+    OFFSET(HCPU_PC, hcpu_regs, pc);
+    OFFSET(HCPU_CPSR, hcpu_regs, cpsr);
+    OFFSET(HCPU_ESR, hcpu_regs, esr);
 
-    OFFSET(HYPOS_SPSR_EL1, hypos_regs, spsr_el1);
+    /* Guest Registers
+     */
+    OFFSET(HCPU_SPSR_EL1, hcpu_regs, spsr_el1);
+    OFFSET(HCPU_SP_EL0, hcpu_regs, sp_el0);
+    OFFSET(HCPU_SP_EL1, hcpu_regs, sp_el1);
+    OFFSET(HCPU_ELR_EL1, hcpu_regs, elr_el1);
 
-    OFFSET(HYPOS_SPSR_FIQ, hypos_regs, spsr_fiq);
-    OFFSET(HYPOS_SPSR_IRQ, hypos_regs, spsr_irq);
-    OFFSET(HYPOS_SPSR_UND, hypos_regs, spsr_und);
-    OFFSET(HYPOS_SPSR_ABT, hypos_regs, spsr_abt);
-
-    OFFSET(HYPOS_SP_EL0, hypos_regs, sp_el0);
-    OFFSET(HYPOS_SP_EL1, hypos_regs, sp_el1);
-    OFFSET(HYPOS_ELR_EL1, hypos_regs, elr_el1);
-
-    OFFSET(HYPOS_CORE_SIZE, hypos_regs, spsr_el1);
+    /* Hypervisor Registers Offset
+     */
+    OFFSET(HCPU_SIZE, hcpu_regs, spsr_el1);
     BLANK();
 
-    DEFINE(HYPOS_CPU_SIZE, sizeof(struct hypos_cpu));
-    OFFSET(HYPOS_CPU_FLAGS, hypos_cpu, flags);
+    /* Hypervisor CPU Setups
+     */
+    OFFSET(HCPU_FLAG, hcpu, flags);
     BLANK();
 
-    OFFSET(VCPU_SAVED_CONTEXT, vcpu, arch.saved_context);
+    /* Hypervisor Stack
+     */
+    OFFSET(HCPU_STACK, hcpu, stack);
+    OFFSET(HCPU_CONTEXT, hcpu, stack);
     BLANK();
 
-    OFFSET(BOOT_STACK, arch_stack, stack);
+    /* Virtual CPU Context
+     */
+    OFFSET(VCPU_CONTEXT, vcpu, arch.saved_context);
     BLANK();
-#endif
 }
+// --------------------------------------------------------------

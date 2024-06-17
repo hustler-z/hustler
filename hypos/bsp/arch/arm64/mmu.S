@@ -196,10 +196,10 @@ FUNC_LOCAL(page_table_setup)
 
 #if 1
     DBG("- HYPOS [0x")
-    ldr  x5, =__hypos_start
+    adr_l x5, __hypos_start
     dump_reg x5
-    DBG(" ~ 0x")
-    ldr  x6, =__hypos_end
+    DBG(" - 0x")
+    adr_l x6, __hypos_end
     dump_reg x6
     DBG("] -\r\n")
 #endif
@@ -398,6 +398,28 @@ FUNC(switch_ttbr_id)
 
     ret
 END(switch_ttbr_id)
+
+/* XXX: Parameters: x0 - dest
+ *
+ * DCZID_EL0 - Data Cache Zero ID Register (EL0)
+ *
+ * Indicates the block size that is written with byte values
+ * of 0 by the DC ZVA (Data Cache Zero by Address) System
+ * instruction.
+ *
+ * void zero_page(ttbl_t *pte)
+ */
+FUNC(zero_page)
+    mrs  x1, DCZID_EL0
+    and  w1, w1, #0x0F
+    mov  x2, #4
+    lsl  x1, x2, x1
+1:  dc   zva, x0
+    add  x0, x0, x1
+    tst  x0, #(PAGE_SIZE - 1)
+    bne  1b
+    ret
+END(zero_page)
 
 /* Note When stage 1 MMU disabled:
  *

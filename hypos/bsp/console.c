@@ -6,6 +6,7 @@
  * Usage: console initialization
  */
 
+#include <asm/debug.h>
 #include <asm-generic/globl.h>
 #include <asm-generic/section.h>
 #include <bsp/console.h>
@@ -106,10 +107,11 @@ void putc(const char c)
     if (glb_is_initialized() &&
             (glb->flags & GLB_DEV_INITIALIZED))
         fputc(stdout, c);
-    else {
+    else if (glb_is_initialized()) {
         pre_console_putc(c);
         serial_putc(c);
-    }
+    } else
+        early_putc(c);
 }
 
 void puts(const char *s)
@@ -117,10 +119,11 @@ void puts(const char *s)
     if (glb_is_initialized() &&
             (glb->flags & GLB_DEV_INITIALIZED))
         fputs(stdout, s);
-    else {
+    else if (glb_is_initialized()) {
         pre_console_puts(s);
         serial_puts(s);
-    }
+    } else
+        early_debug(s);
 }
 
 void flush(void)
@@ -128,8 +131,10 @@ void flush(void)
     if (glb_is_initialized() &&
             (glb->flags & GLB_DEV_INITIALIZED))
         fflush(stdout);
-    else
+    else if (glb_is_initialized())
         serial_flush();
+    else
+        early_flush();
 }
 // --------------------------------------------------------------
 
@@ -995,11 +1000,11 @@ int run_commandf(const char *fmt, ...)
 
 static void hypos_stamp(void)
 {
-    MSG("                __________    _________  \n");
-    MSG(" /A__/A /A  /A / ___/_  _/A  / ___/ __ A \n");
-    MSG(" V  __ AV A_V AV___A / // /_/ ___AA __ / \n");
-    MSG("  V_A V_AV____/____/ V/ V___A____AV/  V  HYPOS\n");
-    MSG("\n");
+    MSGI("                __________    _________  \n");
+    MSGI(" /A__/A /A  /A / ___/_  _/A  / ___/ __ A \n");
+    MSGI(" V  __ AV A_V AV___A / // /_/ ___AA __ / \n");
+    MSGI("  V_A V_AV____/____/ V/ V___A____AV/  V  HYPOS\n");
+    MSGI("\n");
 }
 
 int __bootfunc console_setup(void)

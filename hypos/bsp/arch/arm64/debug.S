@@ -49,16 +49,21 @@ FUNC(asm_puts)
     ret
 END(asm_puts)
 
-/* Note use during early boot time
- *
- * void arch_puts(const char *s,
- *         unsigned long base);
+/* Note Use during early boot time
  */
-FUNC(arch_puts)
-    mov  x23, x1
-    bl   asm_puts
+FUNC(early_putc)
+    ldr   x15, =DEBUG_UART_VA
+    early_uart_ready x15, 1
+    early_uart_transmit x15, w0
     ret
-END(arch_puts)
+END(early_putc)
+
+/* Flush the UART - The function is called by C */
+FUNC(early_flush)
+    ldr   x15, =DEBUG_UART_VA
+    early_uart_ready x15, 1
+    ret
+END(early_flush)
 
 /* Note Print Number
  *

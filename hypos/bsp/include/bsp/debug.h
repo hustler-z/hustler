@@ -17,13 +17,13 @@
 
 #if HYPOS_VMM_DEBUG_ON
 #define DEBUG(fmt, ...) \
-    pr("<HYPOS> "fmt, ##__VA_ARGS__)
+    pr("[debug] "fmt, ##__VA_ARGS__)
 #else
 #define DEBUG(fmt, ...)
 #endif
 
-#define MSG(fmt, ...) pr(fmt, ##__VA_ARGS__)
-
+#define MSGH(fmt, ...) pr("[hypos] "fmt, ##__VA_ARGS__)
+#define MSGI(fmt, ...) pr(fmt, ##__VA_ARGS__)
 
 // --------------------------------------------------------------
 #endif /* _BSP_DEBUG_H */

@@ -40,9 +40,9 @@ struct vcpu_stat {
 
 struct vcpu {
     /* virtual cpu ID */
-    int vcpu_id;
+    int vcpuid;
     /* Physical cpu ID */
-    int pcpu_id;
+    int hcpuid;
 
     struct vcpu       *vcpu_list;
     struct vcpu_sched *sched;

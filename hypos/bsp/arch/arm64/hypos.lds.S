@@ -15,9 +15,8 @@ ENTRY(_head)
 
 /* Program Headers => Segments
  *
- * Describe how the program should be loaded
- * into memory. here use PHDRS to avoid RWE
- * Permission to LOAD segments.
+ * Describe how the program should be loaded into memory,
+ * Use PHDRS to avoid RWE Permission to LOAD segments.
  *
  * Another solution to avoid RWE:
  * LDFLAGS += -Wl,--no-warn-rwx-segments
@@ -69,8 +68,9 @@ SECTIONS
     .data : {
         __data_start = .;
         *(.data.boot_pgtbl)
+        *(.data.init)
         *(.data .data.*)
-        . = ALIGN(8);
+        . = ALIGN(PAGE_SIZE);
         __data_end = .;
     } : data
 
@@ -96,30 +96,6 @@ SECTIONS
     } : data
 
     . = ALIGN(PAGE_SIZE);
-
-    .heap : {
-        __heap_start = .;
-        *(.heap)
-        . = . + PAGE_SIZE;
-        . = ALIGN(8);
-        __heap_end = .;
-    }
-
-    . = ALIGN(PAGE_SIZE);
-
-    .hyp_stack : {
-        __hyp_stack_start = .;
-        . = . + STACK_SIZE;
-        . = ALIGN(8);
-        __hyp_stack_end = .;
-    }
-
-    .guest_stack : {
-        __guest_stack_start = .;
-        . = . + STACK_SIZE;
-        . = ALIGN(8);
-        __guest_stack_end = .;
-    }
 
     __hypos_end = .;
 }

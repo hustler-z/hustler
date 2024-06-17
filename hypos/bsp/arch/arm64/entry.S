@@ -6,9 +6,6 @@
  * Usage:
  */
 
-#include <asm/define.h>
-#include <asm/hypregs.h>
-
 // --------------------------------------------------------------
 
 /* Initializing Exceptions
@@ -27,25 +24,21 @@
  * is 128B in size and contains at most 32 instructions. Vector
  * tables must be placed at a 2KB-aligned address. The addresses
  * are specified by initializing VBAR_ELn registers.
+ *
+ * TODO:
+ * (1) when exception happened, dump useful infos for later analysis
+ * (2) save and restore execution environment when possible
  */
 
 #include <asm/debug.h>
+#include <asm/define.h>
+#include <asm/offset.h>
 
 // --------------------------------------------------------------
+.macro hyp_entry
+    dmb  sy
 
-/* Stack pushing/popping register pairs
- */
-.macro push, xreg1, xreg2
-    stp \xreg1, \xreg2, [sp, #-16]!
-.endm
-
-.macro pop,  xreg1, xreg2
-    ldp \xreg1, \xreg2, [sp], #16
-.endm
-
-// --------------------------------------------------------------
-.macro hyp_arch_entry
-    sub  sp, sp, #(ARCH_REGS_SPSR_EL1 - ARCH_REGS_LR)
+    sub  sp, sp, #(HCPU_SPSR_EL1 - HCPU_LR)
     push x28, x29
     push x26, x27
     push x24, x25
@@ -62,19 +55,21 @@
     push x2,  x3
     push x0,  x1
 
-    stp lr, x21, [sp, #ARCH_REGS_LR]
-    mrs x21, elr_el2
-    str x21, [sp, #ARCH_REGS_PC]
+    add x21, sp, #HCPU_SIZE
 
-    add x21, sp, #ARCH_REGS_CPSR
+    stp lr, x21, [sp, #HCPU_LR]
+    mrs x21, elr_el2
+    str x21, [sp, #HCPU_PC]
+
+    add x21, sp, #HCPU_CPSR
     mrs x22, SPSR_EL2
     mrs x23, ESR_EL2
     stp x22, x23, [x21]
 .endm
 
-.macro hyp_arch_exit
-    ldr x21, [sp, #ARCH_REGS_PC]
-    ldr x22, [sp, #ARCH_REGS_CPSR]
+.macro hyp_exit
+    ldr x21, [sp, #HCPU_PC]
+    ldr x22, [sp, #HCPU_CPSR]
 
     pop x0,  x1
     pop x2,  x3
@@ -96,7 +91,7 @@
     pop x26, x27
     pop x28, x29
 
-    ldr lr, [sp], #(ARCH_REGS_SPSR_EL1 - ARCH_REGS_LR)
+    ldr lr, [sp], #(HCPU_SPSR_EL1 - HCPU_LR)
 
     dmb sy
 
@@ -106,12 +101,15 @@
 .macro hyp_ventry label
     .align 7                    /* 256 (2 << 7) byte */
 \label:
-    hyp_arch_entry
+    hyp_entry
     b  \label\()_handler
-    hyp_arch_exit
+    hyp_exit
 .endm
 
 // --------------------------------------------------------------
+
+/* EL2 Hypervisor Exception Vectors
+ */
     .align 11                   /* 4096 (2 << 11) byte */
 GLOBAL(hyp_vectors)
     hyp_ventry hyp_syn_el2t
@@ -129,12 +127,16 @@ GLOBAL(hyp_vectors)
     hyp_ventry guest_fiq
     hyp_ventry guest_serror
 
-    hyp_ventry guest_syn_compat
-    hyp_ventry guest_irq_compat
-    hyp_ventry guest_fiq_compat
-    hyp_ventry guest_serror_compat
+    hyp_ventry guest_syn_compact
+    hyp_ventry guest_irq_compact
+    hyp_ventry guest_fiq_compact
+    hyp_ventry guest_serror_compact
 END(hyp_vectors)
+
 // --------------------------------------------------------------
+
+/* EL3 SMC Dummy Exception Vectors
+ */
 .macro smc_ventry label
     .align 7
 \label:
@@ -159,9 +161,9 @@ GLOBAL(smc_vectors)
     smc_ventry hyp_fiq
     smc_ventry hyp_serror
 
-    smc_ventry hyp_syn_compat
-    smc_ventry hyp_irq_compat
-    smc_ventry hyp_fiq_compat
-    smc_ventry hyp_serror_compat
+    smc_ventry hyp_syn_compact
+    smc_ventry hyp_irq_compact
+    smc_ventry hyp_fiq_compact
+    smc_ventry hyp_serror_compact
 END(smc_vectors)
 // --------------------------------------------------------------

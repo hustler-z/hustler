@@ -5,6 +5,8 @@
 # Date:  2024/05/20
 # Usage: build this bare metal project
 # ----------------------------------------------------------
+include config.mk
+# ----------------------------------------------------------
 WKDIR       := ./
 OUTPUT      := out
 HOST        ?= $(shell uname -m | sed -e s/aarch64/arm64/ \
@@ -30,6 +32,11 @@ READELF     := $(CROSS_COMPILE)readelf
 CFLAGS      += -nostdlib -g -Wall -nostdinc
 CFLAGS      += -fno-builtin -fno-common
 CFLAGS      += -Wno-unused-variable
+ifeq ($(CFG_FRAME_POINTER),y)
+CFLAGS      += -fno-omit-frame-pointer
+else
+CFLAGS      += -fomit-frame-pointer
+endif
 LDFLAGS     += -nostdlib -g -Wall
 # LDFLAGS     += -Wl,--no-warn-rwx-segments
 ASFLAGS     += -nostdlib -g -Wall
@@ -44,19 +51,20 @@ include bsp/arch/$(ARCH)/$(ARCH).mk
 include bsp/board/generic/generic.mk
 include bsp/board/$(PLATFORM)/$(BOARD)/$(BOARD).mk
 include bsp/drivers/drivers.mk
+include bsp/libs/lib.mk
 include bsp/bsp.mk
 include hyp/hyp.mk
-include lib/lib.mk
-
+# ----------------------------------------------------------
 SPATH_ASMG   := bsp/arch
 SPATH_ARCH   := $(SPATH_ASMG)/$(ARCH)
 SPATH_BRDG   := bsp/board/generic
 SPATH_BRDP   := bsp/board/$(PLATFORM)
 SPATH_BRDT   := $(SPATH_BRDP)/$(BOARD)
 SPATH_DRIV   := bsp/drivers
+SPATH_LIBS   := bsp/libs
 SPATH_BSPS   := bsp
 SPATH_HYPS   := hyp
-SPATH_LIBS   := lib
+
 INCDIRS      += -I$(SPATH_ASMG)/include
 INCDIRS      += -I$(SPATH_ARCH)/include
 INCDIRS      += -I$(SPATH_BRDG)/include
@@ -69,9 +77,12 @@ PATH_ARCH    := $(OUTPUT)/bsp/arch/$(ARCH)
 PATH_BRDG    := $(OUTPUT)/bsp/board/generic
 PATH_BRDT    := $(OUTPUT)/bsp/board/$(PLATFORM)/$(BOARD)
 PATH_DRIV    := $(OUTPUT)/bsp/drivers
+PATH_LIBS    := $(OUTPUT)/bsp/libs
 PATH_BSPS    := $(OUTPUT)/bsp
 PATH_HYPS    := $(OUTPUT)/hyp
-PATH_LIBS    := $(OUTPUT)/lib
+
+ASM_OFS_H   := $(SPATH_ARCH)/include/asm/offset.h
+ASM_OFS_C   := $(SPATH_ARCH)/offset.c
 
 lds          := $(addprefix $(PATH_ARCH)/,$(lds-y))
 bspsco       := $(addprefix $(PATH_BSPS)/,$(bsp-y))
@@ -131,10 +142,19 @@ all: $(BIN)
 $(BIN): $(ELF)
 	$(call cc_objcopy,$@,$<)
 
-$(ELF): $(hyposo) $(lds)
-	$(call cc_ld,$@,$(lds),$(filter-out $(lds),$^))
+$(ELF): $(ASM_OFS_H) $(hyposo) $(lds)
+	$(call cc_ld,$@,$(lds),$(filter-out $(ASM_OFS_H),$(filter-out $(lds),$^)))
 	$(call cc_objdump,$@)
 	$(call cc_readelf,$@)
+
+##
+# Generate asm/offset.h
+##
+$(ASM_OFS_H): offset.S
+	$(call asm_offsets)
+	$(Q)rm -f $<
+offset.S: $(ASM_OFS_C)
+	$(Q)$(CC) $(CFLAGS) $(INCDIRS) -S -g0 -o $@ $<
 
 ###
 # Compile submodules
@@ -173,6 +193,7 @@ remove:
 .PHONY: clean
 clean:
 	@rm -rf $(OUTPUT);                       \
+	rm -f $(ASM_OFS_H);                      \
 	echo "CLEAN    (done)"
 
 .PHONY: help

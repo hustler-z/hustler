@@ -6,7 +6,7 @@
  * Usage: armv8 boot process
  */
 
-/* Note
+/* Note start.S
  * --------------------------------------------------------------
  * The requirements are:
  * MMU = off, D-cache = off, I-cache = on or off,
@@ -26,6 +26,7 @@
 #include <asm/debug.h>
 #include <asm/sysregs.h>
 #include <asm/gicv3.h>
+#include <asm/offset.h>
 
 // --------------------------------------------------------------
 
@@ -64,15 +65,15 @@ _entry:
     bl   early_uart_init
 
     /* Hang if not on boot cpu (i.e., cpu0) */
-    mrs  x1, MPIDR_EL1
-    ubfx x2, x1, #32, #MPIDR_LEVEL_BITS
-    bfi  w1, w2, #24, #MPIDR_LEVEL_BITS
-    cbz  w1, bootcpu
+    bl   get_cpu_affinity
+    cbz  w4, bootcpu
+
     b    boot_failed
 
 bootcpu:
+
     DBG("- (CPU) 0x")
-    dump_reg x1
+    dump_reg x4
     DBG(" -\r\n")
 
     bl   el2_entry
@@ -83,40 +84,24 @@ bootcpu:
     b    bootcpu_mmu_setup
 
 runtime_switched:
+
     /* Zero out bss section */
     bl   zero_bss
 
     /* Set up traps */
-    bl   setup_traps
+    bl   traps_setup
 
     /* Enable all exception */
     msr  DAIFClr, #0xF
 
     DBG("- BSP Setup -\r\n")
 
-    /* setup hyp stack and ready for C
-     */
-    ldr  x3, =__hyp_stack_end
-    mov  sp, x3
-
-    mov  x0, x20 /* phys_offset */
-    mov  x1, x21
     b    bsp_setup
-
-/* TODO
- * SMP boot entry: after bootcpu's up, time to kick other cpus up
- */
-FUNC(bootsmp_entry)
-    nop
-END(bootsmp_entry)
 
 /* Note System Registers at EL2
  * --------------------------------------------------------------
- * HCR_EL2
  * MAIR_EL2
  * TCR_EL2
- * VBAR_EL2
- * VTCR_EL2
  * --------------------------------------------------------------
  */
 FUNC_LOCAL(el2_entry)
@@ -131,6 +116,7 @@ FUNC_LOCAL(el2_entry)
 
     /* shall never reach here */
     DBG("- hypos must be booted in EL2 -\r\n")
+
     b    boot_failed
 
 el2_setup:
@@ -175,7 +161,7 @@ FUNC_LOCAL(zero_bss)
     adr_l x5, __bss_start
     DBG("- BSS   [0x")
     dump_reg x5
-    DBG(" ~ 0x")
+    DBG(" - 0x")
     adr_l x6, __bss_end
     dump_reg x6
     DBG("] -\r\n")
@@ -193,7 +179,9 @@ FUNC_LOCAL(zero_bss)
     ret
 END(zero_bss)
 
-FUNC_LOCAL(setup_traps)
+/* Note Set up exception router
+ */
+FUNC_LOCAL(traps_setup)
     /* Set up Vector Base Address Register (EL2)
      * (self-explanatory)
      */
@@ -228,7 +216,39 @@ FUNC_LOCAL(setup_traps)
     isb
 
     ret
-END(setup_traps)
+END(traps_setup)
+
+/* Note Entry to C world
+ */
+FUNC(bsp_setup)
+    /* setup hyp stack and ready for C
+     * ldr xn, =imm   => value of immediate
+     * ldr xn, =sym   => address of symbol
+     * XXX: Put hcpu context at the stack bottom for
+     *      later anlysis when $hit happened.
+     *
+     * -------------------- high address (stack bottom)
+     *    |
+     *    ▼
+     * --------------------
+     *    :
+     *    :
+     *    |
+     *    |
+     *    ▼
+     * -------------------- low address  (stack top)
+     */
+    ldr  x3, =boot_hcpu
+    add  x3, x3, #HCPU_STACK
+    ldr  x3, [x3]
+    add  x3, x3, #STACK_SIZE
+    sub  x3, x3, #HCPU_CONTEXT
+    mov  sp, x3
+
+    mov  x0, x20 /* phys_offset */
+    mov  x1, x21
+    b    __setup
+END(bsp_setup)
 
 /* Note hypos boot failed
  */
@@ -238,14 +258,5 @@ FUNC(boot_failed)
 1:  wfi
     b    1b
 END(boot_failed)
-
-/* Note with this, [31:0] => AFF3, AFF2, AFF1, AFF0
- */
-FUNC(get_cpu_affinity)
-    mrs  x0, MPIDR_EL1
-    ubfx x1, x0, #32, #MPIDR_LEVEL_BITS
-    bfi  w0, w1, #24, #MPIDR_LEVEL_BITS
-    ret
-END(get_cpu_affinity)
 
 // --------------------------------------------------------------

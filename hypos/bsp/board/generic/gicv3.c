@@ -10,6 +10,7 @@
 #include <asm/barrier.h>
 #include <asm-generic/section.h>
 #include <lib/strops.h>
+#include <bsp/debug.h>
 
 struct gicv3_its_ctlr_if *gic_its;
 struct gicv3_its_int_if  *gic_its_ints;
@@ -998,6 +999,8 @@ void its_int(u32 device_id, u32 event_id)
 // --------------------------------------------------------------
 int __bootfunc gicv3_setup(void)
 {
+    MSGH("ARMv8 GICv3 Setup\n");
+
     return 0;
 }
 // --------------------------------------------------------------

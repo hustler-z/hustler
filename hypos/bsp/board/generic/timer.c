@@ -11,6 +11,8 @@
 #include <asm/barrier.h>
 #include <bsp/period.h>
 #include <lib/math.h>
+#include <bsp/debug.h>
+
 // --------------------------------------------------------------
 #define SYS_HZ       (1000)
 #define WD_PERIOD    (10 * 1000 * 1000)
@@ -93,6 +95,8 @@ void udelay(unsigned long usec)
 // --------------------------------------------------------------
 int __bootfunc timer_setup(void)
 {
+    MSGH("ARMv8 Generic Timer Setup\n");
+
     return 0;
 }
 // --------------------------------------------------------------

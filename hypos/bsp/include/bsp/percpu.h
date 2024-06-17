@@ -23,7 +23,7 @@
 #define this_cpu(var) \
     (*RELOC_HIDE(&percpu_##var, get_percpu_offset()))
 
-DEFINE_PERCPU(unsigned int, cpu_id);
+extern unsigned int percpu_cpu_id;
 
 #define set_processor_id(id)                        \
 do {                                                \
@@ -33,6 +33,6 @@ do {                                                \
 
 #define smp_processor_id()  this_cpu(cpu_id)
 
+int percpu_setup(void);
 // --------------------------------------------------------------
-#include <asm/sysregs.h>
 #endif /* _BSP_PERCPU_H */

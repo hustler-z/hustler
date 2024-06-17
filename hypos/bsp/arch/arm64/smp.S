@@ -6,7 +6,11 @@
  * Usage: Multi-processor Implementation
  */
 
-/* Common register usage in this file:
+#include <asm/define.h>
+#include <asm/debug.h>
+#include <asm/sysregs.h>
+
+/* --------------------------------------------------------------
  *  x0  -
  *  x1  -
  *  x2  -
@@ -38,10 +42,39 @@
  *  x28 -
  *  x29 -
  *  x30 - lr
+ * --------------------------------------------------------------
  */
 
 // --------------------------------------------------------------
 
+    __ENTRY
 
+/* TODO
+ * SMP boot entry: after bootcpu's up, time to kick other cpus up
+ */
+GLOBAL(bootsmp_entry)
+    msr  DAIFSet, 0x0F
+
+    ldr  x0, =_head
+    adr  x19, _head
+    sub  x20, x19, x0
+
+    bl   get_cpu_affinity
+    mov  x24, x4
+
+    DBG("- (CPU) 0x")
+    dump_reg x24
+    DBG(" -\r\n")
+
+END(bootsmp_entry)
+
+/* Note with this, [31:0] => AFF3, AFF2, AFF1, AFF0
+ */
+FUNC(get_cpu_affinity)
+    mrs  x4, MPIDR_EL1
+    ubfx x5, x4, #32, #MPIDR_LEVEL_BITS
+    bfi  w4, w5, #24, #MPIDR_LEVEL_BITS
+    ret
+END(get_cpu_affinity)
 
 // --------------------------------------------------------------

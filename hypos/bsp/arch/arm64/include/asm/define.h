@@ -114,13 +114,27 @@
  *        12 bits.
  * adrp - Form PC-relative address to 4KB
  *        page.
+ *
+ * Load address of <sym> into <reg>, <sym> being in the range
+ * +/- 4GB of the PC.
  */
 .macro  adr_l, dst, sym
     adrp \dst, \sym
     add  \dst, \dst, :lo12:\sym
 .endm
 
-#endif /* __ASSEMBLY__ */
+/* Stack pushing/popping register pairs
+ */
+.macro push, xn, xm
+    stp \xn, \xm, [sp, #-16]!
+.endm
+
+.macro pop,  xn, xm
+    ldp \xn, \xm, [sp], #16
+.endm
+
 // --------------------------------------------------------------
+
+#endif /* __ASSEMBLY__ */
 
 #endif /* _ARCH_DEFINE_H */

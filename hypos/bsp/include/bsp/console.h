@@ -17,11 +17,6 @@
 #define TERM_CH(c)       ((c) - 'a' + 1)
 
 int serial_pr(const char *fmt, ...);
-int getchar(void);
-int tstc(void);
-void putc(const char c);
-void puts(const char *s);
-void flush(void);
 
 int console_assign(int file, const char *devname);
 int console_setup(void);

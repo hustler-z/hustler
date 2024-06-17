@@ -32,10 +32,12 @@ enum {
 	UART2_IO_SEL_M0		= 0,
 };
 
-void __bootfunc board_debug_uart_init(void)
+void __bootfunc board_uart_init(void)
 {
-    static struct rk3568_pmugrf * const pmugrf = (void *)PMUGRF_BASE;
-    static struct rk3568_grf * const grf = (void *)GRF_BASE;
+    static struct rk3568_pmugrf * const pmugrf =
+        (struct rk3568_pmugrf *)PMUGRF_BASE;
+    static struct rk3568_grf * const grf =
+        (struct rk3568_grf *)GRF_BASE;
 
     /* UART2 M0 */
     rk_clrsetreg(&grf->iofunc_sel3, UART2_IO_SEL_MASK,

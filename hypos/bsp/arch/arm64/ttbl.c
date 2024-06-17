@@ -9,6 +9,7 @@
 #include <asm/ttbl.h>
 #include <asm/sysregs.h>
 #include <asm-generic/section.h>
+#include <bsp/debug.h>
 
 // --------------------------------------------------------------
 
@@ -35,6 +36,8 @@ int mmu_enabled(void)
 
 int __bootfunc ttbl_setup(void)
 {
+    MSGH("Translation Table Setup\n");
+
     return 0;
 }
 

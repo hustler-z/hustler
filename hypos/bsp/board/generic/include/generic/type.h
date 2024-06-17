@@ -41,7 +41,7 @@ typedef unsigned long      paddr_t;
 #define __rw  volatile
 #define __wo  volatile
 
-typedef u32   register_t;
+typedef u64   register_t;
 
 typedef enum {
     false = 0,
