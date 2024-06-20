@@ -15,8 +15,6 @@
 #include <lib/strops.h>
 
 // --------------------------------------------------------------
-extern struct hypos_globl *glb;
-
 static struct stdio_dev devs;
 struct stdio_dev *stdio_devices[] = { NULL, NULL, NULL };
 char *stdio_names[MAX_FILES] = { "stdin", "stdout", "stderr" };
@@ -180,7 +178,7 @@ int stdio_add_devices(void)
     struct hypos_device *dev;
     int ret;
 
-    if (glb->keyboard_enable) {
+    if (get_globl()->keyboard_enable) {
         /*
          * For now we probe all the hypos_devices here. At some point this
          * should be done only when the hypos_devices are required - e.g. we

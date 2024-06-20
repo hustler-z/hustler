@@ -30,5 +30,6 @@ typedef void (*periodic_func_t)(void *context);
 
 void schedule(void);
 
+int periodw_setup(void);
 // --------------------------------------------------------------
 #endif /* _BSP_PERIOD_H */

@@ -14,8 +14,6 @@
 #include <generic/type.h>
 #include <lib/strops.h>
 // --------------------------------------------------------------
-extern struct hypos_globl *glb;
-
 static struct hypos_device_table device_table[HYP_DT_NR];
 // --------------------------------------------------------------
 void dev_set_priv(struct hypos_device *dev, void *priv)
@@ -75,7 +73,7 @@ static int hypos_device_scan_and_probe(void)
     for (idx = 0; idx < n_ents; idx++) {
         each = entry + idx;
         if (hypos_driver_enabled(each)) {
-            ret = hypos_device_bind(each, glb->dev_tbl);
+            ret = hypos_device_bind(each, get_globl()->dev_tbl);
             if (!ret)
                 each->probe(each->devp);
         } else {
@@ -96,7 +94,7 @@ static void hypos_device_table_setup(struct hypos_device_table *table)
         INIT_LIST_HEAD(&table[idx].entry);
     }
 
-    glb->dev_tbl = table;
+    get_globl()->dev_tbl = table;
 }
 
 int device_setup(void)
@@ -105,7 +103,7 @@ int device_setup(void)
 
     MSGH("Device Platform Setup\n");
 
-    if (!glb_is_initialized())
+    if (!get_globl()->flags & GLB_INITIALIZED)
         return ret;
 
     hypos_device_table_setup(device_table);
@@ -116,6 +114,8 @@ int device_setup(void)
     ret = hypos_device_scan_and_probe();
     if (ret)
         return ret;
+
+    get_globl()->flags |= GLB_DEVICE_INIT;
 
     return 0;
 }

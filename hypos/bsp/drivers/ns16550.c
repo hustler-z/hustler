@@ -16,8 +16,6 @@
 #include <lib/math.h>
 
 // --------------------------------------------------------------
-extern struct hypos_globl *glb;
-
 #define SYS_NS16550_COM2 0xFE660000
 #define SYS_NS16550_CLK  0x0
 #define SYS_NS16550_IER  0x0
@@ -63,7 +61,7 @@ static void _serial_setbrg(const int port)
     int clock_divisor;
 
     clock_divisor = ns16550_calc_divisor(PORT, SYS_NS16550_CLK,
-                         glb->baudrate);
+                         get_globl()->baudrate);
     ns16550_reinit(PORT, clock_divisor);
 }
 
@@ -102,7 +100,7 @@ static int  eserial##port##_init(void) \
     { \
         int clock_divisor; \
         clock_divisor = ns16550_calc_divisor(serial_ports[port-1], \
-            SYS_NS16550_CLK, glb->baudrate); \
+            SYS_NS16550_CLK, get_globl()->baudrate); \
         ns16550_init(serial_ports[port - 1], clock_divisor); \
         return 0 ; \
     } \

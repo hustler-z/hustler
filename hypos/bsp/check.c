@@ -7,26 +7,23 @@
  */
 
 #include <generic/exit.h>
-#include <bsp/stdio.h>
+#include <bsp/debug.h>
 #include <lib/args.h>
 
 // --------------------------------------------------------------
-static void panic_finish(void) __attribute__ ((noreturn));
-
-static void panic_finish(void)
+static void panic_end(void)
 {
-    putc('\n');
+    MSGI("\n");
 
     hang();
 
-    while (1)
-        ;
+    flush();
 }
 
 void panic_str(const char *str)
 {
-    puts(str);
-    panic_finish();
+    MSGI(str);
+    panic_end();
 }
 
 void panic(const char *fmt, ...)
@@ -36,14 +33,20 @@ void panic(const char *fmt, ...)
     vpr(fmt, args);
     va_end(args);
 
-    panic_finish();
+    panic_end();
+}
+
+void __bug_crap(const char *file,
+        unsigned int line, const char *function)
+{
+    panic("BUG %s:%u - %s() man, ain't this a joke.", file, line,
+            function);
 }
 
 void __assert_fail(const char *assertion, const char *file,
         unsigned int line, const char *function)
 {
-    /* This will not return */
-    panic("%s:%u: %s: Assertion `%s' failed.", file, line,
-        function, assertion);
+    panic("ASSERT %s:%u - %s() `%s' failed.", file, line,
+            function, assertion);
 }
 // --------------------------------------------------------------

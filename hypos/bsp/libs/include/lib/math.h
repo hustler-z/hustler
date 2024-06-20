@@ -31,35 +31,32 @@
     (void) (&_min1 == &_min2);      \
     _min1 < _min2 ? _min1 : _min2; })
 
-#define roundup(x, y) (					\
-{							\
-	const typeof(y) __y = y;			\
-	(((x) + (__y - 1)) / __y) * __y;		\
-}							\
-)
-#define rounddown(x, y) (				\
-{							\
-	typeof(x) __x = (x);				\
-	__x - (__x % (y));				\
-}							\
-)
+#define roundup(x, y) ({			 \
+	const typeof(y) __y = y;		 \
+	(((x) + (__y - 1)) / __y) * __y; \
+})
 
-#define REPEAT_BYTE(x)	((~0ul / 0xff) * (x))
+#define rounddown(x, y) ({			 \
+	typeof(x) __x = (x);			 \
+	__x - (__x % (y));				 \
+})
 
-#define ALIGN(x,a)		__ALIGN_MASK((x),(typeof(x))(a)-1)
-#define ALIGN_DOWN(x, a)	ALIGN((x) - ((a) - 1), (a))
-#define __ALIGN_MASK(x,mask)	(((x)+(mask))&~(mask))
-#define PTR_ALIGN(p, a)		((typeof(p))ALIGN((unsigned long)(p), (a)))
-#define IS_ALIGNED(x, a)		(((x) & ((typeof(x))(a) - 1)) == 0)
+#define REPEAT_BYTE(x)	     ((~0ul / 0xff) * (x))
 
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#define ALIGN(x,a)		     __ALIGN_MASK((x),(typeof(x))(a)-1)
+#define ALIGN_DOWN(x, a)	 ALIGN((x) - ((a) - 1), (a))
+#define __ALIGN_MASK(x,mask) (((x)+(mask))&~(mask))
+#define PTR_ALIGN(p, a)		 ((typeof(p))ALIGN((unsigned long)(p), (a)))
+#define IS_ALIGNED(x, a)	 (!((x) & ((typeof(x))(a) - 1)))
 
-#define __round_mask(x, y) ((__typeof__(x))((y)-1))
-#define round_up(x, y) ((((x)-1) | __round_mask(x, y))+1)
-#define round_down(x, y) ((x) & ~__round_mask(x, y))
+#define ARRAY_SIZE(x)        (sizeof(x) / sizeof((x)[0]))
 
-#define FIELD_SIZEOF(t, f) (sizeof(((t*)0)->f))
-#define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
+#define __round_mask(x, y)   ((__typeof__(x))((y)-1))
+#define round_up(x, y)       ((((x)-1) | __round_mask(x, y))+1)
+#define round_down(x, y)     ((x) & ~__round_mask(x, y))
+
+#define FIELD_SIZEOF(t, f)   (sizeof(((t*)0)->f))
+#define DIV_ROUND_UP(n,d)    (((n) + (d) - 1) / (d))
 
 #define DIV_ROUND_DOWN_ULL(ll, d) \
 	({ unsigned long long _tmp = (ll); do_div(_tmp, d); _tmp; })

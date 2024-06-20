@@ -5,7 +5,7 @@
 # Date:  2024/05/20
 # Usage: build this bare metal project
 # ----------------------------------------------------------
-include config.mk
+include cfg/config.mk
 # ----------------------------------------------------------
 WKDIR       := ./
 OUTPUT      := out
@@ -13,6 +13,7 @@ HOST        ?= $(shell uname -m | sed -e s/aarch64/arm64/ \
 			   -e s/x86_64/x86/)
 PLATFORM    ?= rockchip
 BOARD       ?= rk3568
+BASE        ?= arm
 ARCH        ?= arm64
 BIN         := $(OUTPUT)/hypos.bin
 ELF         := $(OUTPUT)/hypos.elf
@@ -47,7 +48,8 @@ CFLAGS      += -D__RK3568__
 ASFLAGS     += -D__RK3568__
 endif
 # ----------------------------------------------------------
-include bsp/arch/$(ARCH)/$(ARCH).mk
+include bsp/arch/$(BASE)/$(ARCH)/$(ARCH).mk
+include bsp/arch/$(BASE)/$(BASE).mk
 include bsp/board/generic/generic.mk
 include bsp/board/$(PLATFORM)/$(BOARD)/$(BOARD).mk
 include bsp/drivers/drivers.mk
@@ -55,8 +57,8 @@ include bsp/libs/lib.mk
 include bsp/bsp.mk
 include hyp/hyp.mk
 # ----------------------------------------------------------
-SPATH_ASMG   := bsp/arch
-SPATH_ARCH   := $(SPATH_ASMG)/$(ARCH)
+SPATH_ARCX   := bsp/arch/$(BASE)
+SPATH_ARCH   := $(SPATH_ARCX)/$(ARCH)
 SPATH_BRDG   := bsp/board/generic
 SPATH_BRDP   := bsp/board/$(PLATFORM)
 SPATH_BRDT   := $(SPATH_BRDP)/$(BOARD)
@@ -65,7 +67,7 @@ SPATH_LIBS   := bsp/libs
 SPATH_BSPS   := bsp
 SPATH_HYPS   := hyp
 
-INCDIRS      += -I$(SPATH_ASMG)/include
+INCDIRS      += -I$(SPATH_ARCX)/include
 INCDIRS      += -I$(SPATH_ARCH)/include
 INCDIRS      += -I$(SPATH_BRDG)/include
 INCDIRS      += -I$(SPATH_BRDP)/include
@@ -73,7 +75,8 @@ INCDIRS      += -I$(SPATH_BSPS)/include
 INCDIRS      += -I$(SPATH_LIBS)/include
 INCDIRS      += -I$(SPATH_HYPS)/include
 
-PATH_ARCH    := $(OUTPUT)/bsp/arch/$(ARCH)
+PATH_ARCX    := $(OUTPUT)/bsp/arch/$(BASE)
+PATH_ARCH    := $(OUTPUT)/bsp/arch/$(BASE)/$(ARCH)
 PATH_BRDG    := $(OUTPUT)/bsp/board/generic
 PATH_BRDT    := $(OUTPUT)/bsp/board/$(PLATFORM)/$(BOARD)
 PATH_DRIV    := $(OUTPUT)/bsp/drivers
@@ -85,17 +88,21 @@ ASM_OFS_H   := $(SPATH_ARCH)/include/asm/offset.h
 ASM_OFS_C   := $(SPATH_ARCH)/offset.c
 
 lds          := $(addprefix $(PATH_ARCH)/,$(lds-y))
-bspsco       := $(addprefix $(PATH_BSPS)/,$(bsp-y))
+ifeq ($(BASE), arm)
+archxo       := $(addprefix $(PATH_ARCX)/,$(arm-y))
 archco       := $(addprefix $(PATH_ARCH)/,$(armc-y))
 archao       := $(addprefix $(PATH_ARCH)/,$(arma-y))
+endif
+bspsco       := $(addprefix $(PATH_BSPS)/,$(bsp-y))
 brdgco       := $(addprefix $(PATH_BRDG)/,$(generic-y))
 brdtco       := $(addprefix $(PATH_BRDT)/,$($(BOARD)-y))
 drivco       := $(addprefix $(PATH_DRIV)/,$(drivers-y))
 hypsco       := $(addprefix $(PATH_HYPS)/,$(hyps-y))
 libsco       := $(addprefix $(PATH_LIBS)/,$(libs-y))
 
-hyposo       := $(archco) $(archao) $(bspsco) $(brdgco) \
-                $(brdtco) $(drivco) $(hypsco) $(libsco)
+hyposo       := $(archao) $(archco) $(archxo) \
+                $(brdgco) $(brdtco) $(drivco) \
+                $(libsco) $(bspsco) $(hypsco)
 # ----------------------------------------------------------
 ifeq ($(V),1)
 	Q :=
@@ -161,6 +168,8 @@ offset.S: $(ASM_OFS_C)
 ###
 $(archao): $(PATH_ARCH)/%.o: $(SPATH_ARCH)/%.S
 	$(call cc_as,$@,$<)
+$(archxo): $(PATH_ARCX)/%.o: $(SPATH_ARCX)/%.c
+	$(call cc_cc,$@,$<)
 $(archco): $(PATH_ARCH)/%.o: $(SPATH_ARCH)/%.c
 	$(call cc_cc,$@,$<)
 $(brdgco): $(PATH_BRDG)/%.o: $(SPATH_BRDG)/%.c

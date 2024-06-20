@@ -33,6 +33,14 @@ do {                                                \
 
 #define smp_processor_id()  this_cpu(cpu_id)
 
+struct percpu_stat {
+    /* TODO other percpu statistic
+     */
+    unsigned int locked_count;
+};
+
+struct percpu_stat *get_percpu_stat(void);
+
 int percpu_setup(void);
 // --------------------------------------------------------------
 #endif /* _BSP_PERCPU_H */

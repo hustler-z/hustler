@@ -9,9 +9,7 @@
 #include <asm-generic/globl.h>
 #include <bsp/jump.h>
 // --------------------------------------------------------------
-extern struct hypos_globl *glb;
-
-#define FUNCJMP(impl, rt, func, ...)  glb->fjmp->func = impl,
+#define FUNCJMP(impl, rt, func, ...)  get_globl()->fjmp->func = impl,
 
 struct funcjmp hypos_fjmp = {
 #include <asm-generic/jmpglb.h>
@@ -19,7 +17,7 @@ struct funcjmp hypos_fjmp = {
 
 int jump_tbl_setup(void)
 {
-    if (glb_is_initialized())
-        glb->fjmp = &hypos_fjmp;
+    if (get_globl())
+        get_globl()->fjmp = &hypos_fjmp;
 }
 // --------------------------------------------------------------

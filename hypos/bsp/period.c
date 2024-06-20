@@ -7,9 +7,9 @@
  */
 
 #include <asm-generic/globl.h>
+#include <asm-generic/section.h>
 #include <generic/time.h>
 #include <generic/timer.h>
-
 #include <bsp/period.h>
 #include <bsp/alloc.h>
 #include <bsp/debug.h>
@@ -17,11 +17,17 @@
 // --------------------------------------------------------------
 #define PERIODIC_MAX_CPU_US         1000
 
-extern struct hypos_globl *glb;
+/* The one and only periodic work list: globl_pw_list
+ */
+struct hlist_head globl_pw_list = HLIST_HEAD_INIT;
 
-struct hlist_head *get_pw_global_list(void)
+int __bootfunc periodw_setup(void)
 {
-    return (struct hlist_head *)&glb->pw_list;
+    MSGH("Global Periodic-work List Setup\n");
+
+    get_globl()->pw_list = globl_pw_list;
+
+    return 0;
 }
 
 struct periodic_work *periodic_work_register(
@@ -42,7 +48,7 @@ struct periodic_work *periodic_work_register(
     work->name = strdup(name);
     work->delay_us = delay_us;
     work->start_us = timer_get_us();
-	hlist_add_head(&work->list, get_pw_global_list());
+	hlist_add_head(&work->list, &get_globl()->pw_list);
 
     return work;
 }
@@ -62,11 +68,11 @@ void periodic_work_run(void)
     u64 now, cpu_time;
 
     /* Prevent recursion */
-    if (glb->flags & GLB_PERIODIC_RUNNING)
+    if (get_globl()->flags & GLB_PERIODIC_RUN)
         return;
 
-    glb->flags |= GLB_PERIODIC_RUNNING;
-    hlist_for_each_entry_safe(work, tmp, get_pw_global_list(), list) {
+    get_globl()->flags |= GLB_PERIODIC_RUN;
+    hlist_for_each_entry_safe(work, tmp, &get_globl()->pw_list, list) {
         /*
          * Check if this work function needs to get called, e.g.
          * do not call the work func too often
@@ -90,12 +96,12 @@ void periodic_work_run(void)
             }
         }
     }
-    glb->flags &= ~GLB_PERIODIC_RUNNING;
+    get_globl()->flags &= ~GLB_PERIODIC_RUN;
 }
 
 void schedule(void)
 {
-    if (glb_is_initialized())
+    if (get_globl()->flags & GLB_DEVICE_INIT)
         periodic_work_run();
 }
 
@@ -104,7 +110,7 @@ int periodic_work_unregister_all(void)
     struct periodic_work *work;
     struct hlist_node *tmp;
 
-    hlist_for_each_entry_safe(work, tmp, get_pw_global_list(), list)
+    hlist_for_each_entry_safe(work, tmp, &get_globl()->pw_list, list)
         periodic_work_unregister(work);
 
     return 0;

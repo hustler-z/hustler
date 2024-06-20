@@ -8,7 +8,7 @@
 
 #ifndef _LIB_LIST_H
 #define _LIB_LIST_H
-// ------------------------------------------------------------------------
+// --------------------------------------------------------------
 #include <generic/type.h>
 #include <lib/define.h>
 
@@ -278,6 +278,9 @@ static inline void list_splice_tail_init(struct list_head *list,
          &pos->member != (head);					\
          pos = n, n = list_entry(n->member.prev, typeof(*n), member))
 
+// --------------------------------------------------------------
+struct hlist_node;
+
 struct hlist_head {
     struct hlist_node *first;
 };
@@ -394,5 +397,5 @@ static inline void hlist_add_after(struct hlist_node *n,
     for (pos = hlist_entry_safe((head)->first, typeof(*pos), member);\
          pos && ({ n = pos->member.next; 1; });			\
          pos = hlist_entry_safe(n, typeof(*pos), member))
-// ------------------------------------------------------------------------
+// --------------------------------------------------------------
 #endif /* _LIB_LIST_H */

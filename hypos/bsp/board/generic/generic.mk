@@ -6,9 +6,9 @@
 # Usage:
 # ----------------------------------------------------------
 
-generic-y += exception.o
+generic-y += traps.o
 generic-y += gicv3.o
-generic-y += memory.o
+generic-y += mem.o
 generic-y += timer.o
 generic-y += mmap.o
 generic-y += exit.o

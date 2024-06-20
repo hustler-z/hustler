@@ -11,3 +11,5 @@ libs-y += rbtree.o
 libs-y += queue.o
 libs-y += help.o
 libs-y += sort.o
+libs-y += convert.o
+libs-y += bitops.o

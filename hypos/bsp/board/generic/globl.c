@@ -13,39 +13,24 @@
 #include <bsp/debug.h>
 
 // --------------------------------------------------------------
-struct hypos_globl *glb;
 
-/* The one and only hypos global data tracker: glb
+/* The one and only hypos global data tracker: globl
  */
-static struct hypos_globl boot_glb = {
+struct hypos_globl __initdata boot_globl = {
     .console_enable = true,
+    .keyboard_enable = true,
+#ifdef __RK3568__
+    .baudrate = 1500000,
+#endif
+    .smode = GLB_EARLY_SERIAL,
+    .flags = GLB_INITIALIZED,
+    .boot_status = EARLY_BOOT_STAGE,
 };
 
-/* The one and only periodic work list: glb_pw_list_head
- */
-static struct hlist_head glb_pw_list_head = HLIST_HEAD_INIT;
-
-static void set_glb_pw_list(struct hypos_globl *globl,
-        struct hlist_head *pw_list)
+struct hypos_globl *get_globl(void)
 {
-    globl->pw_list = pw_list;
-}
+    struct hypos_globl *globl;
 
-int __bootfunc glb_setup(void)
-{
-    MSGH("Global <glb> Setup\n");
-
-    glb = &boot_glb;
-    set_glb_pw_list(glb, &glb_pw_list_head);
-    glb->flags |= GLB_INITIALIZED;
-
-    return 0;
-};
-
-bool glb_is_initialized(void)
-{
-    if (!glb || !(glb->flags & GLB_INITIALIZED))
-        return false;
-    return true;
+    return (globl = &boot_globl);
 }
 // --------------------------------------------------------------

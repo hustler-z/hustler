@@ -8,7 +8,7 @@
 
 #ifndef _LIB_CTYPE_H
 #define _LIB_CTYPE_H
-// ------------------------------------------------------------------------
+// --------------------------------------------------------------
 
 #define _U  0x01    /* upper */
 #define _L  0x02    /* lower */
@@ -37,8 +37,8 @@ extern unsigned char _ctype[];
 
 #define isblank(c)  (c == ' ' || c == '\t')
 
-#define isascii(c) (((unsigned char)(c))<=0x7f)
-#define toascii(c) (((unsigned char)(c))&0x7f)
+#define isascii(c) (((unsigned char)(c)) <= 0x7F)
+#define toascii(c) (((unsigned char)(c)) & 0x7F)
 
 static inline unsigned char __tolower(unsigned char c)
 {
@@ -57,5 +57,5 @@ static inline unsigned char __toupper(unsigned char c)
 #define tolower(c) __tolower(c)
 #define toupper(c) __toupper(c)
 
-// ------------------------------------------------------------------------
+// --------------------------------------------------------------
 #endif /* _LIB_CTYPE_H */

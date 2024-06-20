@@ -11,6 +11,11 @@
 // --------------------------------------------------------------
 
 #include <generic/type.h>
+#include <asm/ttbl.h>
+
+int bootmem_setup(paddr_t ps, paddr_t pe);
+pfn_t boot_page_alloc(unsigned long nr_pfns,
+                      unsigned long pfn_align);
 
 void *balloc(size_t len);
 void bfree(void *mem);

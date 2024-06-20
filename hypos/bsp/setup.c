@@ -17,10 +17,13 @@
 #include <bsp/sdev.h>
 #include <bsp/console.h>
 #include <bsp/debug.h>
+#include <bsp/period.h>
 #include <generic/exit.h>
 #include <generic/board.h>
 #include <generic/gicv3.h>
 #include <generic/memory.h>
+
+unsigned long paddr_offset;
 
 typedef int (*bootfunc_t)(void);
 
@@ -34,7 +37,7 @@ static int __bootchain(const bootfunc_t *boot_sequence)
     for (boot_one = boot_sequence; *boot_one; boot_one++) {
         ret = (*boot_one)();
         if (ret) {
-            MSGH("boot squence %p failed at call %p (err=%d)\n",
+            MSGH("Boot squence %p failed at call %p (err=%d)\n",
                     boot_sequence, (char *)(*boot_one), ret);
             return -1;
         }
@@ -57,9 +60,13 @@ static bootfunc_t hypos_boot_sequence[] = {
      */
     hcpu_setup,
 
-    /* should set up glb early before any use cases;
+    /* Set up page table
      */
-    glb_setup,
+    ttbl_setup,
+
+    /* Hypos Memory Setup
+     */
+    mem_setup,
 
     /* Interrupt Controller Setup
      */
@@ -69,22 +76,20 @@ static bootfunc_t hypos_boot_sequence[] = {
      */
     timer_setup,
 
-    /* Set up page table
-     */
-    ttbl_setup,
-
-    /* Hypos Memory Setup
-     */
-    mem_setup,
-
     /* Board Setup
      */
     board_setup,
+
+    /* Periodic Work List Setup
+     */
+    periodw_setup,
 
     /* Peripheral Setup
      */
     device_setup,
 
+    /* Hypos Console Setup
+     */
     console_setup,
 };
 
@@ -92,6 +97,8 @@ void __setup(unsigned long phys_offset,
         unsigned long boot_args)
 {
     early_debug("[hypos] Welcome to C world\n");
+
+    paddr_offset = phys_offset;
 
     /* Normal booting process, initiate hypos services. my
      * goal here is to implement basic console and be able

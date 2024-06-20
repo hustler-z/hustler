@@ -39,7 +39,6 @@
 #define CMD_FLAG_ENV             0x0002
 #define DEBUG_PARSER	         0
 
-extern struct hypos_globl *glb;
 extern struct stdio_dev *stdio_devices[];
 
 // --------------------------------------------------------------
@@ -64,8 +63,7 @@ int serial_pr(const char *fmt, ...)
 
 int getc(void)
 {
-    if (glb_is_initialized() &&
-            (glb->flags & GLB_DEV_INITIALIZED))
+    if (get_globl()->smode == GLB_STDIO_SERIAL)
         return fgetc(stdin);
     else
         return serial_getc();
@@ -73,8 +71,7 @@ int getc(void)
 
 int tstc(void)
 {
-    if (glb_is_initialized() &&
-            (glb->flags & GLB_DEV_INITIALIZED))
+    if (get_globl()->smode == GLB_STDIO_SERIAL)
         return ftstc(stdin);
     else
         return serial_tstc();
@@ -91,7 +88,7 @@ static void pre_console_putc(const char c)
 
     buffer = map_hypmem(PRE_CON_BUF_ADDR, PRE_CON_BUF_SIZE);
 
-    buffer[CIRC_BUF_IDX(glb->precon_buf_idx++)] = c;
+    buffer[CIRC_BUF_IDX(get_globl()->precon_buf_idx++)] = c;
 
     unmap_hypmem(buffer);
 }
@@ -104,10 +101,9 @@ static void pre_console_puts(const char *s)
 
 void putc(const char c)
 {
-    if (glb_is_initialized() &&
-            (glb->flags & GLB_DEV_INITIALIZED))
+    if (get_globl()->smode == GLB_STDIO_SERIAL)
         fputc(stdout, c);
-    else if (glb_is_initialized()) {
+    else if (get_globl()->smode == GLB_BASIC_SERIAL) {
         pre_console_putc(c);
         serial_putc(c);
     } else
@@ -116,10 +112,9 @@ void putc(const char c)
 
 void puts(const char *s)
 {
-    if (glb_is_initialized() &&
-            (glb->flags & GLB_DEV_INITIALIZED))
+    if (get_globl()->smode == GLB_STDIO_SERIAL)
         fputs(stdout, s);
-    else if (glb_is_initialized()) {
+    else if (get_globl()->smode == GLB_BASIC_SERIAL) {
         pre_console_puts(s);
         serial_puts(s);
     } else
@@ -128,10 +123,9 @@ void puts(const char *s)
 
 void flush(void)
 {
-    if (glb_is_initialized() &&
-            (glb->flags & GLB_DEV_INITIALIZED))
+    if (get_globl()->smode == GLB_STDIO_SERIAL)
         fflush(stdout);
-    else if (glb_is_initialized())
+    else if (get_globl()->smode == GLB_BASIC_SERIAL)
         serial_flush();
     else
         early_flush();
@@ -269,7 +263,7 @@ static void console_puts_select(int file, bool serial_only, const char *s)
 
 void console_puts_select_stderr(bool serial_only, const char *s)
 {
-    if (glb->flags & GLB_DEV_INITIALIZED)
+    if (get_globl()->flags & GLB_DEVICE_INIT)
         console_puts_select(stderr, serial_only, s);
 }
 
@@ -452,14 +446,14 @@ static int console_setfile(int file, struct stdio_dev * dev)
          */
         switch (file) {
         case stdin:
-            glb->fjmp->getc = getc;
-            glb->fjmp->tstc = tstc;
+            get_globl()->fjmp->getc = getc;
+            get_globl()->fjmp->tstc = tstc;
             break;
         case stdout:
-            glb->fjmp->putc  = putc;
-            glb->fjmp->puts  = puts;
-            STDIO_DEV_ASSIGN_FLUSH(glb->fjmp, flush);
-            glb->fjmp->pr = pr;
+            get_globl()->fjmp->putc  = putc;
+            get_globl()->fjmp->puts  = puts;
+            STDIO_DEV_ASSIGN_FLUSH(get_globl()->fjmp, flush);
+            get_globl()->fjmp->pr = pr;
             break;
         }
         break;
@@ -1013,7 +1007,7 @@ int __bootfunc console_setup(void)
      */
     hypos_stamp();
 
-    if (!glb->console_enable) {
+    if (!get_globl()->console_enable) {
         DEBUG("Console been disbale\n");
         force_kick_guests_up();
     } else {

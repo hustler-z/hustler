@@ -8,7 +8,7 @@
 
 #ifndef _GENERIC_TYPE_H
 #define _GENERIC_TYPE_H
-// ------------------------------------------------------------------------
+// --------------------------------------------------------------
 
 typedef char               s8;
 typedef short              s16;
@@ -81,6 +81,17 @@ typedef enum {
 
 #define INT32_MAX	S32_MAX
 
+typedef unsigned int __attribute__((__mode__(__pointer__))) uintptr_t;
+
+// --------------------------------------------------------------
+#include <asm-generic/bitops.h>
+
+#define BITS_TO_LONGS(bits) \
+    (((bits) + BITS_PER_LONG - 1) / BITS_PER_LONG)
+
+#define DECLARE_BITMAP(name, bits) \
+    unsigned long name[BITS_TO_LONGS(bits)]
+
 #define typecheck(type, x) ({      \
     type __dummy;                  \
     typeof(x) __dummy2;            \
@@ -93,5 +104,12 @@ typedef enum {
     (void)__tmp;                        \
 })
 
-// ------------------------------------------------------------------------
+#define TYPE_SAFE(type, name)                       \
+typedef struct { type name; } name##_t;             \
+static inline name##_t to_##name##_t(type n)        \
+{ return (name##_t){ n }; }                         \
+static inline type to_##name(name##_t n)            \
+{ return n.name; }
+
+// --------------------------------------------------------------
 #endif /* _GENERIC_TYPE_H */

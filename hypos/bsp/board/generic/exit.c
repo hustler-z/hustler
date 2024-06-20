@@ -13,7 +13,7 @@
 // --------------------------------------------------------------
 
 void hang(void) {
-    MSGH("Hypervisor crashed\n");
+    MSGH("------------- [Hypervisor Crashed] -------------\n");
 
     for (;;)
         ;
