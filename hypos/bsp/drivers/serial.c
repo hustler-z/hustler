@@ -6,7 +6,7 @@
  * Usage:
  */
 
-#include <generic/errno.h>
+#include <common/errno.h>
 #include <bsp/serial.h>
 #include <bsp/ns16550.h>
 #include <bsp/sdev.h>

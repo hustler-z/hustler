@@ -7,8 +7,9 @@
  */
 
 #include <asm/hcpu.h>
+#include <asm/setup.h>
 #include <lib/define.h>
-#include <hyp/sched.h>
+#include <core/sched.h>
 
 // --------------------------------------------------------------
 #define DEFINE(sym, val) \
@@ -45,18 +46,18 @@ void __offset__(void)
 
     /* Hypervisor Registers Offset
      */
-    OFFSET(HCPU_SIZE, hcpu_regs, spsr_el1);
+    OFFSET(HYPERVISOR_OFFSET, hcpu_regs, spsr_el1);
     BLANK();
 
     /* Hypervisor CPU Setups
      */
+    DEFINE(HCPU_SIZE, sizeof(struct hcpu));
     OFFSET(HCPU_FLAG, hcpu, flags);
     BLANK();
 
     /* Hypervisor Stack
      */
-    OFFSET(HCPU_STACK, hcpu, stack);
-    OFFSET(HCPU_CONTEXT, hcpu, stack);
+    OFFSET(HCPU_STACK, boot_setup, stack);
     BLANK();
 
     /* Virtual CPU Context

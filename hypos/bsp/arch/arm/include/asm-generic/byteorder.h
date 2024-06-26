@@ -9,7 +9,7 @@
 #ifndef _ASM_GENERIC_BYTEORDER_H
 #define _ASM_GENERIC_BYTEORDER_H
 // --------------------------------------------------------------
-#include <generic/ccattr.h>
+#include <common/ccattr.h>
 
 #define __LITTLE_ENDIAN           (0x0)
 #define __BIG_ENDIAN              (0x1)

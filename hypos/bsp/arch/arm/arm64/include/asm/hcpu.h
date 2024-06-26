@@ -11,7 +11,7 @@
 // --------------------------------------------------------------
 #ifndef __ASSEMBLY__
 
-#include <generic/type.h>
+#include <common/type.h>
 
 struct hcpu_regs {
     register_t x0;

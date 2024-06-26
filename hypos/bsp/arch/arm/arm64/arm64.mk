@@ -21,7 +21,7 @@ armc-y += ttbl.o
 armc-y += mutex.o
 armc-y += early.o
 armc-y += map.o
-armc-y += tlb.o
+armc-y += tlbflush.o
 armc-y += bitops.o
 # ----------------------------------------------------------
 lds-y  += hypos.lds

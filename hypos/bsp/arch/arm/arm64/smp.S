@@ -61,11 +61,11 @@ GLOBAL(bootsmp_entry)
 
     bl   get_cpu_affinity
     mov  x24, x4
-
+#if ASM_DBG
     DBG("- (CPU) 0x")
     dump_reg x24
     DBG(" -\r\n")
-
+#endif
 END(bootsmp_entry)
 
 /* Note with this, [31:0] => AFF3, AFF2, AFF1, AFF0

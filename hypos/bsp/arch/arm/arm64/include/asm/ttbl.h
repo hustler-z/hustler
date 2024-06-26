@@ -37,7 +37,6 @@
  * 2                 21              2  MB           0xFFFFFFFFFFE00000
  * 3                 12              4  KB           0xFFFFFFFFFFFFF000
  */
-
 #define LEVEL_ORDER(n, lvl)    ((3-(lvl)) * (TTBL_SHIFT(n)))
 #define LEVEL_SHIFT(n, lvl)    (LEVEL_ORDER(n, lvl) + (n))
 #define LEVEL_SIZE(n, lvl)     (_AT(paddr_t, 1) << (LEVEL_SHIFT(n, lvl)))
@@ -87,6 +86,7 @@
  */
 #define HYPOS_FIXMAP_VIRT_START    (HYPOS_DATA_VIRT_START + HYPOS_DATA_VIRT_SIZE)
 #define HYPOS_FIXMAP_VIRT_SIZE     _AT(vaddr_t, MB(2))
+// --------------------------------------------------------------
 #define HYPOS_FIXMAP_ADDR(n)       (HYPOS_FIXMAP_VIRT_START + (n) * PAGE_SIZE)
 #define NUM_FIX_PFNMAP             8
 #define FIX_CONSOLE                0
@@ -96,17 +96,24 @@
 #define FIXADDR_START              HYPOS_FIXMAP_ADDR(0)
 #define FIXADDR_END                HYPOS_FIXMAP_ADDR(FIX_PFNMAP_END)
 // --------------------------------------------------------------
-#define HYPOS_VMAP_VIRT_START      (HYPOS_DATA_VIRT_START + MB(256))
-#define HYPOS_VMAP_VIRT_SIZE       _AT(vaddr_t, MB(256))
+#ifndef __ASSEMBLY__
+#define HYPOS_MEMCHUNK_START       _AT(vaddr_t, MB(32))
+#define HYPOS_MEMCHUNK_SIZE        MB(128 - 32)
+#define HYPOS_MEMCHUNK_NR          (HYPOS_MEMCHUNK_SIZE / sizeof(*page_head))
+#define HYPOS_VMAP_VIRT_START      _AT(vaddr_t, MB(256))
+#define HYPOS_VMAP_VIRT_SIZE       _AT(vaddr_t, GB(1) - MB(256))
 
-#define HYPOS_HEAP_VIRT_START      (HYPOS_VMAP_VIRT_START + HYPOS_VMAP_VIRT_SIZE)
+#define HYPOS_HEAP_VIRT_START      _AT(vaddr_t, GB(1))
 #define HYPOS_HEAP_VIRT_SIZE       _AT(vaddr_t, GB(1))
 
-#define GUEST_HEAP_VIRT_START      (HYPOS_HEAP_VIRT_START + HYPOS_HEAP_VIRT_SIZE)
+#define GUEST_HEAP_VIRT_START      _AT(vaddr_t, GB(2))
 #define GUEST_HEAP_VIRT_SIZE       _AT(vaddr_t, GB(2))
+
+#endif /* !__ASSEMBLY__ */
 // --------------------------------------------------------------
 #define HYPOS_VIRT_START           HYPOS_DATA_VIRT_START
 #define HYPOS_VIRT_END             (GUEST_HEAP_VIRT_START + GUEST_HEAP_VIRT_SIZE)
+#define SYMBOLS_ORIGIN             HYPOS_VIRT_START
 // --------------------------------------------------------------
 
 /* Calculate the offsets into the pagetbls for a given VA */
@@ -120,7 +127,7 @@
  *  | TBL0 [47:39] | TBL1 [38:30] | TBL2 [29:21] | TBL3 [20:12] | ...
  *  +--------------+--------------+--------------+--------------+
  */
-#define PGTBL_OFFSET(offs)   (_AT(unsigned int, offs) & PGTBL_TTBL_ENTRY_MASK)
+#define PGTBL_OFFSET(ofs)    (_AT(unsigned int, ofs) & PGTBL_TTBL_ENTRY_MASK)
 #define PGTBL0_OFFSET(va)    PGTBL_OFFSET(PGTBL0_LINEAR_OFFSET(va))
 #define PGTBL1_OFFSET(va)    PGTBL_OFFSET(PGTBL1_LINEAR_OFFSET(va))
 #define PGTBL2_OFFSET(va)    PGTBL_OFFSET(PGTBL2_LINEAR_OFFSET(va))
@@ -136,9 +143,11 @@
 #include <asm/atomic.h>
 #include <asm/sysregs.h>
 #include <asm/barrier.h>
-#include <generic/ccattr.h>
-#include <generic/type.h>
+#include <common/ccattr.h>
+#include <common/type.h>
+#include <common/traps.h>
 #include <lib/math.h>
+#include <bsp/check.h>
 
 #define TTBL_OFFSETS(var, va)     \
     const unsigned int var[4] = { \
@@ -245,15 +254,6 @@ typedef struct __packed {
     unsigned long res2: 9;
 } ttbl_entry_t;
 
-/* EL1/2/3 Access Permission
- */
-enum access_permission_elx {
-    RW_ACCESS_B00 = 0x00,
-    RW_ACCESS_B01 = 0x01,
-    RO_ACCESS_B10 = 0x02,
-    RO_ACCESS_B11 = 0x03,
-};
-
 /* For the purpose of page table walking
  */
 typedef struct __packed {
@@ -335,7 +335,7 @@ static inline bool pfn_eq(pfn_t x, pfn_t y)
     return to_pfn(x) == to_pfn(y);
 }
 
-static inline pfn_t pfn_add(pfn_t x, unsigned long i)
+static inline pfn_t pfn_add(pfn_t x, long i)
 {
     return to_pfn_t(to_pfn(x) + i);
 }
@@ -347,30 +347,9 @@ static inline void *pa_to_va(paddr_t pa)
     return (void *)(HYPOS_HEAP_VIRT_START);
 }
 
-static inline u64 __va_to_pa(vaddr_t va)
-{
-    u64 par, tmp = read_sysreg_par();
-    asm volatile ("at s1e2r, %0;" : : "r"(va));
-    isb();
-    par = read_sysreg_par();
-    WRITE_SYSREG64(tmp, PAR_EL1);
-    return par;
-}
-
-#define va_to_pa(va) ({ \
-    u64 par = __va_to_pa((vaddr_t)va); \
-    (paddr_t)((par & PADDR_MASK & PAGE_MASK) | ((vaddr_t)va & ~PAGE_MASK)); \
-})
-
-#define va_to_pfn(va)  to_pfn_t((va_to_pa((vaddr_t)va) >> PAGE_SHIFT))
-#define pfn_to_va(pfn) (pa_to_va(to_pfn(pfn) << PAGE_SHIFT))
-
-#define pa_to_pfn(pa)  to_pfn_t((unsigned long)(pa) >> PAGE_SHIFT)
-#define pfn_to_pa(pfn) ((paddr_t)(to_pfn(pfn) << PAGE_SHIFT))
-
-TYPE_SAFE(unsigned long, ifn);
-
-/* AT => Address Translate
+/* AT => Ask mmu to do <address translation>
+ * --------------------------------------------------------------
+ * @ at <at_op>, <Xt>
  * --------------------------------------------------------------
  * S1E1R
  * S1E1W
@@ -391,6 +370,40 @@ TYPE_SAFE(unsigned long, ifn);
  * S1E3A
  * --------------------------------------------------------------
  */
+static inline u64 __va_to_pa(vaddr_t va)
+{
+    u64 par, tmp = read_sysreg_par();
+    asm volatile ("at s1e2r, %0;" : : "r"(va));
+    isb();
+    par = read_sysreg_par();
+    WRITE_SYSREG64(tmp, PAR_EL1);
+    return par;
+}
+
+#define PAR_INVALID         (_AC(1, UL) << 0)
+void dump_ttbl_walk(vaddr_t va);
+
+static inline paddr_t _va_to_pa(vaddr_t va) {
+    u64 par = __va_to_pa(va);
+
+    if (par & PAR_INVALID) {
+        dump_ttbl_walk(va);
+        panic_par(par);
+    }
+
+    return (paddr_t)((par & PADDR_MASK & PAGE_MASK) |
+            (va & ~PAGE_MASK));
+}
+
+#define va_to_pa(va)    _va_to_pa((vaddr_t)(va))
+#define va_to_pfn(va)   to_pfn_t((va_to_pa((vaddr_t)va) >> PAGE_SHIFT))
+#define pfn_to_va(pfn)  (pa_to_va(to_pfn(pfn) << PAGE_SHIFT))
+
+#define __pa_to_pfn(pa) ((unsigned long)(pa) >> PAGE_SHIFT)
+#define pa_to_pfn(pa)   to_pfn_t(__pa_to_pfn(pa))
+#define pfn_to_pa(pfn)  ((paddr_t)(to_pfn(pfn) << PAGE_SHIFT))
+
+TYPE_SAFE(unsigned long, ifn);
 
 static inline u64 __gva_to_pa(vaddr_t va, unsigned int flags)
 {

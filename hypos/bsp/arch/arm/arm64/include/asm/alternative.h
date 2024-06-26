@@ -11,7 +11,7 @@
 
 // ------------------------------------------------------------------------
 #ifndef __ASSEMBLY__
-#include <generic/stringify.h>
+#include <common/stringify.h>
 
 #define ALTINSTR_ENTRY(feature, cb)                               \
     " .word 661b - .\n"             /* label */                   \

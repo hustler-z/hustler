@@ -6,7 +6,7 @@
  * Usage:
  */
 
-#include <generic/timer.h>
+#include <common/timer.h>
 #include <bsp/input.h>
 #include <bsp/sdev.h>
 #include <bsp/debug.h>

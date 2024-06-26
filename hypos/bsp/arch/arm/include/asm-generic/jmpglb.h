@@ -13,7 +13,7 @@
     FUNCJMP(tstc, int, tstc, void)
     FUNCJMP(putc, void, putc, const char)
     FUNCJMP(puts, void, puts, const char *)
-    FUNCJMP(pr, int, pr, const char *, ...)
+    FUNCJMP(pr, void, pr, const char *, ...)
     FUNCJMP(getc, int, getc, void)
     FUNCJMP(flush, void, flush, void)
 // --------------------------------------------------------------

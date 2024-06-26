@@ -7,7 +7,7 @@
  */
 
 #include <asm/debug.h>
-#include <generic/type.h>
+#include <common/type.h>
 #include <lib/strops.h>
 
 // --------------------------------------------------------------

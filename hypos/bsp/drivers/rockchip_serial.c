@@ -11,7 +11,7 @@
 #include <rk3568/grf.h>
 #include <asm-generic/bitops.h>
 #include <bsp/ns16550.h>
-#include <generic/mmap.h>
+#include <common/mmap.h>
 // --------------------------------------------------------------
 
 struct rockchip_uart_plat {

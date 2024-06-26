@@ -34,8 +34,10 @@
 
 /* Note hypos Code Entry Point
  */
-GLOBAL(_head)
+FUNC(_head)
+    add  x13, x18, #0x16
     b    _entry
+END(_head)
     .long   0
     .quad   __hypos_end - _head /* code size */
     .quad   0
@@ -64,6 +66,12 @@ _entry:
     /* Early Debug UART Initialization */
     bl   early_uart_init
 
+#if ASM_DBG
+    DBG("- (OFS) 0x")
+    dump_reg x20
+    DBG(" -\r\n")
+#endif
+
     /* Hang if not on boot cpu (i.e., cpu0) */
     bl   get_cpu_affinity
     cbz  w4, bootcpu
@@ -71,11 +79,11 @@ _entry:
     b    boot_failed
 
 bootcpu:
-
+#if ASM_DBG
     DBG("- (CPU) 0x")
     dump_reg x4
     DBG(" -\r\n")
-
+#endif
     bl   el2_entry
 
     ldr  lr, =runtime_switched
@@ -94,8 +102,6 @@ runtime_switched:
     /* Enable all exception */
     msr  DAIFClr, #0xF
 
-    DBG("- BSP Setup -\r\n")
-
     b    bsp_setup
 
 /* Note System Registers at EL2
@@ -105,10 +111,12 @@ runtime_switched:
  * --------------------------------------------------------------
  */
 FUNC_LOCAL(el2_entry)
-    DBG("- (EL)  0x")
     mrs  x7, CurrentEL
+#if ASM_DBG
+    DBG("- (EL)  0x")
     dump_reg x7
     DBG(" -\r\n")
+#endif
 
     /* Hang if not in EL2 */
     cmp  x7, #ARM64_EL2T
@@ -123,14 +131,18 @@ el2_setup:
 
     /* Set up Memory Attribute Indirection Register (EL2)
      */
+#if ASM_DBG
     DBG("- Set MAIR_EL2 -\r\n")
+#endif
     ldr  x0, =MAIR_EL2_SET
     msr  MAIR_EL2, x0
 
     /* Set up Translation Control Register (EL2)
      * controls stage 1 of EL2 & EL0 translation regime
      */
+#if ASM_DBG
     DBG("- Set TCR_EL2 -\r\n")
+#endif
     ldr  x0, =TCR_EL2_SET
     mrs  x1, ID_AA64MMFR0_EL1
     ubfm x1, x1, #0, #3
@@ -155,9 +167,11 @@ END(el2_entry)
  * BSS needs to be zeroed out before C sequence.
  */
 FUNC_LOCAL(zero_bss)
+#if ASM_DBG
     DBG("- Time to clear out BSS -\r\n")
+#endif
 
-#if 1
+#if ASM_DBG
     adr_l x5, __bss_start
     DBG("- BSS   [0x")
     dump_reg x5
@@ -173,9 +187,9 @@ FUNC_LOCAL(zero_bss)
 1:  str  xzr, [x0], #8
     cmp  x0, x1
     blt  1b
-
+#if ASM_DBG
     DBG("- Zeroed out BSS -\r\n")
-
+#endif
     ret
 END(zero_bss)
 
@@ -185,7 +199,9 @@ FUNC_LOCAL(traps_setup)
     /* Set up Vector Base Address Register (EL2)
      * (self-explanatory)
      */
+#if ASM_DBG
     DBG("- Set VBAR_EL2 -\r\n")
+#endif
     ldr  x0, =hyp_vectors
     msr  VBAR_EL2, x0
 
@@ -193,23 +209,37 @@ FUNC_LOCAL(traps_setup)
      * Provides EL2 configuration options for self-hosted
      * debug and the Performance Monitors Extension.
      */
+#if ASM_DBG
     DBG("- Set MDCR_EL2 -\r\n")
+#endif
     ldr  x0, =MDCR_EL2_SET
     msr  MDCR_EL2, x0
+
+    /* Trap CP15 used for Implementation Defined Registers
+     */
+#if ASM_DBG
+    DBG("- Set HSTR_EL2 -\r\n")
+#endif
+    ldr  x0, =HSTR(15)
+    msr  HSTR_EL2, x0
 
     /* Achitectural Feature Trap Register (EL2)
      * Controls trapping to EL2 of accesses to CPACR,
      * CPACR_EL1, trace, Activity Monitor, SVE, and
      * Advanced SIMD and floating-point functionality.
      */
+#if ASM_DBG
     DBG("- Set CPTR_EL2 -\r\n")
+#endif
     ldr  x0, =CPTR_EL2_SET
     msr  CPTR_EL2, x0
 
     /* Set up Hypervisor Configuration Register (EL2)
      * To route exception to EL2, set HCR_EL2.{AMO, FMO, IMO}
      */
+#if ASM_DBG
     DBG("- Set HCR_EL2 -\r\n")
+#endif
     ldr  x0, =HCR_EL2_SET
     msr  HCR_EL2, x0
 
@@ -221,8 +251,9 @@ END(traps_setup)
 /* Note Entry to C world
  */
 FUNC(bsp_setup)
+#if ASM_DBG
     DBG("- Boot Stack Setup -\r\n")
-
+#endif
     /* setup hyp stack and ready for C
      * ldr xn, =imm   => value of immediate
      * ldr xn, =sym   => address of symbol
@@ -240,11 +271,11 @@ FUNC(bsp_setup)
      *    ▼
      * -------------------- low address  (stack top)
      */
-    ldr  x3, =boot_hcpu
+    ldr  x3, =boot_setup
     add  x3, x3, #HCPU_STACK
     ldr  x3, [x3]
     add  x3, x3, #STACK_SIZE
-    sub  x3, x3, #HCPU_CONTEXT
+    sub  x3, x3, #HCPU_SIZE
     mov  sp, x3
 
     mov  x0, x20 /* phys_offset */

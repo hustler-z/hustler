@@ -13,14 +13,14 @@ options:
     -c [cmd]             debug command
     -a [address]         debug address
 cmd:
-    addr2line            addr2line in arm toolchain
-    build                build hypos
+    al                   addr2line => locate line number
+    bd                   build hypos
 "
 }
 
 addr2line() {
     if [ -z $FADDR ];then
-        echo "./cook.sh -c addr2line -a [address]"
+        echo "./cook.sh -c a2l -a [address]"
         exit
     fi
 
@@ -29,7 +29,7 @@ addr2line() {
         exit
     fi
 
-    $TC_PREFIX-addr2line -e $ELF $FADDR
+    $TC_PREFIX-addr2line -e $ELF $FADDR -f
 }
 
 build_hypos() {
@@ -43,10 +43,10 @@ debug() {
     fi
 
     case $CMD in
-        addr2line)
+        al)
             addr2line
             ;;
-        build)
+        bd)
             build_hypos
             ;;
         *)

@@ -10,8 +10,8 @@
 #define _BSP_CONSOLE_H
 // --------------------------------------------------------------
 
-#include <generic/type.h>
-#include <generic/timer.h>
+#include <common/type.h>
+#include <common/timer.h>
 
 #define endtick(seconds) (get_ticks() + (u64)(seconds) * get_tbclk())
 #define TERM_CH(c)       ((c) - 'a' + 1)

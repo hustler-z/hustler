@@ -116,6 +116,8 @@
 #define CPTR_EL2_SET   ((CPTR_CP_MASK & ~(CPTR_CP(10) | CPTR_CP(11))) |\
                          CPTR_TTA | CPTR_TAM)
 
+#define HSTR(x)        ((_AC(1, U) << (x)))
+
 /* TCR_EL2 - Translation Control Register
  *
  * The control register for stage 1 of the EL2, or EL2&0, translation regime:
@@ -183,9 +185,37 @@
 #define TCR_EL1_TBI1              (_AC(0x1, ULL) << 38)
 #define TCR_PS(x)                 ((x) << 16)
 #define TCR_TBI                   (_AC(0x1, UL) << 20)
+
+/* -----------------------------------------------------------
+ * When the AF bit is being used, the translation tables are
+ * created with the AF bit initially clear. When a page is
+ * accessed, its AF bit is set. Software can parse the tables
+ * to check whether the AF bits are set or clear. A page with
+ * AF==0 cannot have been accessed and is potentially a better
+ * candidate for being paged-out.
+ *
+ * Software Update: Accessing the page causes a synchronous
+ * exception (Access Flag fault). In the exception handler,
+ * software is responsible for setting the AF bit in the
+ * relevant translation table entry and returns.
+ *
+ * Hardware Update: Accessing the page causes hardware to
+ * automatically set the AF bit without needing to generate
+ * an exception. This behavior needs to be enabled using the
+ * hardware access update bit of the Translation Control
+ * Register (TCR_ELx.HA) that was added in Armv8.1-A.
+ *
+ * bit[21] - FEAT_HAFDBS is implemented: Hardware access flag
+ * update in stage 1 translation from EL2.
+ * -----------------------------------------------------------
+ * 0b0                     Stage 1 Access flag update disabled
+ * 0b1                     Stage 1 Access flag update enabled
+ * -----------------------------------------------------------
+ */
+#define TCR_HA_EN                 (_AC(1, UL) << 21)
 #define TCR_RES1                  (_AC(1, UL) << 31 | _AC(1, UL) << 23)
 #define TCR_EL2_SET               (TCR_RES1 | TCR_SH0_IS | TCR_ORGN0_WBWA |\
-                                   TCR_IRGN0_WBWA | TCR_T0SZ(64-48))
+                                   TCR_HA_EN | TCR_IRGN0_WBWA | TCR_T0SZ(64-48))
 
 /* VTCR_EL2 - Virtualization Translation Control Register
  *
@@ -335,6 +365,24 @@
  */
 #define SMP_ENABLE_BIT            BIT(6, UL)
 
+/* Physical Address Register */
+#define PAR_F           (_AC(1, U) << 0)
+
+/* If F == 1 */
+#define PAR_FSC_SHIFT   (1)
+#define PAR_FSC_MASK    (_AC(0x3F, U) << PAR_FSC_SHIFT)
+#define PAR_STAGE21     (_AC(1, U) << 8)     /* Stage 2 Fault During Stage 1 Walk */
+#define PAR_STAGE2      (_AC(1, U) << 9)     /* Stage 2 Fault */
+
+/* If F == 0 */
+#define PAR_MAIR_SHIFT  56                       /* Memory Attributes */
+#define PAR_MAIR_MASK   (0xFFLL << PAR_MAIR_SHIFT)
+#define PAR_NS          (_AC(1, U) << 9)         /* Non-Secure */
+#define PAR_SH_SHIFT    7                        /* Shareability */
+#define PAR_SH_MASK     (_AC(3, U) << PAR_SH_SHIFT)
+
+// --------------------------------------------------------------
+
 /* The area of the instruction set space is reserved for
  * IMPLEMENTATION DEFINED registers.
  */
@@ -345,8 +393,8 @@
 #ifndef __ASSEMBLY__
 
 #include <asm/alternative.h>
-#include <generic/stringify.h>
-#include <generic/type.h>
+#include <common/stringify.h>
+#include <common/type.h>
 
 #define WRITE_SYSREG64(v, name) do {                          \
     unsigned long _r = (v);                                   \

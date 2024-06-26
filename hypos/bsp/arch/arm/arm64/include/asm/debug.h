@@ -38,6 +38,9 @@
 // --------------------------------------------------------------
 
 #ifdef __ASSEMBLY__
+/* If enable assembly debug info
+ */
+#define ASM_DBG                             (1)
 
 #define RODATA_SECT(section, label, msg)    \
 .pushsection section, "aMS", %progbits, 1;  \

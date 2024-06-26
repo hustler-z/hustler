@@ -7,3 +7,5 @@
 
 arm-y += lock.o
 arm-y += atomic.o
+arm-y += chunk.o
+arm-y += traps.o

@@ -10,7 +10,7 @@
 #define _BOARD_CRU_H
 // --------------------------------------------------------------
 
-#include <generic/type.h>
+#include <common/type.h>
 
 #define MHz		    1000000
 #define KHz		    1000

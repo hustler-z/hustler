@@ -9,11 +9,11 @@
 #ifndef _ARCH_IO_H
 #define _ARCH_IO_H
 // --------------------------------------------------------------
-#include <generic/type.h>
+#include <common/type.h>
 #include <asm-generic/byteorder.h>
 #include <asm/barrier.h>
 #include <asm/alternative.h>
-#include <generic/ccattr.h>
+#include <common/ccattr.h>
 
 #define ARM64_WORKAROUND_DEVICE_LOAD_ACQUIRE	1
 

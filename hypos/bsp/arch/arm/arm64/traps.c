@@ -1,14 +1,14 @@
 /**
  * Hustler's Project
  *
- * File:  exception.c
+ * File:  traps.c
  * Date:  2024/05/20
  * Usage: exception handler implementation in C
  */
 
 #include <asm/sysregs.h>
 #include <asm/debug.h>
-#include <generic/exception.h>
+#include <common/traps.h>
 
 // --------------------------------------------------------------
 void hyp_syn_el2t_handler(struct hcpu_regs *regs)

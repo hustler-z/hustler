@@ -12,20 +12,8 @@
 #ifndef __ASSEMBLY__
 
 struct arch_globl {
-    unsigned long timer_rate_hz;
-    unsigned int tbu;
-    unsigned int tbl;
-    unsigned long lastinc;
-    unsigned long long timer_reset_value;
+    /* page allocation related */
 
-    unsigned long tlb_addr;
-    unsigned long tlb_size;
-
-    /* ARM64 */
-    unsigned long tlb_fillptr;
-    unsigned long tlb_emerg;
-    unsigned int first_block_level;
-    int has_hafdbs;
 };
 
 #endif /* !__ASSEMBLY__ */

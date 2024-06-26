@@ -9,8 +9,8 @@
 #ifndef _BSP_STDIO_H
 #define _BSP_STDIO_H
 // --------------------------------------------------------------
-#include <generic/type.h>
-#include <generic/ccattr.h>
+#include <common/type.h>
+#include <common/ccattr.h>
 #include <lib/args.h>
 
 /* stdin */
@@ -22,19 +22,17 @@ void putc(const char c);
 void puts(const char *s);
 void flush(void);
 
-int __pr(1, 2) pr(const char *fmt, ...);
-int vpr(const char *fmt, va_list args);
+void __pr(1, 2) pr(const char *fmt, ...);
 
 #define HYPOS_PBSIZE        (1024)
 
+void vpr_common(const char *fmt, va_list args);
 int vspr(char *buf, const char *fmt, va_list args);
-int spr(char *buf, const char *fmt, ...);
 int snpr(char *buf, size_t size, const char *fmt, ...);
 int vsnpr(char *buf, size_t size, const char *fmt,
         va_list args);
 int vscnpr(char *buf, size_t size, const char *fmt,
         va_list args);
-
 // --------------------------------------------------------------
 #define stdin		0
 #define stdout		1

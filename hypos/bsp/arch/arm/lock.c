@@ -6,11 +6,11 @@
  * Usage:
  */
 
-#include <asm-generic/lock.h>
 #include <asm-generic/section.h>
 #include <bsp/percpu.h>
 #include <bsp/cpu.h>
 #include <bsp/check.h>
+#include <bsp/lock.h>
 
 // --------------------------------------------------------------
 

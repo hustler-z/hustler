@@ -11,8 +11,8 @@
 #include <bsp/ns16550.h>
 #include <bsp/serial.h>
 #include <bsp/period.h>
-#include <generic/type.h>
-#include <generic/errno.h>
+#include <common/type.h>
+#include <common/errno.h>
 #include <lib/math.h>
 
 // --------------------------------------------------------------

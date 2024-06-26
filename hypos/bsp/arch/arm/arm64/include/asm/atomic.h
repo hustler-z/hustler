@@ -103,7 +103,7 @@ static __always_inline void write_atomic_size(volatile void *p,
     do {                                                    \
         typeof(*(p)) x_ = (x);                              \
         write_atomic_size(p, &x_, sizeof(*(p)));            \
-    } while ( false )
+    } while (false)
 
 // --------------------------------------------------------------
 typedef struct { int counter; } atomic_t;

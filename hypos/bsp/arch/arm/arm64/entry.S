@@ -38,6 +38,7 @@
 .macro trap_entry, hyp
     dmb  sy
 
+    /* CPSR, PC, SP, LR */
     sub  sp, sp, #(HCPU_SPSR_EL1 - HCPU_LR)
     push x28, x29
     push x26, x27
@@ -55,10 +56,10 @@
     push x2,  x3
     push x0,  x1
 
-    add  x21, sp, #HCPU_SIZE
+    add  x21, sp, #HYPERVISOR_OFFSET /* Hypervisor Registers Context */
 
     stp  lr, x21, [sp, #HCPU_LR]
-    mrs  x21, elr_el2
+    mrs  x21, ELR_EL2
     str  x21, [sp, #HCPU_PC]
 
     add  x21, sp, #HCPU_CPSR
@@ -68,6 +69,7 @@
 .endm
 
 .macro trap_exit, hyp
+    msr  DAIFSet, #DAIF_IRQ_MASK
     ldr  x21, [sp, #HCPU_PC]
     ldr  x22, [sp, #HCPU_CPSR]
 
@@ -91,6 +93,7 @@
     pop  x26, x27
     pop  x28, x29
 
+    /* CPSR, PC, SP, LR */
     ldr  lr, [sp], #(HCPU_SPSR_EL1 - HCPU_LR)
 
     dmb  sy

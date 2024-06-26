@@ -25,5 +25,6 @@
 #define MSGH(fmt, ...) pr("[hypos] "fmt, ##__VA_ARGS__)
 #define MSGI(fmt, ...) pr(fmt, ##__VA_ARGS__)
 
+int sscanf(const char *buf, const char *fmt, ...);
 // --------------------------------------------------------------
 #endif /* _BSP_DEBUG_H */

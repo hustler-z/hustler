@@ -42,12 +42,16 @@
  * bit[8]                   - Contiguous
  */
 #define _PAGE_XN_BIT        3
-#define _PAGE_RO_BIT        4
+#define _PAGE_AP_BIT        4
 #define _PAGE_XN            (1U << _PAGE_XN_BIT)
-#define _PAGE_RO            (3U << _PAGE_RO_BIT)
+#define _PAGE_RO            (3U << _PAGE_AP_BIT)
 #define PAGE_AI_MASK(x)     ((x) & 0x7U)
 #define PAGE_XN_MASK(x)     (((x) >> _PAGE_XN_BIT) & 0x1U)
-#define PAGE_RO_MASK(x)     (((x) >> _PAGE_RO_BIT) & 0x3U)
+#define PAGE_AP_MASK(x)     (((x) >> _PAGE_AP_BIT) & 0x3U)
+#define PAGE_IS_RO(x)       ((PAGE_AP_MASK(x) == 3) ||\
+                             (PAGE_AP_MASK(x) == 2))
+#define PAGE_IS_RW(x)       ((PAGE_AP_MASK(x) == 0) ||\
+                             (PAGE_AP_MASK(x) == 1))
 
 #define _PAGE_PRESENT       (1U << 5)
 #define _PAGE_POPULATE      (1U << 6)
@@ -69,7 +73,12 @@
 #define PAGE_HYPOS_NOCACHE  (_PAGE_DEVICE|MT_DEVICE_nGnRE)
 #define PAGE_HYPOS_WC       (_PAGE_DEVICE|MT_NORMAL_NC)
 
+#define PFN_DOWN(p)         ((p) >> PAGE_SHIFT)
+#define PFN_UP(p)           (((p) + PAGE_SIZE - 1) >> PAGE_SHIFT)
+
 #define ROUND_PGUP(p)       (((p) + (PAGE_SIZE - 1)) & PAGE_MASK)
 #define ROUND_PGDOWN(p)     ((p) & PAGE_MASK)
+
+#define MAX_ORDER           (9)
 // --------------------------------------------------------------
 #endif /* _ARCH_PAGE_H */

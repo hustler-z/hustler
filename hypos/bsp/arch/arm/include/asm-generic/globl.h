@@ -17,7 +17,7 @@
 #include <lib/list.h>
 #include <asm/globl.h>
 #include <asm-generic/bitops.h>
-#include <generic/type.h>
+#include <common/type.h>
 
 /* Hypos Global Data Container
  */
@@ -29,6 +29,8 @@ struct hypos_globl {
     bool                console_enable;
     bool                keyboard_enable;
     unsigned int        boot_status; /* hypos_boot_status */
+    unsigned long       phys_offset;
+    unsigned long       boot_param;
     struct hlist_head   pw_list;
     struct hypos_device_table *dev_tbl;
     struct funcjmp      *fjmp;

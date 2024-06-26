@@ -9,9 +9,9 @@
 #ifndef _BOARD_UART_H
 #define _BOARD_UART_H
 // --------------------------------------------------------------
-#include <generic/init.h>
+#include <common/init.h>
 #include <asm/bitops.h>
-#include <generic/type.h>
+#include <common/type.h>
 
 #define BAUD_RATE_1500000          _AC(1500000, UL)
 

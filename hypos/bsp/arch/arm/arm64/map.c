@@ -9,17 +9,17 @@
 #include <asm/tlb.h>
 #include <asm/map.h>
 #include <asm/bitops.h>
-#include <generic/type.h>
+#include <common/type.h>
 #include <asm-generic/section.h>
 #include <asm-generic/globl.h>
-#include <asm-generic/lock.h>
-#include <generic/errno.h>
+#include <common/errno.h>
 #include <lib/bitops.h>
 #include <lib/math.h>
 #include <lib/strops.h>
 #include <bsp/debug.h>
 #include <bsp/check.h>
 #include <bsp/alloc.h>
+#include <bsp/lock.h>
 
 // --------------------------------------------------------------
 static __initdata DECLARE_BITMAP(inuse, NUM_FIX_PFNMAP);
@@ -36,9 +36,6 @@ __bootfunc void *map_pfn(pfn_t pfn)
     set_bit(bit, inuse);
     slot = bit + FIX_PFNMAP_START;
 
-    DEBUG("%s() slot=%u pfn=0x%016lx\n",
-            __func__, slot, to_pfn(pfn));
-
     ASSERT(slot >= FIX_PFNMAP_START &&
             slot <= FIX_PFNMAP_END);
 
@@ -52,17 +49,15 @@ void __bootfunc unmap_pfn(const void *vp)
     unsigned int bit;
     unsigned int slot = va_to_fix((unsigned long)vp);
 
-    DEBUG("%s() been Called.\n", __func__);
-
     ASSERT(slot >= FIX_PFNMAP_START &&
             slot <= FIX_PFNMAP_END);
 
-    bit = slot - FIX_PFNMAP_END;
+    bit = slot - FIX_PFNMAP_START;
     clear_bit(bit, inuse);
     arch_pfn_unmap(slot);
 }
 
-static ttbl_t *map_table(pfn_t pfn)
+ttbl_t *map_table(pfn_t pfn)
 {
     if (get_globl()->boot_status == EARLY_BOOT_STAGE)
         return map_pfn(pfn);
@@ -72,7 +67,7 @@ static ttbl_t *map_table(pfn_t pfn)
     }
 }
 
-static void unmap_table(const ttbl_t *table)
+void unmap_table(const ttbl_t *table)
 {
     if (get_globl()->boot_status == EARLY_BOOT_STAGE)
         unmap_pfn(table);
@@ -86,12 +81,10 @@ static int create_ttbl(ttbl_t *entry)
     void *ptr;
     ttbl_t pte;
 
-    DEBUG("%s() been Called.\n", __func__);
-
     if (get_globl()->boot_status != EARLY_BOOT_STAGE) {
         MSGH("Not Implemented yet\n");
     } else
-        pfn = boot_page_alloc(1, 1);
+        pfn = alloc_boot_page(1, 1);
 
     ptr = map_table(pfn);
     zero_page(ptr);
@@ -115,6 +108,13 @@ static int ttbl_next_level(bool read_only,
 
     entry = *table + offset;
 
+#if 0 /* Deprecated */
+    DEBUG("<TTBL> 0x%016lx (*table) + 0x%08x (offset) = 0x%016lx (entry)\n",
+            (unsigned long)(*table),
+            offset,
+            (unsigned long)entry);
+#endif
+
     if (!pte_is_valid(*entry)) {
         if (read_only)
             return MAP_FAILED;
@@ -124,8 +124,6 @@ static int ttbl_next_level(bool read_only,
         if (ret)
             return MAP_FAILED;
     }
-
-    DEBUG("shit is hot!!\n");
 
     if (pte_is_mapped(*entry, level))
         return MAP_SPAGE;
@@ -142,8 +140,6 @@ static bool ttbl_check_entry(ttbl_t entry,
                              unsigned int level,
                              unsigned int flags)
 {
-    DEBUG("%s() been Called.\n", __func__);
-
     if ((flags & _PAGE_PRESENT) && pfn_eq(pfn, INVALID_PFN)) {
         if (!pte_is_valid(entry)) {
             MSGH("Unable to modify the invalid entry.\n");
@@ -167,8 +163,7 @@ static bool ttbl_check_entry(ttbl_t entry,
     } else if (flags & _PAGE_PRESENT) {
         ASSERT(!pfn_eq(pfn, INVALID_PFN));
 
-        if (pte_is_valid(entry))
-        {
+        if (pte_is_valid(entry)) {
             if (pte_is_mapped(entry, level))
                 MSGH("Uable to change PFN for a valid entry.\n");
             else
@@ -189,7 +184,6 @@ static bool ttbl_check_entry(ttbl_t entry,
         }
     } else {
         ASSERT(flags & _PAGE_POPULATE);
-
         ASSERT(pfn_eq(pfn, INVALID_PFN));
     }
 
@@ -216,9 +210,7 @@ static int ttbl_update_entry(pfn_t root,
     ASSERT((flags & (_PAGE_POPULATE|_PAGE_PRESENT))
             != (_PAGE_POPULATE|_PAGE_PRESENT));
 
-    table = map_table(root);
-
-    DEBUG("root table at 0x%016lx\n", (unsigned long)table);
+    table = (ttbl_t *)map_table(root);
 
     for (level = 0; level < target; level++) {
         ret = ttbl_next_level(read_only, level, &table,
@@ -264,8 +256,8 @@ static int ttbl_update_entry(pfn_t root,
         } else
             pte = *entry;
 
-        pte.ttbl.ap = PAGE_RO_MASK(flags);
-        pte.ttbl.pxn = PAGE_XN_MASK(flags);
+        pte.ttbl.ap = PAGE_AP_MASK(flags);
+        pte.ttbl.uxn = PAGE_XN_MASK(flags);
         pte.ttbl.contig = !!(flags & _PAGE_CONTIG);
     }
 
@@ -275,8 +267,6 @@ static int ttbl_update_entry(pfn_t root,
 
 out:
     unmap_table(table);
-
-    DEBUG("%s() done.\n", __func__);
 
     return ret;
 }
@@ -330,7 +320,7 @@ static unsigned int ttbl_check_contig(unsigned long vfn,
     return TTBL_4K_NR_CONTIG;
 }
 
-static unsigned int ttbl_lock = SPINLOCK_UNLOCK;
+static DEFINE_SPINLOCK(ttbl_lock);
 
 static int ttbl_update(unsigned long va,
                        pfn_t pfn,
@@ -343,7 +333,7 @@ static int ttbl_update(unsigned long va,
     unsigned int order, level, nr_contig, new_flags;
     const pfn_t root = pa_to_pfn(READ_SYSREG(TTBR0_EL2));
 
-    if ((flags & _PAGE_PRESENT) && !PAGE_RO_MASK(flags) &&
+    if ((flags & _PAGE_PRESENT) && !PAGE_IS_RO(flags) &&
         !PAGE_XN_MASK(flags)) {
         MSGH("Mappings can't be both Writeable and Executable.\n");
         return -EINVAL;
@@ -367,11 +357,11 @@ static int ttbl_update(unsigned long va,
 
         ASSERT(left >= BIT(order, UL));
 
+        DEBUG("<TTBL> Page Table Update at Level %u of Order %u\n",
+                level, order);
+
         nr_contig = ttbl_check_contig(vfn, pfn, level, left, flags);
         new_flags = flags | ((nr_contig > 1) ? _PAGE_CONTIG : 0);
-
-        DEBUG("%s() level=%u, order=%u, nr_contig=%u, flags=0x%08x\n",
-                __func__, level, order, nr_contig, new_flags);
 
         for (; nr_contig > 0; nr_contig--) {
             ret = ttbl_update_entry(root, vfn << PAGE_SHIFT, pfn, level,
@@ -398,6 +388,8 @@ static int ttbl_update(unsigned long va,
 
     spin_unlock(&ttbl_lock);
 
+    DEBUG("<TTBL> <%s> Finished\n", __func__);
+
     return ret;
 }
 
@@ -406,16 +398,40 @@ int map_pages(unsigned long va,
               unsigned long nr_pfns,
               unsigned int flags)
 {
-    DEBUG("%s() been Called.\n", __func__);
     return ttbl_update(va, pfn, nr_pfns, flags);
 }
 
 int remove_maps(unsigned long start,
                 unsigned long end)
 {
-    DEBUG("%s() been Called.\n", __func__);
     return ttbl_update(start, INVALID_PFN,
             (end - start) >> PAGE_SHIFT, 0);
 }
-// --------------------------------------------------------------
 
+int __bootfunc populate_ttbl_range(unsigned long va,
+                                   unsigned long nr_pfns)
+{
+    return ttbl_update(va, INVALID_PFN, nr_pfns,
+            _PAGE_POPULATE);
+}
+
+void set_fixmap(unsigned int map, pfn_t pfn,
+                unsigned int flags)
+{
+    int ret;
+
+    ret = map_pages(HYPOS_FIXMAP_ADDR(map), pfn, 1, flags);
+
+    BUG_ON(ret != 0);
+}
+
+void clear_fixmap(unsigned int map)
+{
+    int ret;
+
+    ret = remove_maps(HYPOS_FIXMAP_ADDR(map), HYPOS_FIXMAP_ADDR(map)
+            + PAGE_SIZE);
+
+    BUG_ON(ret != 0);
+}
+// --------------------------------------------------------------

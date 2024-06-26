@@ -8,8 +8,8 @@
 
 #include <asm/bitops.h>
 #include <asm/barrier.h>
-#include <generic/stringify.h>
-#include <generic/ccattr.h>
+#include <common/stringify.h>
+#include <common/ccattr.h>
 #include <bsp/check.h>
 
 // --------------------------------------------------------------

@@ -9,11 +9,13 @@
 #ifndef _ASM_GENERIC_SECTION_H
 #define _ASM_GENERIC_SECTION_H
 // --------------------------------------------------------------
-#include <generic/ccattr.h>
+#include <common/ccattr.h>
 
 #define __initdata          __section(".data.init")
+#define __read_mostly       __section(".data.read_mostly")
 #define __bootfunc          __section(".boot.setup")
 #define __percpu_stat       __section(".bss.percpu_stat")
+#define __ro_after_init     __section(".data.ro_after_init")
 
 extern char __hypos_start[], __hypos_end[];
 #define is_core_section(v) ({                      \

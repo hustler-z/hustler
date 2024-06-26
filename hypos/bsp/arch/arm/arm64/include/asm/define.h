@@ -21,6 +21,11 @@
 #define ARM64_EL2H            0x00000009
 #define ARM64_EL3T            0x0000000C
 #define ARM64_EL3H            0x0000000D
+
+#define DAIF_DEBUG_MASK       0x8
+#define DAIF_ERROR_MASK       0x4
+#define DAIF_IRQ_MASK         0x2
+#define DAIF_FIQ_MASK         0x1
 // --------------------------------------------------------------
 
 #ifdef __ASSEMBLY__

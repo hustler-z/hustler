@@ -194,7 +194,7 @@ FUNC_LOCAL(page_table_setup)
     add  x4, x4, #PAGE_SIZE
 .endr
 
-#if 1
+#if ASM_DBG
     DBG("- HYPOS [0x")
     adr_l x5, __hypos_start
     dump_reg x5
@@ -257,9 +257,9 @@ FUNC_LOCAL(page_table_setup)
     ldr  x0, =HYPOS_VIRT_START
     cmp  x19, x0
     bne  1f
-
+#if ASM_DBG
     DBG("- Set Boot Page Table without ID Mapping -\r\n")
-
+#endif
     ret
 
 1:  get_ttbl_slot x0, x19, 0
@@ -294,9 +294,9 @@ from_boot_idmap3:
     create_map_entry hypos_fixmap, x0, x23, x1, x2, x3, type=TTBL_ENTRY_DEV
     ldr  x0, =HYPOS_FIXMAP_ADDR(0)
     create_ttbl_entry boot_pgtbl2, hypos_fixmap, x0, 2, x1, x2, x3
-
+#if ASM_DBG
     DBG("- Set Boot Page Table with ID Mapping -\r\n")
-
+#endif
     ret
 
 pgtbl_fatal:
@@ -311,8 +311,9 @@ END(page_table_setup)
 FUNC_LOCAL(mmu_enable)
     mov  x4, x0
     mov  x5, x1
+#if ASM_DBG
     DBG("- Turn on MMU -\r\n")
-
+#endif
     flush_local_tlb
 
     /* Set up Translation Table Base Register 0 (EL2)
@@ -330,9 +331,9 @@ FUNC_LOCAL(mmu_enable)
     isb
 
     ldr  x23, =DEBUG_UART_VA
-
+#if ASM_DBG
     DBG("- MMU Enabled -\r\n")
-
+#endif
     ret
 END(mmu_enable)
 
@@ -341,8 +342,9 @@ END(mmu_enable)
  * x19               =  paddr(_head)
  */
 FUNC_LOCAL(remove_idmap)
+#if ASM_DBG
     DBG("- Remove ID Mapping -\r\n")
-
+#endif
     get_ttbl_slot x1, x19, 0
     cmp   x1, #PGTBL0_OFFSET(HYPOS_VIRT_START) /* 0x14 */
     beq   1f
@@ -368,12 +370,14 @@ FUNC_LOCAL(remove_idmap)
 
 idmap_removed:
     flush_local_tlb
-
+#if ASM_DBG
     DBG("- ID Mapping Removed -\r\n")
-
+#endif
     ret
 END(remove_idmap)
 
+/* void __switch_ttbr(u64 ttbr);
+ */
 FUNC(__switch_ttbr)
     dsb  ish
     isb
@@ -395,9 +399,9 @@ FUNC(__switch_ttbr)
     orr  x1, x1, #SCTLR_Axx_ELx_M
     msr  SCTLR_EL2, x1
     isb
-
-    DBG("- Done Switch TTBR -\r\n")
-
+#if ASM_DBG
+    DBG("[hypos] <__switch_ttbr> Finished\r\n")
+#endif
     ret
 END(__switch_ttbr)
 

@@ -10,7 +10,7 @@
 #include <asm/sysregs.h>
 #include <asm/barrier.h>
 #include <lib/strops.h>
-#include <generic/type.h>
+#include <common/type.h>
 
 // --------------------------------------------------------------
 inline void gic_arch_enable_irqs(void)

@@ -49,7 +49,8 @@ FUNC(asm_puts)
     ret
 END(asm_puts)
 
-/* Note Use during early boot time
+/* XXX:
+ * Use early putc - early boot time in C
  */
 FUNC(early_putc)
     ldr   x15, =DEBUG_UART_VA
@@ -58,7 +59,9 @@ FUNC(early_putc)
     ret
 END(early_putc)
 
-/* Flush the UART - The function is called by C */
+/* XXX:
+ * Flush the UART - early boot time in C
+ */
 FUNC(early_flush)
     ldr   x15, =DEBUG_UART_VA
     early_uart_ready x15, 1
@@ -74,7 +77,7 @@ FUNC(asm_putn)
     mov   x3, #16
 1:
     early_uart_ready x23, 2
-    and   x2, x0, #(0xf<<60)
+    and   x2, x0, #(0xF<<60)
     lsr   x2, x2, #60
     ldrb  w2, [x1, x2]
     early_uart_transmit x23, w2

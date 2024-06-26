@@ -10,7 +10,7 @@
 #define _ARCH_VCPU_H
 // --------------------------------------------------------------
 #include <asm/hcpu.h>
-#include <generic/type.h>
+#include <common/type.h>
 
 struct arch_vcpu {
     struct {

@@ -20,6 +20,14 @@ int map_pages(unsigned long va,
               unsigned int flags);
 int remove_maps(unsigned long start,
                 unsigned long end);
+ttbl_t *map_table(pfn_t pfn);
+void unmap_table(const ttbl_t *table);
+
+int populate_ttbl_range(unsigned long va,
+                        unsigned long nr_pfns);
+void set_fixmap(unsigned int map, pfn_t pfn,
+                unsigned int flags);
+void clear_fixmap(unsigned int map);
 
 enum mapping_code {
     MAP_NORMAL = 0,
@@ -36,8 +44,6 @@ static inline void arch_pfn_map(unsigned int slot, pfn_t pfn)
 
     ASSERT(!pte_is_valid(*entry));
 
-    DEBUG("%s() been Called.\n", __func__);
-
     pte = pfn_to_entry(pfn, PAGE_HYPOS_RW);
     pte.ttbl.table = 1;
     write_pte(entry, pte);
@@ -51,8 +57,6 @@ static inline void arch_pfn_unmap(unsigned int slot)
 
     write_pte(&hypos_fixmap[slot], pte);
 
-    DEBUG("%s() been Called.\n", __func__);
-
     flush_tlb_range_va_local(HYPOS_FIXMAP_ADDR(slot), PAGE_SIZE);
 }
 
@@ -60,7 +64,7 @@ static inline void arch_pfn_unmap(unsigned int slot)
 
 static inline unsigned int va_to_fix(vaddr_t va)
 {
-    ASSERT(va >= FIXADDR_END || va < FIXADDR_START);
+    ASSERT(va <= FIXADDR_END || va > FIXADDR_START);
 
     return ((va - FIXADDR_START) >> PAGE_SHIFT);
 }

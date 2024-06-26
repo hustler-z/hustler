@@ -9,25 +9,37 @@
 #ifndef _BSP_CHECK_H
 #define _BSP_CHECK_H
 // --------------------------------------------------------------
+
+#include <common/ccattr.h>
+
 void panic(const char *fmt, ...);
 
 void __bug_crap(const char *file,
         unsigned int line, const char *function);
-
-void __assert_fail(const char *assertion, const char *file,
+void __warn_crap(const char *assertion, const char *file,
         unsigned int line, const char *function);
+void __assert_crap(const char *assertion, const char *file,
+        unsigned int line, const char *function);
+
+#define assert_fail(msg) \
+    __assert_crap(msg, __FILE__, __LINE__, __func__)
 
 #define BUG() ({        \
     __bug_crap(__FILE__, __LINE__, __func__); })
 
-#define _DEBUG          (1)
+#define WARN_ON(c) ({   \
+    if (unlikely(c))    \
+        __warn_crap(#c, __FILE__, __LINE__, __func__); })
 
+/* When shit is real, do BUG()
+ */
+#define BUG_ON(c) do { if (unlikely(c)) BUG(); } while (0)
+
+/* When shit ain't real, do ASSERT()
+ */
 #define ASSERT(x) ({    \
-    if (!(x) && _DEBUG) \
-		__assert_fail(#x, __FILE__, __LINE__, __func__); })
-
-#define assert_fail(msg) \
-    __assert_fail(msg, __FILE__, __LINE__, __func__)
+    if (unlikely(!(x))) \
+        __assert_crap(#x, __FILE__, __LINE__, __func__); })
 
 #define ASSERT_UNREACHABLE()    assert_fail("unreachable")
 // --------------------------------------------------------------

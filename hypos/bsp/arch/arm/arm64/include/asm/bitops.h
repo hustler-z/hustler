@@ -9,7 +9,7 @@
 #ifndef _ARCH_BITOPS_H
 #define _ARCH_BITOPS_H
 // --------------------------------------------------------------
-#include <generic/type.h>
+#include <common/type.h>
 
 #define BITOP_BITS_PER_WORD     32
 #define BITOP_MASK(nr)          (1UL << ((nr) % BITOP_BITS_PER_WORD))

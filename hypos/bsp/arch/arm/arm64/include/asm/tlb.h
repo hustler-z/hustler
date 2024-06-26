@@ -11,7 +11,7 @@
 // --------------------------------------------------------------
 
 #ifndef __ASSEMBLY__
-#include <generic/type.h>
+#include <common/type.h>
 #include <asm/alternative.h>
 #include <asm/page.h>
 

@@ -8,7 +8,7 @@
 
 #include <bsp/keyboard.h>
 #include <bsp/alloc.h>
-#include <generic/errno.h>
+#include <common/errno.h>
 #include <lib/strops.h>
 // --------------------------------------------------------------
 static int keyboard_start(struct stdio_dev *sdev)
@@ -87,7 +87,7 @@ int keyboard_setup(void)
 {
     struct hypos_device *dev;
 
-    dev = balloc(sizeof(struct hypos_device));
+    dev = halloc(sizeof(struct hypos_device));
     if (!dev)
         return -ENOMEM;
 

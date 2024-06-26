@@ -72,6 +72,8 @@ SECTIONS
         __data_start = .;
         *(.data.boot_pgtbl)
         *(.data.init)
+        *(.data.read_mostly)
+        *(.data.ro_after_init)
         *(.data .data.*)
         . = ALIGN(PAGE_SIZE);
         __data_end = .;
