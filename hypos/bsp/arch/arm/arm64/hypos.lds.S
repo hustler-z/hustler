@@ -97,7 +97,7 @@ SECTIONS
         *(.bss.page_aligned)
         __percpu_start = .;
         *(.bss.percpu)
-        *(.bss.percpu_stat)
+        *(.bss.thread_percpu)
         __percpu_end = .;
         *(.bss .bss.*)
         . = ALIGN(8);

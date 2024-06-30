@@ -1,12 +1,11 @@
 /**
  * Hustler's Project
  *
- * File:  mutex.c
- * Date:  2024/06/04
- * Usage: Mutex Implementation
+ * File:  note.c
+ * Date:  2024/06/28
+ * Usage: Notification Chain Implementation
  */
 
 // --------------------------------------------------------------
-
 
 // --------------------------------------------------------------

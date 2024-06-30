@@ -6,13 +6,14 @@
  * Usage:
  */
 
+#include <asm-generic/spinlock.h>
 #include <asm-generic/section.h>
 #include <asm-generic/globl.h>
+#include <asm-generic/bootmem.h>
 #include <asm/bitops.h>
 #include <asm/map.h>
 #include <lib/bitops.h>
 #include <lib/bitmap.h>
-#include <bsp/lock.h>
 #include <bsp/alloc.h>
 #include <bsp/check.h>
 #include <bsp/vmap.h>
@@ -93,7 +94,7 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
     if (!vm_base[t])
         return NULL;
 
-    spin_lock(&vm_lock);
+    spinlock(&vm_lock);
     for (; ;) {
         pfn_t pfn;
 
@@ -102,10 +103,7 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
             bit = find_next_bit(vm_bitmap(t), vm_top[t], start + 1);
             if (bit > vm_top[t])
                 bit = vm_top[t];
-            /*
-             * Note that this skips the first bit, making the
-             * corresponding page a guard one.
-             */
+
             start = (start + align) & ~(align - 1);
             if (bit < vm_top[t]) {
                 if (start + nr < bit)
@@ -121,7 +119,7 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
         if (start < vm_top[t])
             break;
 
-        spin_unlock(&vm_lock);
+        spinunlock(&vm_lock);
 
         if (vm_top[t] >= vm_end[t])
             return NULL;
@@ -136,7 +134,7 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
             pfn = page_to_pfn(pg);
         }
 
-        spin_lock(&vm_lock);
+        spinlock(&vm_lock);
 
         if (start >= vm_top[t]) {
             unsigned long va = (unsigned long)vm_bitmap(t) + vm_top[t] / 8;
@@ -156,7 +154,7 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
             hfree_page(pfn_to_page(pfn));
 
         if (start >= vm_top[t]) {
-            spin_unlock(&vm_lock);
+            spinunlock(&vm_lock);
             return NULL;
         }
     }
@@ -169,7 +167,7 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
         ASSERT(bit == vm_top[t]);
     if (start <= vm_low[t] + 2)
         vm_low[t] = bit;
-    spin_unlock(&vm_lock);
+    spinunlock(&vm_lock);
 
     return vm_base[t] + start * PAGE_SIZE;
 }
@@ -219,7 +217,7 @@ static void vm_free(const void *va)
         return;
     }
 
-    spin_lock(&vm_lock);
+    spinlock(&vm_lock);
     if (bit < vm_low[type]) {
         vm_low[type] = bit - 1;
         while (!test_bit(vm_low[type] - 1, vm_bitmap(type)))
@@ -228,7 +226,7 @@ static void vm_free(const void *va)
     while (__test_and_clear_bit(bit, vm_bitmap(type)))
         if (++bit == vm_top[type])
             break;
-    spin_unlock(&vm_lock);
+    spinunlock(&vm_lock);
 }
 
 void *__vmap(const pfn_t *pfn, unsigned int granularity,

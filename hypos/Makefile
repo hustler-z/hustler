@@ -17,6 +17,7 @@ BASE        ?= arm
 ARCH        ?= arm64
 BIN         := $(OUTPUT)/hypos.bin
 ELF         := $(OUTPUT)/hypos.elf
+ELFI        := $(OUTPUT)/hypos.elf.tmp
 MAP         := $(OUTPUT)/hypos.map
 ifeq ($(HOST),x86)
 CROSS_COMPILE ?= /bsp/pro/toolchains/armcc-bm-64/bin/aarch64-none-elf-
@@ -32,7 +33,7 @@ OBJCOPY     := $(CROSS_COMPILE)objcopy
 OBJDUMP     := $(CROSS_COMPILE)objdump
 READELF     := $(CROSS_COMPILE)readelf
 # ---------------------------------------------------------------
-ifeq ($(CFG_FRAME_POINTER),y)
+ifeq ($(CFG_FRAME_POINTER), y)
 CFLAGS      += -fno-omit-frame-pointer
 else
 CFLAGS      += -fomit-frame-pointer
@@ -43,12 +44,15 @@ CFLAGS      += -flto
 endif
 # ---------------------------------------------------------------
 ifeq ($(CFG_DEBUG), y)
-CFLAGS      += -O1
+CFLAGS      += -Og
+else
+CFLAGS      += -O2
 endif
 # ---------------------------------------------------------------
 CFLAGS      += -nostdlib -g -Wall -nostdinc
-CFLAGS      += -fno-builtin -fno-common
+CFLAGS      += -std=gnu11 -fno-builtin -fno-common
 CFLAGS      += -Wno-unused-variable -Wno-pointer-arith
+CFLAGS      += -mno-outline-atomics -Wno-unused-function
 LDFLAGS     += -nostdlib -g -Wall
 # LDFLAGS     += -Wl,--no-warn-rwx-segments
 ASFLAGS     += -nostdlib -g -Wall
@@ -114,12 +118,28 @@ libsco       := $(addprefix $(PATH_LIBS)/,$(libs-y))
 hyposo       := $(archao) $(archco) $(archxo) \
                 $(comnco) $(brdtco) $(drivco) \
                 $(libsco) $(hypsco)
+
+comsym       := $(PATH_COMN)/sym.o
+hyposa       := $(archao) $(archco) $(archxo) \
+                $(comnco) $(brdtco) $(drivco) \
+                $(libsco) $(hypsco) $(comsym)
 # ---------------------------------------------------------------
 ifeq ($(V),1)
 	Q :=
 else
 	Q := @
 endif
+# ---------------------------------------------------------------
+
+SYSTEM_MAP = $(NM) $1 | \
+             grep -v '\(compiled\)\|\(\.o$$\)\|\( [aUw] \)\|\(\.\.ng$$\)\|\(LASH[RL]DI\)' | \
+             LC_ALL=C sort
+cc_smap    = $(Q)mkdir -p `dirname $(1)`; \
+             smap=`$(call SYSTEM_MAP,$(ELF)) | \
+             awk '$$2 ~ /[tTwW]/ {printf $$1 $$3 "\\\\000"}'`; \
+			 echo "GEN      $(subst $(OUTPUT)/,,$(1))"; \
+             $(CC) $(CFLAGS) -DSYSTEM_MAP="\"$${smap}\"" \
+             -c $(2) -o $(1)
 # ---------------------------------------------------------------
 # Compile Quick Macros
 # ---------------------------------------------------------------
@@ -130,8 +150,8 @@ cc_objdump = $(Q)mkdir -p `dirname $(1)`; \
 cc_readelf = $(Q)mkdir -p `dirname $(1)`; \
              echo "READELF  $(patsubst %.elf,%.sec,$(subst $(OUTPUT)/,,$(1)))"; \
              $(READELF) -S -lW $(1) > $(patsubst %.elf,%.sec,$(1)); \
-			 echo "OBJDUMP  $(patsubst %.elf,%.hdr,$(subst $(OUTPUT)/,,$(1)))"; \
-			 $(OBJDUMP) -h $(1) > $(patsubst %.elf,%.hdr,$(1))
+             echo "OBJDUMP  $(patsubst %.elf,%.hdr,$(subst $(OUTPUT)/,,$(1)))"; \
+             $(OBJDUMP) -h $(1) > $(patsubst %.elf,%.hdr,$(1))
 
 cc_objcopy = $(Q)mkdir -p `dirname $(1)`; \
              echo "OBJCOPY  $(subst $(OUTPUT)/,,$(1))"; \
@@ -151,11 +171,11 @@ cc_as      = $(Q)mkdir -p `dirname $(1)`; \
 
 cc_nm      = $(Q)mkdir -p `dirname $(1)`; \
              echo "SYMTABS  $(subst $(OUTPUT)/,,$(1))"; \
-             $(NM) -n $(2) | grep -v '\( [aNUw] \)\|\(__crc_\)\|\( \$$[adt]\)' > $(1)
+             $(call SYSTEM_MAP,$(2)) > $(1)
 
 cc_lds     = $(Q)mkdir -p `dirname $(1)`; \
              echo "LDS      $(subst $(OUTPUT)/,,$(1))"; \
-			 $(CX) -P $(ASFLAGS) $(INCDIRS) -DLINKER_SCRIPT -o $(1) $(2)
+             $(CX) -P $(ASFLAGS) $(INCDIRS) -DLINKER_SCRIPT -o $(1) $(2)
 # ---------------------------------------------------------------
 define all_sources
 	(find $(WKDIR) -type f -name '*.[chS]' -print)
@@ -164,8 +184,8 @@ endef
 # Build HYPOS Binary
 # ---------------------------------------------------------------
 .PHONY: all
-all: $(BIN)
-$(BIN): $(ELF) $(MAP)
+all: $(BIN) $(MAP)
+$(BIN): $(ELF)
 	$(call cc_objcopy,$@,$<)
 
 $(MAP): $(ELF)
@@ -175,6 +195,9 @@ $(ELF): $(ASM_OFS_H) $(hyposo) $(lds)
 	$(call cc_ld,$@,$(lds),$(filter-out $(ASM_OFS_H),$(filter-out $(lds),$^)))
 	$(call cc_objdump,$@)
 	$(call cc_readelf,$@)
+# ---------------------------------------------------------------
+$(PATH_COMN)/sym.o: $(SPATH_COMN)/sym.c
+	$(call cc_smap,$@,$<)
 # ---------------------------------------------------------------
 # Generate asm/offset.h
 # ---------------------------------------------------------------

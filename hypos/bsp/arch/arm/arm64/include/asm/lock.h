@@ -18,7 +18,6 @@
 void __cpu_spin_lock(unsigned int *lock);
 unsigned int __cpu_spin_trylock(unsigned int *lock);
 void __cpu_spin_unlock(unsigned int *lock);
-unsigned int __get_percpu_pos(void);
 
 #endif /* !__ASSEMBLY__ */
 

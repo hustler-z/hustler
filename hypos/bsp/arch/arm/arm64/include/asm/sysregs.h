@@ -382,6 +382,12 @@
 #define PAR_SH_MASK     (_AC(3, U) << PAR_SH_SHIFT)
 
 // --------------------------------------------------------------
+#define DAIF_F_SHIFT    6
+#define DAIF_F          BIT(6, UL)
+#define DAIF_I          BIT(7, UL)
+#define DAIF_A          BIT(8, UL)
+#define DAIF_D          BIT(9, UL)
+// --------------------------------------------------------------
 
 /* The area of the instruction set space is reserved for
  * IMPLEMENTATION DEFINED registers.

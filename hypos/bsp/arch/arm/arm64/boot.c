@@ -27,11 +27,11 @@ struct boot_setup boot_setup = {
 void section_map_dump(void)
 {
     MSGH("<MAPS> Code Section Dump:\n");
-    MSGH("<TEXT> R E [0x%016lx-0x%016lx] %6lu KB\n",
+    MSGH("<TEXT> R E [0x%016lx - 0x%016lx] %6lu KB\n",
             (unsigned long)__hypos_start,
             (unsigned long)__hypos_text_end,
             text_section_size() / KB(1));
-    MSGH("<DATA> RWE [0x%016lx-0x%016lx] %6lu KB\n",
+    MSGH("<DATA> RWE [0x%016lx - 0x%016lx] %6lu KB\n",
             (unsigned long)__hypos_data_start,
             (unsigned long)__hypos_end,
             data_section_size() / KB(1));
@@ -39,7 +39,7 @@ void section_map_dump(void)
 
 int __bootfunc hcpu_setup(void)
 {
-    MSGH("[ENV] phys_offset - %016lx\n",
+    MSGH("ENV    phys_offset - 0x%016lx\n",
             get_globl()->phys_offset);
 
     section_map_dump();

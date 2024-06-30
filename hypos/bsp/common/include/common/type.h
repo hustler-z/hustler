@@ -33,6 +33,8 @@ typedef u64                __le64;
 typedef unsigned long      vaddr_t;
 typedef unsigned long      paddr_t;
 
+typedef s64                stime_t;
+
 #define __I   volatile const
 #define __O   volatile
 #define __IO  volatile
@@ -106,9 +108,9 @@ typedef unsigned long __attribute__((__mode__(__pointer__))) ap_t;
 
 #define TYPE_SAFE(type, name)                       \
 typedef struct { type name; } name##_t;             \
-static inline name##_t to_##name##_t(type n)        \
+static inline name##_t name##_set(type n)           \
 { return (name##_t){ n }; }                         \
-static inline type to_##name(name##_t n)            \
+static inline type name##_get(name##_t n)           \
 { return n.name; }
 
 // --------------------------------------------------------------

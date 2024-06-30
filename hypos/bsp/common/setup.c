@@ -10,7 +10,9 @@
 #include <asm/hcpu.h>
 #include <asm/debug.h>
 #include <asm-generic/globl.h>
-#include <asm-generic/chunk.h>
+#include <asm-generic/section.h>
+#include <asm-generic/smp.h>
+#include <asm-generic/bootmem.h>
 #include <bsp/process.h>
 #include <bsp/alloc.h>
 #include <bsp/percpu.h>
@@ -24,33 +26,51 @@
 #include <common/board.h>
 #include <common/gicv3.h>
 #include <common/memory.h>
+#include <common/symtbl.h>
+#include <core/core.h>
+
+// --------------------------------------------------------------
+static void hypos_tag(void)
+{
+    MSGI("              ___  __  ____ \n");
+    MSGI("    /\\_/\\/\\/\\/ _ \\/  \\/ __/ \n");
+    MSGI("    \\  _ \\  / ___/ / /\\__ \\ \n");
+    MSGI("     \\/ \\/_/\\/   \\__/ /___/ @PIECE OF SHiT\n");
+    MSGI("\n");
+}
 
 typedef int (*bootfunc_t)(void);
 
-static int __bootchain(const bootfunc_t *boot_sequence)
+static int __bootfunc __bootchain(const bootfunc_t *boot_sequence)
 {
     const bootfunc_t *boot_one;
-    int ret;
+    int ret, boot_count = 0;
+    unsigned long base;
 
-    MSGH("Sequential %s() kicks\n", __func__);
+    hypos_tag();
 
     for (boot_one = boot_sequence; *boot_one; boot_one++) {
         ret = (*boot_one)();
+
+        boot_count++;
+
         if (ret) {
             MSGH("Boot squence %p failed at call %p (err=%d)\n",
                     boot_sequence, (char *)(*boot_one), ret);
             return -1;
-        }
+        } else
+            MSGH("[BOOT] <Function %2d> Finished.\n",
+                    boot_count);
     }
 
     return 0;
 }
 
-/* TODO
+/* XXX:
  * --------------------------------------------------------------
- * Boot Sequence Control
+ * Boot Sequence FLow:
  *
- *
+ * Sub boot function should follow 'bootfunc_t'.
  * --------------------------------------------------------------
  */
 static bootfunc_t hypos_boot_sequence[] = {
@@ -64,9 +84,9 @@ static bootfunc_t hypos_boot_sequence[] = {
      */
     ttbl_setup,
 
-    /* Hypervisor Memory Chuncks
+    /* Hypervisor Memory Chuncks for Boot-time Memory
      */
-    hchunks_setup,
+    bootmem_setup,
 
     /* Hypos VMAP Setup
      */
@@ -80,6 +100,10 @@ static bootfunc_t hypos_boot_sequence[] = {
      */
     timer_setup,
 
+    /* Bring up SMP CPUs
+     */
+    smp_setup,
+
     /* Board Setup
      */
     board_setup,
@@ -92,12 +116,20 @@ static bootfunc_t hypos_boot_sequence[] = {
      */
     device_setup,
 
+    /* Hypos Main Process
+     */
+    process_setup,
+
+    /* Virtualization Setup
+     */
+    core_setup,
+
     /* Hypos Console Setup
      */
     console_setup,
 };
 
-void __setup(unsigned long phys_offset,
+void __bootfunc __setup(unsigned long phys_offset,
         unsigned long boot_args)
 {
     early_debug("[hypos] Welcome to C world\n");
@@ -113,3 +145,4 @@ void __setup(unsigned long phys_offset,
     if (__bootchain(hypos_boot_sequence))
         hang();
 }
+// --------------------------------------------------------------

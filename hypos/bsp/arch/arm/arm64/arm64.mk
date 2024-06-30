@@ -12,13 +12,13 @@ arma-y += hypervisor.o
 arma-y += smp.o
 arma-y += mmu.o
 arma-y += timer.o
-arma-y += lock.o
+arma-y += spinlock.o
+arma-y += thread.o
 # ----------------------------------------------------------
 armc-y += boot.o
 armc-y += gicv3.o
 armc-y += traps.o
 armc-y += ttbl.o
-armc-y += mutex.o
 armc-y += early.o
 armc-y += map.o
 armc-y += tlbflush.o

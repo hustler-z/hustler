@@ -7,9 +7,9 @@
  */
 
 #include <asm/barrier.h>
+#include <asm-generic/spinlock.h>
 #include <bsp/stdio.h>
 #include <bsp/alloc.h>
-#include <bsp/lock.h>
 #include <bsp/check.h>
 #include <lib/ctype.h>
 #include <lib/math.h>
@@ -619,7 +619,7 @@ void vpr_common(const char *fmt, va_list args)
     int ret;
 
     local_irq_save(flags);
-    spin_lock(&vpr_lock);
+    spinlock(&vpr_lock);
 
     ret = vsnpr(buf, sizeof(buf), fmt, args);
 
@@ -628,7 +628,7 @@ void vpr_common(const char *fmt, va_list args)
 
     puts(buf);
 
-    spin_unlock(&vpr_lock);
+    spinunlock(&vpr_lock);
     local_irq_restore(flags);
 }
 

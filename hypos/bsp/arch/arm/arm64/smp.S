@@ -49,25 +49,6 @@
 
     __ENTRY
 
-/* TODO
- * SMP boot entry: after bootcpu's up, time to kick other cpus up
- */
-GLOBAL(bootsmp_entry)
-    msr  DAIFSet, 0x0F
-
-    ldr  x0, =_head
-    adr  x19, _head
-    sub  x20, x19, x0
-
-    bl   get_cpu_affinity
-    mov  x24, x4
-#if ASM_DBG
-    DBG("- (CPU) 0x")
-    dump_reg x24
-    DBG(" -\r\n")
-#endif
-END(bootsmp_entry)
-
 /* Note with this, [31:0] => AFF3, AFF2, AFF1, AFF0
  */
 FUNC(get_cpu_affinity)

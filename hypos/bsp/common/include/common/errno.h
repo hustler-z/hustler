@@ -148,33 +148,12 @@
 #define	EKEYREVOKED	128	/* Key has been revoked */
 #define	EKEYREJECTED	129	/* Key was rejected by service */
 
-/* for robust mutexes */
 #define	EOWNERDEAD	130	/* Owner died */
 #define	ENOTRECOVERABLE	131	/* State not recoverable */
-
 #define ERFKILL		132	/* Operation not possible due to RF-kill */
-
 #define EHWPOISON	133	/* Memory page has hardware error */
-
-#define ERESTARTSYS	512
-#define ERESTARTNOINTR	513
-#define ERESTARTNOHAND	514	/* restart if no handler.. */
-#define ENOIOCTLCMD	515	/* No ioctl command */
-#define ERESTART_RESTARTBLOCK 516 /* restart by calling sys_restart_syscall */
-#define EPROBE_DEFER	517	/* Driver requests probe retry */
-#define EOPENSTALE	518	/* open found a stale dentry */
-
-/* Defined for the NFSv3 protocol */
-#define EBADHANDLE	521	/* Illegal NFS file handle */
-#define ENOTSYNC	522	/* Update synchronization mismatch */
-#define EBADCOOKIE	523	/* Cookie is stale */
-#define ENOTSUPP	524	/* Operation is not supported */
-#define ETOOSMALL	525	/* Buffer or request is too small */
-#define ESERVERFAULT	526	/* An untranslatable error occurred */
-#define EBADTYPE	527	/* Type not supported by server */
-#define EJUKEBOX	528	/* Request initiated, but will not complete before timeout */
-#define EIOCBQUEUED	529	/* iocb queued, will get completion event */
-#define ERECALLCONFLICT	530	/* conflict with recalled state */
-
+#define ENOFIND     124
+#define ECRAP       125
+#define ENOTSUP     126
 // --------------------------------------------------------------
 #endif /* _COMMON_ERRNO_H */

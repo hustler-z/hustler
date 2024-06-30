@@ -69,7 +69,10 @@ u64 timer_get_boot_us(void)
     u64 val = get_ticks() * 1000000;
     return val / get_tbclk();
 }
+// --------------------------------------------------------------
 
+/* Delay Implementation
+ */
 void __udelay(unsigned long usec)
 {
     u64 now = get_ticks();
@@ -91,6 +94,11 @@ void udelay(unsigned long usec)
         __udelay(kv);
         usec -= kv;
     } while (usec);
+}
+
+void mdelay(u32 msec)
+{
+    __udelay(1000 * msec);
 }
 // --------------------------------------------------------------
 int __bootfunc timer_setup(void)

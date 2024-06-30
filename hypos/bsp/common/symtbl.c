@@ -8,12 +8,16 @@
 
 #include <asm/ttbl.h>
 #include <asm-generic/section.h>
-#include <bsp/lock.h>
+#include <asm-generic/spinlock.h>
 #include <common/symtbl.h>
 #include <common/errno.h>
 #include <lib/strops.h>
+#include <lib/convert.h>
 
 // --------------------------------------------------------------
+extern const char system_map[] __attribute__((weak));
+// --------------------------------------------------------------
+
 static struct list_head vsection_list;
 static struct vsection hypos_core, hypos_boot;
 
@@ -42,7 +46,7 @@ const struct vsection *find_text_section(unsigned long addr)
 {
     const struct vsection *iter, *section = NULL;
 
-    spin_lock(&vsection_lock);
+    spinlock(&vsection_lock);
 
     list_for_each_entry(iter, &vsection_list, list) {
         if ((void *)addr >= iter->text_start &&
@@ -53,7 +57,7 @@ const struct vsection *find_text_section(unsigned long addr)
         }
     }
 
-    spin_unlock(&vsection_lock);
+    spinunlock(&vsection_lock);
 
     return section;
 }
@@ -106,14 +110,8 @@ static unsigned int get_symbol_offset(unsigned long pos)
     const u8 *name;
     int i;
 
-    /* use the closest marker we have. We have markers every 256 positions,
-     * so that should be close enough */
     name = &symbols_names[symbols_markers[pos >> 8]];
 
-    /* sequentially scan all the symbols up to the point we're searching for.
-     * Every symbol is stored in a [<len>][<len> bytes of data] format, so we
-     * just need to add the len to the current pointer for every symbol we
-     * wish to skip */
     for (i = 0; i < (pos & 0xFF); i++)
         name = name + (*name) + 1;
 
@@ -125,16 +123,8 @@ bool is_active_hypos_text(unsigned long addr)
     return !!find_text_section(addr);
 }
 
-/*
- * Get symbol type information. This is encoded as a single char at the
- * beginning of the symbol name.
- */
 static char symbols_get_symbol_type(unsigned int off)
 {
-    /*
-     * Get just the first code, look it up in the token table,
-     * and return the first char from this token.
-     */
     return symbols_token_table[symbols_token_index[symbols_names[off + 1]]];
 }
 
@@ -154,7 +144,7 @@ int syms_read(u32 *symnum, char *type,
         return 0;
     }
 
-    spin_lock(&sym_lock);
+    spinlock(&sym_lock);
 
     if (*symnum == 0)
         next_offset = next_symbol = 0;
@@ -167,7 +157,7 @@ int syms_read(u32 *symnum, char *type,
 
     next_symbol = ++*symnum;
 
-    spin_unlock(&sym_lock);
+    spinunlock(&sym_lock);
 
     return 0;
 }
@@ -254,5 +244,28 @@ unsigned long symbols_lookup_by_name(const char *symname)
     }
 
     return 0;
+}
+// --------------------------------------------------------------
+const char *simple_sym_lookup(unsigned long addr, unsigned long *caddr)
+{
+    const char *sym, *csym;
+    char *esym;
+    unsigned long sym_addr;
+
+    sym = system_map;
+    csym = NULL;
+    *caddr = 0;
+
+    while (*sym) {
+        sym_addr = __hextoul(sym, &esym);
+        sym = esym;
+        if (sym_addr > addr)
+            break;
+        *caddr = sym_addr;
+        csym = sym;
+        sym += strlen(sym) + 1;
+    }
+
+    return csym;
 }
 // --------------------------------------------------------------

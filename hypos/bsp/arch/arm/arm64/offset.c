@@ -9,7 +9,7 @@
 #include <asm/hcpu.h>
 #include <asm/setup.h>
 #include <lib/define.h>
-#include <core/sched.h>
+#include <core/vcpu.h>
 
 // --------------------------------------------------------------
 #define DEFINE(sym, val) \

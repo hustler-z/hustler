@@ -27,8 +27,6 @@
 
 #define always_inline      __always_inline
 
-#define barrier()          __asm__ __attribute__("": : :"memory")
-
 #define RELOC_HIDE(ptr, off)   ({          \
     unsigned long __ptr;                   \
     __asm__ ("" : "=r"(__ptr) : "0"(ptr)); \
@@ -36,5 +34,32 @@
 
 #define likely(x)          __builtin_expect(!!(x), 1)
 #define unlikely(x)        __builtin_expect(!!(x), 0)
+
+/* built-in function implements an atomic store operation.
+ * It writes val into *ptr.
+ */
+#define __gnu_atomic_store(p, v) \
+    __atomic_store_n((p), (v), __ATOMIC_RELAXED)
+
+/* built-in function implements an atomic load operation.
+ * It returns the contents of *ptr.
+ */
+#define __gnu_atomic_load(p) \
+    __atomic_load_n((p), __ATOMIC_RELAXED)
+
+/* built-in function implements an atomic compare and exchange
+ * operation. This compares the contents of *ptr with the contents
+ * of *expected. If equal, the operation is a read-modify-write
+ * operation that writes desired into *ptr. If they are not equal,
+ * the operation is a read and the current contents of *ptr are
+ * written into *expected. weak is true for weak compare_exchange,
+ * which may fail spuriously, and false for the strong variation,
+ * which never fails spuriously. Many targets only offer the strong
+ * variation and ignore the parameter. When in doubt, use the
+ * strong variation.
+ */
+#define __gnu_compare_exchange(p, oval, nval)              \
+    __atomic_compare_exchange_n((p), (oval), (nval), true, \
+            __ATOMIC_ACQUIRE, __ATOMIC_RELAXED)            \
 // --------------------------------------------------------------
 #endif /* _COMMON_CCATTR_H */

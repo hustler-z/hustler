@@ -24,6 +24,7 @@
 
 #define MSGH(fmt, ...) pr("[hypos] "fmt, ##__VA_ARGS__)
 #define MSGI(fmt, ...) pr(fmt, ##__VA_ARGS__)
+#define MSGE(fmt, ...) pr("[error] "fmt, ##__VA_ARGS__)
 
 int sscanf(const char *buf, const char *fmt, ...);
 // --------------------------------------------------------------

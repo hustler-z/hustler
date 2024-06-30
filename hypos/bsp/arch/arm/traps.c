@@ -412,7 +412,7 @@ void dump_regs(const struct hcpu_regs *regs)
 static void dump_execution_status(struct hcpu_regs *regs,
         char *tag)
 {
-    MSGH("------------- [Hypervisor Crashed] -------------\n");
+    MSGE("------------- [Hypervisor Crashed] -------------\n");
     MSGI("<BUG>   hypos f-ing dead as a head shot at a zombie  >_<\n");
     dump_far(regs->esr);
     dump_regs(regs);
@@ -442,7 +442,7 @@ void do_bad_sync(struct hcpu_regs *regs)
 {
     local_irq_enable();
     dump_execution_status(regs, bad_tags[SYNC_CODE]);
-    panic("<BUG>   Bad <%s> got busted, >_<", bad_tags[SYNC_CODE]);
+    panic("<BUG>   Bad <%s> got busted, tryna solve it >_<", bad_tags[SYNC_CODE]);
 }
 
 /*
@@ -452,7 +452,7 @@ void do_bad_irq(struct hcpu_regs *regs)
 {
     local_irq_enable();
     dump_execution_status(regs, bad_tags[IRQ_CODE]);
-    panic("<BUG>   Bad <%s> got busted, >_<", bad_tags[IRQ_CODE]);
+    panic("<BUG>   Bad <%s> got busted, tryna solve it >_<", bad_tags[IRQ_CODE]);
 }
 
 /*
@@ -462,7 +462,7 @@ void do_bad_fiq(struct hcpu_regs *regs)
 {
     local_irq_enable();
     dump_execution_status(regs, bad_tags[FIQ_CODE]);
-    panic("<BUG>   Bad <%s> got busted, >_<", bad_tags[FIQ_CODE]);
+    panic("<BUG>   Bad <%s> got busted, tryna solve it >_<", bad_tags[FIQ_CODE]);
 }
 
 /*
@@ -472,7 +472,7 @@ void do_bad_error(struct hcpu_regs *regs)
 {
     local_irq_enable();
     dump_execution_status(regs, bad_tags[ERROR_CODE]);
-    panic("<BUG>   Bad <%s> got busted, >_<", bad_tags[ERROR_CODE]);
+    panic("<BUG>   Bad <%s> got busted, tryna solve it >_<", bad_tags[ERROR_CODE]);
 }
 
 /*

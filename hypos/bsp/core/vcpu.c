@@ -7,6 +7,8 @@
  */
 
 #include <core/vcpu.h>
+#include <core/sched.h>
+#include <asm-generic/section.h>
 
 // --------------------------------------------------------------
 
@@ -34,7 +36,7 @@
  * --------------------------------------------------------------
  */
 
-
+struct vcpu *hypos_vcpus[NR_CPUS] __read_mostly;
 
 
 

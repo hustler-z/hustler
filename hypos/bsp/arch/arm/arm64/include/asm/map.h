@@ -9,7 +9,7 @@
 #ifndef _ARCH_MAP_H
 #define _ARCH_MAP_H
 // --------------------------------------------------------------
-#include <asm/ttbl.h>
+#include <asm/vpa.h>
 #include <asm/tlb.h>
 #include <bsp/check.h>
 #include <bsp/debug.h>
@@ -68,5 +68,8 @@ static inline unsigned int va_to_fix(vaddr_t va)
 
     return ((va - FIXADDR_START) >> PAGE_SHIFT);
 }
+
+void directmap_setup(unsigned long base_pfn,
+                     unsigned long nr_pfns);
 // --------------------------------------------------------------
 #endif /* _ARCH_MAP_H */

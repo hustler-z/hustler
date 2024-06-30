@@ -376,35 +376,6 @@ idmap_removed:
     ret
 END(remove_idmap)
 
-/* void __switch_ttbr(u64 ttbr);
- */
-FUNC(__switch_ttbr)
-    dsb  ish
-    isb
-
-    mrs  x1, SCTLR_EL2
-    bic  x1, x1, #SCTLR_Axx_ELx_M
-    msr  SCTLR_EL2, x1
-    isb
-
-    flush_local_tlb
-
-    msr  TTBR0_EL2, x0
-    isb
-
-    ic   iallu
-    isb
-
-    mrs  x1, SCTLR_EL2
-    orr  x1, x1, #SCTLR_Axx_ELx_M
-    msr  SCTLR_EL2, x1
-    isb
-#if ASM_DBG
-    DBG("[hypos] <__switch_ttbr> Finished\r\n")
-#endif
-    ret
-END(__switch_ttbr)
-
 /* XXX: Parameters: x0 - dest
  *
  * DCZID_EL0 - Data Cache Zero ID Register (EL0)

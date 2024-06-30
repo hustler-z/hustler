@@ -14,7 +14,7 @@
 #define __initdata          __section(".data.init")
 #define __read_mostly       __section(".data.read_mostly")
 #define __bootfunc          __section(".boot.setup")
-#define __percpu_stat       __section(".bss.percpu_stat")
+#define __thread_percpu     __section(".bss.thread_percpu")
 #define __ro_after_init     __section(".data.ro_after_init")
 
 extern char __hypos_start[], __hypos_end[];

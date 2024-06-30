@@ -32,8 +32,8 @@ define asm_offsets
 endef
 # ---------------------------------------------------------------
 
-CFG_FRAME_POINTER := n
+CFG_FRAME_POINTER := y
 CFG_LTO           := n
-CFG_DEBUG         := n
+CFG_DEBUG         := y
 
 # ---------------------------------------------------------------

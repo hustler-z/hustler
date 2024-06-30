@@ -58,20 +58,18 @@
 
 /* Memory Layout
  * --------------------------------------------------------------------
- * HYPOS_VIRT_START
- * IDENTITY MAPPING RESERVED
- * 8MB    DATA_VIRT_SIZE               - bss, data, etc.
- * 2MB    FIXMAP_VIRT_SIZE             - FIXMAP
- * 256MB  VMAP_VIRT_SIZE               - VMAP
- * 1GB    HYPER_HEAP_VIRT_SIZE         - HYPER HEAP
- * 2GB    GUEST_HEAP_VIRT_SIZE         - GUEST HEAP
+ * DATA
+ * FIXMAP
+ * VMAP
+ * BOOTMEM
+ * DIRECTMAP
  * --------------------------------------------------------------------
  */
-
 #define HYPOS_DATA_VIRT_START      PAGE_ALIGN(0x00000A0000000000)
 #define HYPOS_DATA_VIRT_SIZE       _AT(vaddr_t, MB(8))
 #define HYPOS_DATA_NR_ENTRIES(lvl) (HYPOS_DATA_VIRT_SIZE / PGTBL_LEVEL_SIZE(lvl))
 // --------------------------------------------------------------
+
 
 /* HYPOS FIXMAP
  * ------------------------- CONSOLE      (0)
@@ -96,23 +94,28 @@
 #define FIXADDR_START              HYPOS_FIXMAP_ADDR(0)
 #define FIXADDR_END                HYPOS_FIXMAP_ADDR(FIX_PFNMAP_END)
 // --------------------------------------------------------------
+#define HYPOS_VMAP_VIRT_START      PAGE_ALIGN(FIXADDR_END + MB(32))
+#define HYPOS_VMAP_VIRT_SIZE       _AT(vaddr_t, GB(1))
+#define HYPOS_VMAP_VIRT_END        (HYPOS_VMAP_VIRT_START + HYPOS_VMAP_VIRT_SIZE)
+/* Boot-time Memory Chunks (1MB)
+ */
+#define HYPOS_BOOTMEM_START       PAGE_ALIGN(HYPOS_VMAP_VIRT_END + MB(32))
+#define HYPOS_BOOTMEM_SIZE        GB(1)
+#define HYPOS_BOOTMEM_NR          (HYPOS_BOOTMEM_SIZE / sizeof(*page_head))
+#define HYPOS_BOOTMEM_END         (HYPOS_BOOTMEM_START + HYPOS_BOOTMEM_SIZE)
+// --------------------------------------------------------------
+#define HYPOS_DIRECTMAP_START      PAGE_ALIGN(HYPOS_BOOTMEM_END + MB(32))
+#define HYPOS_DIRECTMAP_SIZE       GB(4)
+#define HYPOS_DIRECTMAP_END        (HYPOS_DIRECTMAP_START + HYPOS_DIRECTMAP_SIZE)
+
 #ifndef __ASSEMBLY__
-#define HYPOS_MEMCHUNK_START       _AT(vaddr_t, MB(32))
-#define HYPOS_MEMCHUNK_SIZE        MB(128 - 32)
-#define HYPOS_MEMCHUNK_NR          (HYPOS_MEMCHUNK_SIZE / sizeof(*page_head))
-#define HYPOS_VMAP_VIRT_START      _AT(vaddr_t, MB(256))
-#define HYPOS_VMAP_VIRT_SIZE       _AT(vaddr_t, GB(1) - MB(256))
+extern unsigned long directmap_virt_start;
+#define HYPOS_HEAP_VIRT_START      directmap_virt_start
+#endif /* __ASSEMBLY__ */
 
-#define HYPOS_HEAP_VIRT_START      _AT(vaddr_t, GB(1))
-#define HYPOS_HEAP_VIRT_SIZE       _AT(vaddr_t, GB(1))
-
-#define GUEST_HEAP_VIRT_START      _AT(vaddr_t, GB(2))
-#define GUEST_HEAP_VIRT_SIZE       _AT(vaddr_t, GB(2))
-
-#endif /* !__ASSEMBLY__ */
 // --------------------------------------------------------------
 #define HYPOS_VIRT_START           HYPOS_DATA_VIRT_START
-#define HYPOS_VIRT_END             (GUEST_HEAP_VIRT_START + GUEST_HEAP_VIRT_SIZE)
+#define HYPOS_VIRT_END             HYPOS_DIRECTMAP_END
 #define SYMBOLS_ORIGIN             HYPOS_VIRT_START
 // --------------------------------------------------------------
 
@@ -244,9 +247,14 @@ typedef struct __packed {
 
     /* Upper attributes (16 bits)
      * contig - contiguous
-     * Execute attributes
-     * uxn    - Unprivileged eXecute Never
-     * pxn    - Privileged eXecute Never
+     *
+     * XXX: Execute attributes
+     * HCR_EL2.{E2H, TGE} Trap General Exception
+     *
+     * uxn - User (EL0) Execute Never (Not used at EL3,
+     *       or EL2 when HCR_EL2.E2H == 0)
+     * pxn - Privileged Execute Never (Called XN at EL3,
+     *       and EL2 when HCR_EL2.E2H == 0)
      */
     unsigned long contig: 1;
     unsigned long pxn: 1;
@@ -298,139 +306,6 @@ static inline bool pte_is_mapped(ttbl_t pte, unsigned int level)
     else
         return !pte.walk.table;
 }
-
-#define GV2P_READ        (0U << 0)
-#define GV2P_WRITE       (1U << 0)
-#define GV2P_EXEC        (1U << 1)
-
-/*
- * VFN -> IFN -> PFN (VA -> IPA -> PA)
- * vfn_t   -  Virtual Page Frame Number
- * ifn_t   -  Immediate Physical Page Frame Number
- * pfn_t   -  Physical Page Frame Number
- */
-
-TYPE_SAFE(unsigned long, pfn);
-
-#define pte_get_pfn(pte)      (to_pfn_t((pte).walk.base))
-#define pte_set_pfn(pte, pfn) \
-    (pte).walk.base = to_pfn(pfn)
-
-#define INVALID_PFN_RAW   (~0UL)
-#define INVALID_PFN       to_pfn_t(INVALID_PFN_RAW)
-#define INVALID_PFN_INIT  { INVALID_PFN_RAW }
-
-static inline pfn_t pfn_max(pfn_t x, pfn_t y)
-{
-    return to_pfn_t(max(to_pfn(x), to_pfn(y)));
-}
-
-static inline pfn_t pfn_min(pfn_t x, pfn_t y)
-{
-    return to_pfn_t(min(to_pfn(x), to_pfn(y)));
-}
-
-static inline bool pfn_eq(pfn_t x, pfn_t y)
-{
-    return to_pfn(x) == to_pfn(y);
-}
-
-static inline pfn_t pfn_add(pfn_t x, long i)
-{
-    return to_pfn_t(to_pfn(x) + i);
-}
-
-ttbl_t pfn_to_entry(pfn_t pfn, unsigned int attr);
-
-static inline void *pa_to_va(paddr_t pa)
-{
-    return (void *)(HYPOS_HEAP_VIRT_START);
-}
-
-/* AT => Ask mmu to do <address translation>
- * --------------------------------------------------------------
- * @ at <at_op>, <Xt>
- * --------------------------------------------------------------
- * S1E1R
- * S1E1W
- * S1E0R
- * S1E0W
- * S1E1RP
- * S1E1WP
- * S1E1A
- * S1E2R
- * S1E2W
- * S12E1R
- * S12E1W
- * S12E0R
- * S12E0W
- * S1E2A
- * S1E3R
- * S1E3W
- * S1E3A
- * --------------------------------------------------------------
- */
-static inline u64 __va_to_pa(vaddr_t va)
-{
-    u64 par, tmp = read_sysreg_par();
-    asm volatile ("at s1e2r, %0;" : : "r"(va));
-    isb();
-    par = read_sysreg_par();
-    WRITE_SYSREG64(tmp, PAR_EL1);
-    return par;
-}
-
-#define PAR_INVALID         (_AC(1, UL) << 0)
-void dump_ttbl_walk(vaddr_t va);
-
-static inline paddr_t _va_to_pa(vaddr_t va) {
-    u64 par = __va_to_pa(va);
-
-    if (par & PAR_INVALID) {
-        dump_ttbl_walk(va);
-        panic_par(par);
-    }
-
-    return (paddr_t)((par & PADDR_MASK & PAGE_MASK) |
-            (va & ~PAGE_MASK));
-}
-
-#define va_to_pa(va)    _va_to_pa((vaddr_t)(va))
-#define va_to_pfn(va)   to_pfn_t((va_to_pa((vaddr_t)va) >> PAGE_SHIFT))
-#define pfn_to_va(pfn)  (pa_to_va(to_pfn(pfn) << PAGE_SHIFT))
-
-#define __pa_to_pfn(pa) ((unsigned long)(pa) >> PAGE_SHIFT)
-#define pa_to_pfn(pa)   to_pfn_t(__pa_to_pfn(pa))
-#define pfn_to_pa(pfn)  ((paddr_t)(to_pfn(pfn) << PAGE_SHIFT))
-
-TYPE_SAFE(unsigned long, ifn);
-
-static inline u64 __gva_to_pa(vaddr_t va, unsigned int flags)
-{
-    u64 par, tmp = read_sysreg_par();
-    if (!flags & GV2P_WRITE)
-        asm volatile ("at s12e1r, %0;" : : "r"(va));
-    else
-        asm volatile ("at s12e1w, %0;" : : "r"(va));
-    isb();
-    par = read_sysreg_par();
-    WRITE_SYSREG64(tmp, PAR_EL1);
-    return par;
-}
-
-static inline u64 __gva_to_ipa(vaddr_t va, unsigned int flags)
-{
-    u64 par, tmp = read_sysreg_par();
-    if (!flags & GV2P_WRITE)
-        asm volatile ("at s1e1r, %0;" : : "r"(va));
-    else
-        asm volatile ("at s1e1w, %0;" : : "r"(va));
-    isb();
-    par = read_sysreg_par();
-    WRITE_SYSREG64(tmp, PAR_EL1);
-    return par;
-}
-
 #endif /* !__ASSEMBLY__ */
 // --------------------------------------------------------------
 

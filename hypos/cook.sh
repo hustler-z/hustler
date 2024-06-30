@@ -15,6 +15,8 @@ options:
 cmd:
     al                   addr2line => locate line number
     bd                   build hypos
+    cr                   prep for code review
+    ca                   clean all up
 "
 }
 
@@ -36,6 +38,14 @@ build_hypos() {
     make clean && make
 }
 
+clean_all() {
+    make clean && make remove
+}
+
+prep_review() {
+    make tags
+}
+
 debug() {
     if [ -z $CMD ];then
         usage
@@ -48,6 +58,12 @@ debug() {
             ;;
         bd)
             build_hypos
+            ;;
+        ca)
+            clean_all
+            ;;
+        cr)
+            prep_review
             ;;
         *)
             usage

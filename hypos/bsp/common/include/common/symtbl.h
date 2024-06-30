@@ -34,6 +34,7 @@ unsigned long symbols_lookup_by_name(const char *symname);
 int syms_read(u32 *symnum, char *type,
               unsigned long *address,
               char *name);
+const char *simple_sym_lookup(unsigned long addr, unsigned long *caddr);
 
 struct vsection {
     struct list_head list;

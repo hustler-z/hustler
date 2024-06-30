@@ -350,7 +350,7 @@ static int ns16550_serial_setconfig(struct hypos_device *dev,
 	unsigned int stop = SERIAL_GET_STOP(serial_config);
 
 	if (bits != SERIAL_8_BITS || stop != SERIAL_ONE_STOP)
-		return -ENOTSUPP; /* not supported in driver*/
+		return -ENOTSUP; /* not supported in driver*/
 
 	switch (parity) {
 	case SERIAL_PAR_NONE:
@@ -363,7 +363,7 @@ static int ns16550_serial_setconfig(struct hypos_device *dev,
 		lcr_val |= UART_LCR_PEN | UART_LCR_EPS;
 		break;
 	default:
-		return -ENOTSUPP; /* not supported in driver*/
+		return -ENOTSUP; /* not supported in driver*/
 	}
 
 	serial_out(lcr_val, &com_port->lcr);

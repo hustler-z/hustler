@@ -41,6 +41,11 @@
 	__x - (__x % (y));				 \
 })
 
+#define min_t(type,x,y) \
+        ({ type __x = (x); type __y = (y); __x < __y ? __x: __y; })
+#define max_t(type,x,y) \
+        ({ type __x = (x); type __y = (y); __x > __y ? __x: __y; })
+
 #define REPEAT_BYTE(x)	     ((~0ul / 0xff) * (x))
 
 #define ALIGN(x,a)		     __ALIGN_MASK((x),(typeof(x))(a)-1)

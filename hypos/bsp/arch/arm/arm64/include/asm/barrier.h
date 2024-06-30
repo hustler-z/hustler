@@ -59,6 +59,8 @@
 #define psb_csync()	    asm volatile("hint #17" : : : "memory")
 #define csdb()		    asm volatile("hint #20" : : : "memory")
 
+#define barrier()       asm volatile("" : : : "memory")
+
 #define mb()            dsb(sy)
 #define rmb()           dsb(ld)
 #define wmb()           dsb(st)

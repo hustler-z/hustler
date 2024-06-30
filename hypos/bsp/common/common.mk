@@ -27,3 +27,7 @@ common-y += check.o
 common-y += percpu.o
 common-y += vmap.o
 common-y += symtbl.o
+common-y += softirq.o
+common-y += wq.o
+common-y += mutex.o
+common-y += refcount.o

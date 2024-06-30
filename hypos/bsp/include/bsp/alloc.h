@@ -13,13 +13,12 @@
 #include <asm/ttbl.h>
 #include <bsp/page.h>
 
-int boot_page_setup(paddr_t ps, paddr_t pe);
-pfn_t alloc_boot_page(unsigned long nr_pfns,
-                      unsigned long pfn_align);
+
 
 void *halloc(size_t len);
 void hfree(void *mem);
-void *hcalloc(size_t mb_nr, size_t mb_size);
+void *hcalloc(size_t nrmb, size_t size);
+void *hrealloc(void *p, size_t size);
 
 struct page *halloc_pages(unsigned int order,
                           unsigned int flags);

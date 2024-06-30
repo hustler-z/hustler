@@ -9,17 +9,19 @@
 #include <asm/tlb.h>
 #include <asm/map.h>
 #include <asm/bitops.h>
-#include <common/type.h>
+#include <asm/vpa.h>
 #include <asm-generic/section.h>
 #include <asm-generic/globl.h>
+#include <asm-generic/spinlock.h>
+#include <asm-generic/bootmem.h>
 #include <common/errno.h>
+#include <common/type.h>
 #include <lib/bitops.h>
 #include <lib/math.h>
 #include <lib/strops.h>
 #include <bsp/debug.h>
 #include <bsp/check.h>
 #include <bsp/alloc.h>
-#include <bsp/lock.h>
 
 // --------------------------------------------------------------
 static __initdata DECLARE_BITMAP(inuse, NUM_FIX_PFNMAP);
@@ -107,13 +109,6 @@ static int ttbl_next_level(bool read_only,
     pfn_t pfn;
 
     entry = *table + offset;
-
-#if 0 /* Deprecated */
-    DEBUG("<TTBL> 0x%016lx (*table) + 0x%08x (offset) = 0x%016lx (entry)\n",
-            (unsigned long)(*table),
-            offset,
-            (unsigned long)entry);
-#endif
 
     if (!pte_is_valid(*entry)) {
         if (read_only)
@@ -279,7 +274,7 @@ static int ttbl_mapping_level(unsigned long vfn,
     unsigned int level;
     unsigned long mask;
 
-    mask = !pfn_eq(pfn, INVALID_PFN) ? to_pfn(pfn) : 0;
+    mask = !pfn_eq(pfn, INVALID_PFN) ? pfn_get(pfn) : 0;
     mask |= vfn;
 
     if (likely(!(flags & _PAGE_BLOCK)))
@@ -314,7 +309,7 @@ static unsigned int ttbl_check_contig(unsigned long vfn,
 
     nr_contig = BIT(PGTBL_LEVEL_ORDER(level), UL) * TTBL_4K_NR_CONTIG;
 
-    if ((left < nr_contig) || ((to_pfn(pfn) | vfn) & (nr_contig - 1)))
+    if ((left < nr_contig) || ((pfn_get(pfn) | vfn) & (nr_contig - 1)))
         return 1;
 
     return TTBL_4K_NR_CONTIG;
@@ -327,7 +322,7 @@ static int ttbl_update(unsigned long va,
                        const unsigned long nr_pfns,
                        unsigned int flags)
 {
-    int ret;
+    int ret = 0;
     unsigned long vfn = va >> PAGE_SHIFT;
     unsigned long left = nr_pfns;
     unsigned int order, level, nr_contig, new_flags;
@@ -349,16 +344,13 @@ static int ttbl_update(unsigned long va,
         return -EINVAL;
     }
 
-    spin_lock(&ttbl_lock);
+    spinlock(&ttbl_lock);
 
     while (left) {
         level = ttbl_mapping_level(vfn, pfn, left, flags);
         order = PGTBL_LEVEL_ORDER(level);
 
         ASSERT(left >= BIT(order, UL));
-
-        DEBUG("<TTBL> Page Table Update at Level %u of Order %u\n",
-                level, order);
 
         nr_contig = ttbl_check_contig(vfn, pfn, level, left, flags);
         new_flags = flags | ((nr_contig > 1) ? _PAGE_CONTIG : 0);
@@ -386,9 +378,7 @@ static int ttbl_update(unsigned long va,
     else
         isb();
 
-    spin_unlock(&ttbl_lock);
-
-    DEBUG("<TTBL> <%s> Finished\n", __func__);
+    spinunlock(&ttbl_lock);
 
     return ret;
 }
@@ -433,5 +423,41 @@ void clear_fixmap(unsigned int map)
             + PAGE_SIZE);
 
     BUG_ON(ret != 0);
+}
+// --------------------------------------------------------------
+unsigned long __ro_after_init directmap_virt_start;
+unsigned long __ro_after_init directmap_virt_end;
+pfn_t __ro_after_init directmap_pfn_start;
+pfn_t __ro_after_init directmap_pfn_end;
+unsigned long __ro_after_init directmap_base_idx;
+
+void directmap_setup(unsigned long base_pfn,
+                     unsigned long nr_pfns)
+{
+    int rc;
+
+    /* First call sets the directmap physical and virtual offset. */
+    if (pfn_eq(directmap_pfn_start, INVALID_PFN)) {
+        unsigned long pfn_gb = base_pfn &
+            ~((PGTBL_LEVEL_SIZE(1) >> PAGE_SHIFT) - 1);
+
+        directmap_pfn_start  = pfn_set(base_pfn);
+        directmap_base_idx   = __pfn_to_idx(base_pfn);
+
+        directmap_virt_start = HYPOS_DIRECTMAP_START +
+            (base_pfn - pfn_gb) * PAGE_SIZE;
+        DEBUG("[DMAP] Base Page Index %08lx (Address %016lx)\n",
+                directmap_base_idx, directmap_virt_start);
+    }
+
+    if (base_pfn < pfn_get(directmap_pfn_start))
+        panic("cannot add directmap mapping at %lx below heap start %lx\n",
+              base_pfn, pfn_get(directmap_pfn_start));
+
+    rc = map_pages((vaddr_t)__pfn_to_va(base_pfn),
+                   pfn_set(base_pfn), nr_pfns,
+                   PAGE_HYPOS_RW | _PAGE_BLOCK);
+    if (rc)
+        panic("Unable to setup the directmap mappings.\n");
 }
 // --------------------------------------------------------------

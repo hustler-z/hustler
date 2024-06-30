@@ -19,14 +19,29 @@ struct pglist {
 
 struct page {
     struct pglist list;
-    unsigned long page_count;
+    u64 count;
+    u32 flags;
+    u32 order;
+    void *vaddr;
+
+    struct {
+        u32 owner;
+        u32 dirty;
+    } thread;
+
+    struct {
+        u32 used;
+        u32 status;
+    } tiny;
+
+    u64 pad;
 };
 
 struct pglist_head {
     struct page *next, *tail;
 };
 
-#define page_head ((struct page *)HYPOS_MEMCHUNK_START)
+#define page_head     ((struct page *)HYPOS_BOOTMEM_START)
 
 extern unsigned long page_head_idx;
 extern unsigned long pfn_idx_bottom_mask;
@@ -183,29 +198,16 @@ pglist_splice(struct pglist_head *list, struct pglist_head *head)
          (pos) ? ((tmp) = pglist_prev(pos, head), 1) : 0; \
          (pos) = (tmp))
 
-static inline
-unsigned long pfn_to_idx(unsigned long pfn)
-{
-    return (pfn & pfn_idx_bottom_mask) |
-        ((pfn & pfn_top_mask) >> pfn_idx_hole_shift);
-}
-
-static inline
-unsigned long idx_to_pfn(unsigned long idx)
-{
-    return (idx & pfn_idx_bottom_mask) |
-        ((idx << pfn_idx_hole_shift) & pfn_top_mask);
-}
-
-#define __pfn_to_idx(pfn)              pfn_to_idx(to_pfn(pfn))
-#define __idx_tp_pfn(idx)              to_pfn_t(idx_to_pfn(idx))
+#define __pfn_to_idx(x)              (x)
+#define __idx_to_pfn(x)              (x)
+#define pfn_to_idx(pfn)              __pfn_to_idx(pfn_get(pfn))
+#define idx_to_pfn(idx)              pfn_set(__idx_to_pfn(idx))
 
 #define pfn_to_page(pfn) \
-    (page_head + (pfn_to_idx(to_pfn(pfn)) - page_head_idx))
+    (page_head + (pfn_to_idx(pfn) - page_head_idx))
 
 #define page_to_pfn(pg) \
-    to_pfn_t(idx_to_pfn((unsigned long)((pg) - page_head) +\
-                page_head_idx))
+    (idx_to_pfn((unsigned long)((pg) - page_head) + page_head_idx))
 
 #define vmap_to_pfn(va)    pa_to_pfn(va_to_pa((vaddr_t)(va)))
 #define vmap_to_page(va)   pfn_to_page(vmap_to_pfn(va))

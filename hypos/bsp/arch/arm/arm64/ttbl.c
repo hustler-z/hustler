@@ -9,6 +9,8 @@
 #include <asm/map.h>
 #include <asm/sysregs.h>
 #include <asm/exit.h>
+#include <asm/cache.h>
+#include <asm/vpa.h>
 #include <asm-generic/section.h>
 #include <asm-generic/globl.h>
 #include <common/exit.h>
@@ -167,44 +169,47 @@ void update_idmap(unsigned int ok)
     if (ret)
         BUG();
 }
+// --------------------------------------------------------------
+static void __switch_ttbr(u64 ttbr) {
+    u64 sctlr;
 
-extern void __switch_ttbr(u64 ttbr);
-typedef void (switch_ttbr_cb)(u64 ttbr);
+    dsb(ish);
+    isb();
+
+    sctlr = READ_SYSREG(SCTLR_EL2);
+    sctlr |= SCTLR_Axx_ELx_M;
+    WRITE_SYSREG(sctlr, SCTLR_EL2);
+
+    flush_tlb_local();
+
+    WRITE_SYSREG(ttbr, TTBR0_EL2);
+    isb();
+
+    icache_clear(iallu);
+
+    sctlr = READ_SYSREG(SCTLR_EL2);
+    sctlr |= SCTLR_Axx_ELx_M;
+    WRITE_SYSREG(sctlr, SCTLR_EL2);
+
+    isb();
+}
 
 static void __bootfunc switch_ttbr(u64 ttbr)
 {
-    paddr_t __pa = va_to_pa(__switch_ttbr);
-    switch_ttbr_cb *cb = (switch_ttbr_cb *)__pa;
-    ttbl_t pte;
-
     /* Enable the Identity Mapping in the Boot Page Tables
      */
     update_idmap(1);
 
-    /* Get page table entry of __switch_ttbr and
-     * set up the entry. Enable the Identity Mapping
-     * in the Runtime Page Tables.
-     */
-    pte = pte_of_va((vaddr_t)__switch_ttbr);
-    pte.ttbl.table = 1;
-    pte.ttbl.uxn = 0;
-    pte.ttbl.ap = 3;
-    write_pte(&hypos_idmap3[PGTBL3_OFFSET(__pa)], pte);
-
-    DEBUG("<TTBL> Ready to Switch TTBR [__switch_ttbr %p]\n", cb);
-
     /* Switch TTBR
      */
-    cb(ttbr);
+    __switch_ttbr(ttbr);
 
     /* Disable the Identity Mapping in the Runtime Page
      * Tables.
      */
     update_idmap(0);
-
-    MSGH("<TTBR> <%s> Finished\n", __func__);
 }
-
+// --------------------------------------------------------------
 static void hypos_enforce_wnx(void)
 {
     /* Enforce WXN policy, meaning that page tables should not
@@ -213,8 +218,6 @@ static void hypos_enforce_wnx(void)
     WRITE_SYSREG(READ_SYSREG(SCTLR_EL2) | SCTLR_Axx_ELx_WXN, SCTLR_EL2);
     isb();
     flush_tlb_local();
-
-    DEBUG("<TTBL> <%s> Finished\n", __func__);
 }
 
 static void __bootfunc boot_idmap_setup(void)
@@ -223,13 +226,9 @@ static void __bootfunc boot_idmap_setup(void)
     ttbl_t pte;
     TTBL_OFFSETS(idmap_offset, idmap_paddr);
 
-    MSGH("<HEAD> VA (0x%016lx) -> PA (0x%016lx)\n",
+    MSGH("<HEAD> [VA] 0x%016lx -> [PA] 0x%016lx\n",
             (vaddr_t)__hypos_start,
             (paddr_t)idmap_paddr);
-
-    MSGH("<HEAD> Boot ID Mapping Offsets [%u %u %u %u]\n",
-            idmap_offset[0], idmap_offset[1],
-            idmap_offset[2], idmap_offset[3]);
 
     zero_page(boot_idmap1);
     zero_page(boot_idmap2);
@@ -343,13 +342,14 @@ int __bootfunc ttbl_setup(void)
 
     ttbr = (ap_t)hypos_pgtbl0 + get_globl()->phys_offset;
 
-    MSGH("<TTBR> 0x%016lx (Origin) -> 0x%016lx (Target)\n",
+    MSGH("<TTBR> Before Switch TTBR - 0x%016lx to 0x%016lx\n",
             READ_SYSREG(TTBR0_EL2),
             (unsigned long)ttbr);
 
     switch_ttbr(ttbr);
 
-    MSGH("<TTBR> 0x%016lx (Current)\n", READ_SYSREG(TTBR0_EL2));
+    MSGH("<TTBR> After Switch TTBR  - 0x%016lx\n",
+            READ_SYSREG(TTBR0_EL2));
 
     hypos_enforce_wnx();
 

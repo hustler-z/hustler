@@ -13,3 +13,4 @@ core-y += vgic.o
 core-y += vtimer.o
 core-y += passthru.o
 core-y += vm.o
+core-y += core.o

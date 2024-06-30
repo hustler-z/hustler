@@ -5,7 +5,9 @@
 # Usage:
 # ----------------------------------------------------------
 
-arm-y += lock.o
+arm-y += spinlock.o
 arm-y += atomic.o
-arm-y += chunk.o
+arm-y += bootmem.o
 arm-y += traps.o
+arm-y += smp.o
+arm-y += thread.o

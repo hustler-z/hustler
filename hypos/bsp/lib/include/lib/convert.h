@@ -9,8 +9,10 @@
 #ifndef _LIB_CONVERT_H
 #define _LIB_CONVERT_H
 // --------------------------------------------------------------
-unsigned long conv_strtoul(
-    const char *cp, const char **endp, unsigned int base);
-long conv_strtol(const char *cp, const char **endp, unsigned int base);
+unsigned long _strtoul(const char *cp, const char **endp,
+                       unsigned int base);
+unsigned long __strtoul(const char *cp, char **endp,
+        unsigned int base);
+unsigned long __hextoul(const char *cp, char **endp);
 // --------------------------------------------------------------
 #endif /* _LIB_CONVERT_H */

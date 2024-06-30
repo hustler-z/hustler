@@ -7,10 +7,11 @@
  */
 
 #include <bsp/process.h>
+#include <asm-generic/section.h>
 
 // ------------------------------------------------------------------------
-void process_setup(void)
+int __bootfunc process_setup(void)
 {
-
+    return 0;
 }
 // ------------------------------------------------------------------------
