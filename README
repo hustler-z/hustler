@@ -1,26 +1,27 @@
----------------------------------------------
+------------------------------------------
               __________    _________
  /\__/\/\  /\/ ___/_  _/\  / ___/ __ \
  \  __ \ \_\ \___ \/ // /_/ ___\| __ /
   \_\ \_\____/____/\_/\___\____\\_| \/
 
----------------------------------------------
-Hustler's Projects             2024/04/23 TUE
----------------------------------------------
+------------------------------------------
+Hustler's Projects          2024/04/23 TUE
+------------------------------------------
 
 # Respect to all open-source developers
 
-I'm far from being an OS expert, it took me
-two years to make the decision.
+I'm far from being an OS expert, it took
+me two years to make the decision.
 
-With lots to learn, I stuck and struggled a
-lot. The thing that drive me forward is
+With lots to learn, I stuck and struggled
+a lot. The thing that drive me forward is
 determination.
 
-I wanna be a OS expert, dive deep, and more.
+I wanna be a OS expert, dive deep, and
+more.
 
 Hierarchy Overview
----------------------------------------------
+------------------------------------------
 .
 ├── core
 │   ├── arm
@@ -33,7 +34,6 @@ Hierarchy Overview
 │   ├── cfg
 │   ├── cook.sh
 │   ├── doc
-│   ├── hyp
 │   ├── Makefile
 │   └── README
 ├── linux
@@ -43,6 +43,6 @@ Hierarchy Overview
 │   └── v6.1.y           - GPL-2.0 license
 └── README
 
----------------------------------------------
+------------------------------------------
 Note: education purpose only
----------------------------------------------
+------------------------------------------

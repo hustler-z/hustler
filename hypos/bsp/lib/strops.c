@@ -7,7 +7,7 @@
  */
 
 #include <lib/strops.h>
-#include <bsp/alloc.h>
+#include <bsp/hackmem.h>
 
 // ------------------------------------------------------------------------
 char *strcpy(char *dest, const char *src)

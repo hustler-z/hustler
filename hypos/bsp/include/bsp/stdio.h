@@ -10,7 +10,7 @@
 #define _BSP_STDIO_H
 // --------------------------------------------------------------
 #include <common/type.h>
-#include <common/ccattr.h>
+#include <common/compiler.h>
 #include <lib/args.h>
 
 /* stdin */

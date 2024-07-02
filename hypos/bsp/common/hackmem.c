@@ -1,7 +1,7 @@
 /**
  * Hustler's Project
  *
- * File:  alloc.c
+ * File:  allocation.c
  * Date:  2024/05/22
  * Usage: memory management system setup
  *        (Initialization, Allocation, Deallocation)
@@ -9,7 +9,7 @@
 
 #include <asm-generic/section.h>
 #include <asm/ttbl.h>
-#include <bsp/alloc.h>
+#include <bsp/hackmem.h>
 #include <bsp/check.h>
 #include <bsp/debug.h>
 #include <lib/strops.h>
@@ -87,5 +87,10 @@ void *_hmalloc(unsigned long size, unsigned long align)
 void hmfree(void *p)
 {
 
+}
+// --------------------------------------------------------------
+int __bootfunc hackmem_setup(void)
+{
+    return 0;
 }
 // --------------------------------------------------------------

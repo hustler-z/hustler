@@ -28,6 +28,7 @@ struct hypos_globl {
     unsigned int        precon_buf_idx;
     bool                console_enable;
     bool                keyboard_enable;
+    bool                print_once;
     unsigned int        boot_status; /* hypos_boot_status */
     unsigned long       phys_offset;
     unsigned long       boot_param;

@@ -13,7 +13,7 @@
 #include <asm-generic/byteorder.h>
 #include <asm/barrier.h>
 #include <asm/alternative.h>
-#include <common/ccattr.h>
+#include <common/compiler.h>
 
 #define ARM64_WORKAROUND_DEVICE_LOAD_ACQUIRE	1
 

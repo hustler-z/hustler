@@ -58,13 +58,17 @@ TLB_HELPER(flush_all_guests_tlb_local, alle1, nsh)
 /* Flush innershareable TLBs, all VMIDs, non-hypervisor mode */
 TLB_HELPER(flush_all_guests_tlb, alle1is, ish)
 
-/* Flush all hypervisor mappings from the TLB of the local processor. */
+/* Flush all hypervisor mappings from the TLB of the local
+ * processor.
+ */
 TLB_HELPER(flush_tlb_local, alle2, nsh)
 
 /* Flush TLB of local processor for address va. */
 TLB_HELPER_VA(__flush_tlb_one_local, vae2)
 
-/* Flush TLB of all processors in the inner-shareable domain for address va. */
+/* Flush TLB of all processors in the inner-shareable domain
+ * for address va.
+ */
 TLB_HELPER_VA(__flush_tlb_one, vae2is)
 
 void flush_tlb_range_va_local(vaddr_t va, unsigned long size);

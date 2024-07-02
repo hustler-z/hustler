@@ -1,15 +1,15 @@
 /**
  * Hustler's Project
  *
- * File:  note.h
+ * File:  notifier.h
  * Date:  2024/06/28
  * Usage:
  */
 
-#ifndef _COMMON_NOTE_H
-#define _COMMON_NOTE_H
+#ifndef _COMMON_NOTIFIER_H
+#define _COMMON_NOTIFIER_H
 // ------------------------------------------------------------------------
 
 
 // ------------------------------------------------------------------------
-#endif /* _COMMON_NOTE_H */
+#endif /* _COMMON_NOTIFIER_H */

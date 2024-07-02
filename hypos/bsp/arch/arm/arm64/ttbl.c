@@ -10,7 +10,7 @@
 #include <asm/sysregs.h>
 #include <asm/exit.h>
 #include <asm/cache.h>
-#include <asm/vpa.h>
+#include <asm/at.h>
 #include <asm-generic/section.h>
 #include <asm-generic/globl.h>
 #include <common/exit.h>
@@ -123,6 +123,7 @@ ttbl_t pfn_to_entry(pfn_t pfn, unsigned int attr)
             .ng = 1,
             .contig = 0,
             .uxn = 1, /* No executable in user space */
+            .pxn = 0,
         }
     };
 
@@ -170,39 +171,28 @@ void update_idmap(unsigned int ok)
         BUG();
 }
 // --------------------------------------------------------------
-static void __switch_ttbr(u64 ttbr) {
-    u64 sctlr;
-
-    dsb(ish);
-    isb();
-
-    sctlr = READ_SYSREG(SCTLR_EL2);
-    sctlr |= SCTLR_Axx_ELx_M;
-    WRITE_SYSREG(sctlr, SCTLR_EL2);
-
-    flush_tlb_local();
-
-    WRITE_SYSREG(ttbr, TTBR0_EL2);
-    isb();
-
-    icache_clear(iallu);
-
-    sctlr = READ_SYSREG(SCTLR_EL2);
-    sctlr |= SCTLR_Axx_ELx_M;
-    WRITE_SYSREG(sctlr, SCTLR_EL2);
-
-    isb();
-}
+extern void __switch_ttbr(unsigned long ttbr);
+typedef void (switch_ttbr_cb)(unsigned long ttbr);
 
 static void __bootfunc switch_ttbr(u64 ttbr)
 {
+    vaddr_t addr = va_to_pa(__switch_ttbr);
+    switch_ttbr_cb *cb = (switch_ttbr_cb *)addr;
+    ttbl_t pte;
+
     /* Enable the Identity Mapping in the Boot Page Tables
      */
     update_idmap(1);
 
+    pte = pte_of_va((vaddr_t)__switch_ttbr);
+    pte.ttbl.table = 1;
+    pte.ttbl.uxn = 0;
+    pte.ttbl.ap = 3;
+    write_pte(&hypos_idmap3[PGTBL3_OFFSET(addr)], pte);
+
     /* Switch TTBR
      */
-    __switch_ttbr(ttbr);
+    cb(ttbr);
 
     /* Disable the Identity Mapping in the Runtime Page
      * Tables.
@@ -280,6 +270,25 @@ static void prepare_idmap(void)
     hypos_idmap_setup();
 }
 // --------------------------------------------------------------
+static void __bootfunc ttbl_consts(void)
+{
+    MSGI("[globl] Translation Table Constants   @_@\n"
+         "        ---------------------------------\n"
+         "        Level            Size       Shift\n"
+         "            0     %8u GB        %4u\n"
+         "            1     %8u GB        %4u\n"
+         "            2     %8u MB        %4u\n"
+         "            3     %8u KB        %4u\n"
+         "        ---------------------------------\n",
+         (unsigned int)(PGTBL_LEVEL_SIZE(0) / GB(1)),
+         (unsigned int)PGTBL_LEVEL_SHIFT(0),
+         (unsigned int)(PGTBL_LEVEL_SIZE(1) / GB(1)),
+         (unsigned int)PGTBL_LEVEL_SHIFT(1),
+         (unsigned int)(PGTBL_LEVEL_SIZE(2) / MB(1)),
+         (unsigned int)PGTBL_LEVEL_SHIFT(2),
+         (unsigned int)(PGTBL_LEVEL_SIZE(3) / KB(1)),
+         (unsigned int)PGTBL_LEVEL_SHIFT(3));
+}
 
 /* Translation table setup
  */
@@ -340,6 +349,8 @@ int __bootfunc ttbl_setup(void)
     pte.ttbl.table = 1;
     hypos_pgtbl2[PGTBL2_OFFSET(HYPOS_FIXMAP_ADDR(0))] = pte;
 
+    ttbl_consts();
+
     ttbr = (ap_t)hypos_pgtbl0 + get_globl()->phys_offset;
 
     MSGH("<TTBR> Before Switch TTBR - 0x%016lx to 0x%016lx\n",
@@ -357,5 +368,4 @@ int __bootfunc ttbl_setup(void)
 
     return 0;
 }
-
 // --------------------------------------------------------------

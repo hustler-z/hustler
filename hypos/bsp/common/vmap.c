@@ -8,13 +8,14 @@
 
 #include <asm-generic/spinlock.h>
 #include <asm-generic/section.h>
-#include <asm-generic/globl.h>
 #include <asm-generic/bootmem.h>
+#include <asm-generic/globl.h>
+#include <asm/at.h>
 #include <asm/bitops.h>
 #include <asm/map.h>
 #include <lib/bitops.h>
 #include <lib/bitmap.h>
-#include <bsp/alloc.h>
+#include <bsp/hackmem.h>
 #include <bsp/check.h>
 #include <bsp/vmap.h>
 
@@ -53,7 +54,7 @@ void __bootfunc vm_init_type(enum vmap_region type, void *start, void *end)
         int rc;
 
         if (get_globl()->boot_status == EARLY_BOOT_STAGE)
-            pfn = alloc_boot_page(1, 1);
+            pfn = get_bootpages(1, 1);
         else {
             struct page *pg = halloc_page(0);
 
@@ -125,7 +126,7 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
             return NULL;
 
         if (get_globl()->boot_status == EARLY_BOOT_STAGE)
-            pfn = alloc_boot_page(1, 1);
+            pfn = get_bootpages(1, 1);
         else {
             struct page *pg = halloc_page(0);
 
@@ -149,7 +150,7 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
         }
 
         if (get_globl()->boot_status == EARLY_BOOT_STAGE)
-            boot_page_setup(pfn_to_pa(pfn), pfn_to_pa(pfn) + PAGE_SIZE);
+            bootpages_setup(pfn_to_pa(pfn), pfn_to_pa(pfn) + PAGE_SIZE);
         else
             hfree_page(pfn_to_page(pfn));
 

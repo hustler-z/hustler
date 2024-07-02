@@ -8,7 +8,7 @@
 
 #include <asm-generic/globl.h>
 #include <bsp/device.h>
-#include <bsp/alloc.h>
+#include <bsp/hackmem.h>
 #include <bsp/debug.h>
 #include <common/errno.h>
 #include <common/type.h>

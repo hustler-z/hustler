@@ -9,7 +9,7 @@
 #include <asm/tlb.h>
 #include <asm/map.h>
 #include <asm/bitops.h>
-#include <asm/vpa.h>
+#include <asm/at.h>
 #include <asm-generic/section.h>
 #include <asm-generic/globl.h>
 #include <asm-generic/spinlock.h>
@@ -21,7 +21,6 @@
 #include <lib/strops.h>
 #include <bsp/debug.h>
 #include <bsp/check.h>
-#include <bsp/alloc.h>
 
 // --------------------------------------------------------------
 static __initdata DECLARE_BITMAP(inuse, NUM_FIX_PFNMAP);
@@ -86,7 +85,7 @@ static int create_ttbl(ttbl_t *entry)
     if (get_globl()->boot_status != EARLY_BOOT_STAGE) {
         MSGH("Not Implemented yet\n");
     } else
-        pfn = alloc_boot_page(1, 1);
+        pfn = get_bootpages(1, 1);
 
     ptr = map_table(pfn);
     zero_page(ptr);
@@ -423,41 +422,5 @@ void clear_fixmap(unsigned int map)
             + PAGE_SIZE);
 
     BUG_ON(ret != 0);
-}
-// --------------------------------------------------------------
-unsigned long __ro_after_init directmap_virt_start;
-unsigned long __ro_after_init directmap_virt_end;
-pfn_t __ro_after_init directmap_pfn_start;
-pfn_t __ro_after_init directmap_pfn_end;
-unsigned long __ro_after_init directmap_base_idx;
-
-void directmap_setup(unsigned long base_pfn,
-                     unsigned long nr_pfns)
-{
-    int rc;
-
-    /* First call sets the directmap physical and virtual offset. */
-    if (pfn_eq(directmap_pfn_start, INVALID_PFN)) {
-        unsigned long pfn_gb = base_pfn &
-            ~((PGTBL_LEVEL_SIZE(1) >> PAGE_SHIFT) - 1);
-
-        directmap_pfn_start  = pfn_set(base_pfn);
-        directmap_base_idx   = __pfn_to_idx(base_pfn);
-
-        directmap_virt_start = HYPOS_DIRECTMAP_START +
-            (base_pfn - pfn_gb) * PAGE_SIZE;
-        DEBUG("[DMAP] Base Page Index %08lx (Address %016lx)\n",
-                directmap_base_idx, directmap_virt_start);
-    }
-
-    if (base_pfn < pfn_get(directmap_pfn_start))
-        panic("cannot add directmap mapping at %lx below heap start %lx\n",
-              base_pfn, pfn_get(directmap_pfn_start));
-
-    rc = map_pages((vaddr_t)__pfn_to_va(base_pfn),
-                   pfn_set(base_pfn), nr_pfns,
-                   PAGE_HYPOS_RW | _PAGE_BLOCK);
-    if (rc)
-        panic("Unable to setup the directmap mappings.\n");
 }
 // --------------------------------------------------------------

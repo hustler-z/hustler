@@ -9,7 +9,7 @@
 #ifndef _COMMON_ERR_H
 #define _COMMON_ERR_H
 // --------------------------------------------------------------
-#include <common/ccattr.h>
+#include <common/compiler.h>
 
 #define ERR_PTR_OFFSET    0x0
 #define MAX_ERRNO         4095

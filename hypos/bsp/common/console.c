@@ -14,10 +14,10 @@
 #include <bsp/debug.h>
 #include <bsp/env.h>
 #include <bsp/serial.h>
-#include <bsp/alloc.h>
+#include <bsp/hackmem.h>
 #include <bsp/period.h>
 #include <bsp/sdev.h>
-#include <common/ccattr.h>
+#include <common/compiler.h>
 #include <common/mmap.h>
 #include <common/errno.h>
 #include <common/exit.h>

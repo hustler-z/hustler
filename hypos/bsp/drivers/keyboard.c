@@ -7,7 +7,7 @@
  */
 
 #include <bsp/keyboard.h>
-#include <bsp/alloc.h>
+#include <bsp/hackmem.h>
 #include <common/errno.h>
 #include <lib/strops.h>
 // --------------------------------------------------------------

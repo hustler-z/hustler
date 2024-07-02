@@ -6,14 +6,10 @@
  * Usage:
  */
 
-#include <asm/ttbl.h>
-#include <asm/exit.h>
-#include <asm/hcpu.h>
-#include <asm/debug.h>
 #include <asm/setup.h>
+#include <asm/ttbl.h>
 #include <asm-generic/globl.h>
 #include <asm-generic/section.h>
-#include <lib/strops.h>
 #include <bsp/debug.h>
 
 // --------------------------------------------------------------
@@ -39,7 +35,7 @@ void section_map_dump(void)
 
 int __bootfunc hcpu_setup(void)
 {
-    MSGH("ENV    phys_offset - 0x%016lx\n",
+    MSGH("[ENV]  phys_offset - 0x%016lx\n",
             get_globl()->phys_offset);
 
     section_map_dump();

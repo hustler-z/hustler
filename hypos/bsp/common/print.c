@@ -9,14 +9,14 @@
 #include <asm/barrier.h>
 #include <asm-generic/spinlock.h>
 #include <bsp/stdio.h>
-#include <bsp/alloc.h>
+#include <bsp/hackmem.h>
 #include <bsp/check.h>
 #include <lib/ctype.h>
 #include <lib/math.h>
 #include <lib/strops.h>
 #include <common/errno.h>
 #include <common/symtbl.h>
-#include <common/ccattr.h>
+#include <common/compiler.h>
 #include <lib/args.h>
 #include <lib/bitops.h>
 

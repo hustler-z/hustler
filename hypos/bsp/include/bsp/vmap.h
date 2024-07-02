@@ -11,7 +11,7 @@
 // --------------------------------------------------------------
 #include <asm/ttbl.h>
 #include <common/type.h>
-#include <common/ccattr.h>
+#include <common/compiler.h>
 
 enum vmap_region {
     VMAP_DEFAULT,

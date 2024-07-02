@@ -9,7 +9,7 @@
 #ifndef _COMMON_REFCOUNT_H
 #define _COMMON_REFCOUNT_H
 // --------------------------------------------------------------
-#include <common/ccattr.h>
+#include <common/compiler.h>
 #include <common/type.h>
 
 struct refcount {

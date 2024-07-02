@@ -48,21 +48,21 @@ void warn(const char *fmt, ...)
 void __warn_crap(const char *assertion, const char *file,
         unsigned int line, const char *function)
 {
-    warn("[warns] %s %u - %s() * %s * Bombed", file, line,
+    warn("[warns] %s %u - %s() {%s} Bombed", file, line,
             function, assertion);
 }
 
 void __bug_crap(const char *file,
         unsigned int line, const char *function)
 {
-    panic("[panic] %s %u - %s() F*cked up", file, line,
+    panic("[panic] %s %u - %s() F*cked Up", file, line,
             function);
 }
 
 void __assert_crap(const char *assertion, const char *file,
         unsigned int line, const char *function)
 {
-    panic("[panic] %s %u - %s() * %s * Bombed", file, line,
+    panic("[assrt] %s %u - %s() {%s} Bombed", file, line,
             function, assertion);
 }
 // --------------------------------------------------------------

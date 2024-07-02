@@ -12,6 +12,6 @@ drivers-y += keyboard.o
 drivers-y += input.o
 
 ifeq ($(PLATFORM),rockchip)
-drivers-y += rockchip_serial.o
-drivers-y += rockchip_timer.o
+drivers-y += rkserial.o
+drivers-y += rktimer.o
 endif

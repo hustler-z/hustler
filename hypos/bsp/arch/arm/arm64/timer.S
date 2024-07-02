@@ -229,5 +229,4 @@ FUNC(set_el2_phy_timer_ctrl)
     isb
     ret
 END(set_el2_phy_timer_ctrl)
-
 // --------------------------------------------------------------

@@ -7,7 +7,7 @@
  */
 
 #include <bsp/sdev.h>
-#include <bsp/alloc.h>
+#include <bsp/hackmem.h>
 #include <bsp/serial.h>
 #include <bsp/keyboard.h>
 #include <asm-generic/globl.h>

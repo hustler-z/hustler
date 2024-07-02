@@ -11,7 +11,7 @@
 #include <bsp/debug.h>
 #include <bsp/wq.h>
 #include <bsp/mutex.h>
-#include <common/ccattr.h>
+#include <common/compiler.h>
 
 static unsigned wq_spinlock;
 

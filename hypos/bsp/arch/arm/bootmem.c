@@ -2,420 +2,298 @@
  * Hustler's Project
  *
  * File:  bootmem.c
- * Date:  2024/06/20
- * Usage:
+ * Date:  2024/06/19
+ * Usage: boot-time memory for transition period
  */
 
-#include <asm/map.h>
-
-#include <asm/bitops.h>
-#include <asm-generic/section.h>
 #include <asm-generic/bootmem.h>
-#include <common/type.h>
-#include <bsp/alloc.h>
-#include <bsp/page.h>
-#include <lib/bitops.h>
+#include <asm/map.h>
+#include <bsp/hackmem.h>
+#include <bsp/debug.h>
+#include <asm-generic/section.h>
 #include <lib/strops.h>
-#include <lib/math.h>
 #include <lib/convert.h>
 
 // --------------------------------------------------------------
-static struct bootmem __initdata bootmem = {
-    .hypos_bootpages.max_bootpages = NR_BOOTPAGES,
-};
+unsigned long __read_mostly pageframe_base_idx;
+unsigned long __read_mostly pageframe_va_end;
+unsigned long __read_mostly pageframe_total_pages;
 
-#define NR_VALID_PAGE_INDEX \
-    BITS_TO_LONGS((HYPOS_BOOTMEM_NR + PAGE_INDEX_COUNT - 1) \
-            / PAGE_INDEX_COUNT)
+unsigned long __read_mostly directmap_va_start;
+unsigned long __read_mostly directmap_va_end;
+pfn_t __read_mostly directmap_pfn_start = INVALID_PFN_INIT;
+pfn_t __read_mostly directmap_pfn_end = INVALID_PFN_INIT;
+unsigned long __read_mostly directmap_base_idx;
 
-unsigned long __read_mostly
-    page_index_valid[NR_VALID_PAGE_INDEX] = { [0] = 1 };
+pfn_t first_valid_pfn = INVALID_PFN_INIT;
 // --------------------------------------------------------------
-
-/* XXX: Page Index Implementation stolen from XEN
- *
- * Diagbtmc to make sense of the following variables. The masks
- * and shifts are done on pfn values in order to convert to/from
- * idx:
- *
- *                      pfn_hole_mask
- *                      pfn_idx_hole_shift (mask bitsize)
- *                      |
- *                 |---------|
- *                 |         |
- *                 V         V
- *         --------------------------
- *         |HHHHHHH|000000000|LLLLLL| <--- pfn
- *         --------------------------
- *         ^       ^         ^      ^
- *         |       |         |------|
- *         |       |             |
- *         |       |             pfn_idx_bottom_mask
- *         |       |
- *         |-------|
- *             |
- *             pfn_top_mask
- *
- * pa_{top,va_bottom}_mask is simply a shifted pfn_{top,idx_bottom}_mask,
- * where pa_top_mask has zeroes shifted in while pa_va_bottom_mask has
- * ones.
- */
-unsigned long __ro_after_init max_pages;
-unsigned long __ro_after_init total_pages;
-unsigned long __ro_after_init page_head_idx;
-unsigned long __ro_after_init page_virt_end;
-unsigned long __ro_after_init pfn_idx_bottom_mask;
-unsigned long __ro_after_init pfn_top_mask;
-unsigned long __ro_after_init pfn_hole_mask;
-unsigned long __ro_after_init pfn_idx_hole_shift;
-unsigned long __ro_after_init pa_va_bottom_mask;
-unsigned long __ro_after_init pa_top_mask;
-
-// --------------------------------------------------------------
-
-static u64 fill_mask(u64 mask)
-{
-    while (mask & (mask + 1))
-        mask |= mask + 1;
-
-    return mask;
-}
-
-u64 __bootfunc page_index_mask(u64 base)
-{
-    return fill_mask(max(base,
-                (u64)1 << (MAX_ORDER + PAGE_SHIFT)) - 1);
-}
-
-u64 page_index_range_mask(u64 base, u64 len)
-{
-    return fill_mask(base ^ (base + len - 1));
-}
-
-void __bootfunc pfn_idx_hole_setup(unsigned long mask)
-{
-    unsigned int i, j, bottom_shift = 0, hole_shift = 0;
-
-    for (j = MAX_ORDER - 1; ; ) {
-        i = find_next_zero_bit(&mask, BITS_PER_LONG, j + 1);
-        if (i >= BITS_PER_LONG)
-            break;
-        j = find_next_bit(&mask, BITS_PER_LONG, i + 1);
-        if (j >= BITS_PER_LONG)
-            break;
-        if (j - i > hole_shift) {
-            hole_shift = j - i;
-            bottom_shift = i;
-        }
-    }
-
-    if (!hole_shift)
-        return;
-
-    pfn_idx_hole_shift  = hole_shift;
-    pfn_idx_bottom_mask = (1UL << bottom_shift) - 1;
-    pa_va_bottom_mask   = (PAGE_SIZE << bottom_shift) - 1;
-    pfn_hole_mask       = ((1UL << hole_shift) - 1) << bottom_shift;
-    pfn_top_mask        = ~(pfn_idx_bottom_mask | pfn_hole_mask);
-    pa_top_mask         = pfn_top_mask << PAGE_SHIFT;
-}
-
-void set_page_index_range(unsigned long spfn, unsigned long epfn)
-{
-    unsigned long idx, eidx;
-
-    idx = __pfn_to_idx(spfn) / PAGE_INDEX_COUNT;
-    eidx = (__pfn_to_idx(epfn - 1) + PAGE_INDEX_COUNT) / PAGE_INDEX_COUNT;
-
-    for (; idx < eidx; idx++)
-        set_bit(idx, page_index_valid);
-}
-
-
-/* XXX: bootpages_setup()
- *
- * Set up NR_BOOTPAGES (256) bootpages.
- */
-void __bootfunc bootpages_setup(void)
-{
-    struct bootpages *bootpages = &bootmem.hypos_bootpages;
-    int num;
-
-    /* Set up all membootpages
-     */
-    for (num = 0; num < bootpages->max_bootpages; num++) {
-        bootpages->pages[num].size  = PAGE_SIZE;
-        bootpages->pages[num].start = HYPOS_BOOTMEM_START
-            + (num * PAGE_SIZE);
-        bootpages->pages[num].type  = BOOTMEM_STATIC_HEAP;
-        bootpages->nr_bootpages++;
-    }
-
-    DEBUG("<%s> Finished\n", __func__);
-}
-
-void __bootfunc pageindex_setup(void)
-{
-    const struct bootpages *bootpages = &bootmem.hypos_bootpages;
-    paddr_t bootpage_start = 0x0, bootpage_end = 0x0;
-    size_t  bootpage_size  = 0;
-    u64 mask = page_index_mask(0x0);
-    int num;
-
-    for (num = 0; num < bootpages->nr_bootpages; num++) {
-        bootpage_start = bootpages->pages[num].start;
-        bootpage_size  = bootpages->pages[num].size;
-
-        mask |= bootpage_start |
-            page_index_range_mask(bootpage_start, bootpage_size);
-    }
-
-    for (num = 0; num < bootpages->nr_bootpages; num++) {
-        bootpage_start = bootpages->pages[num].start;
-        bootpage_size  = bootpages->pages[num].size;
-
-        if (~mask & page_index_range_mask(bootpage_start, bootpage_size))
-            mask = 0;
-    }
-
-    pfn_idx_hole_setup(mask >> PAGE_SHIFT);
-
-    for (num = 0; num < bootpages->nr_bootpages; num++) {
-        bootpage_start = bootpages->pages[num].start;
-        bootpage_size  = bootpages->pages[num].size;
-        bootpage_end   = bootpage_start + bootpage_size;
-
-        set_page_index_range(__pa_to_pfn(bootpage_start),
-                             __pa_to_pfn(bootpage_end));
-    }
-
-    DEBUG("<%s> Finished\n", __func__);
-}
-
-void __bootfunc bootmem_alloctor_setup(void)
-{
-    int num;
-    const struct bootpages *bootpages = &bootmem.hypos_bootpages;
-    paddr_t start, end;
-
-    for (num = 0; num < bootpages->nr_bootpages; num++) {
-        if (bootpages->pages[num].type != BOOTMEM_STATIC_HEAP)
-            continue;
-
-        start = bootpages->pages[num].start;
-        end = start + bootpages->pages[num].size;
-
-        /* Set up page-sized membootpage individually.
-         */
-        if (boot_page_setup(start, end))
-            MSGE("Set up Boot Page Allocter Failed >_<\n");
-    }
-
-    DEBUG("<%s> Finished\n", __func__);
-}
-
-void __bootfunc bootmem_mapping(paddr_t ps, paddr_t pe)
-{
-    unsigned long nr_idx = pfn_to_idx(pfn_add(pa_to_pfn(pe), -1)) -
-                           pfn_to_idx(pa_to_pfn(ps)) + 1;
-    unsigned long bootpage_size = nr_idx * sizeof(struct page);
-    pfn_t base_pfn;
-    const unsigned long mapping_size = bootpage_size < MB(32) ?
-        MB(2) : MB(32);
-    int ret;
-
-    if (bootpage_size > HYPOS_BOOTMEM_SIZE)
-        panic("The membootpage can't cover [0x%016lx - 0x%016lx]",
-                ps, pe);
-
-    page_head_idx = pfn_to_idx(pa_to_pfn(ps));
-    bootpage_size = ROUNDUP(bootpage_size, mapping_size);
-
-    DEBUG("[BTPG] membootpage size %lu KB, page head index %lu, number of page index %lu\n",
-            bootpage_size / KB(1), page_head_idx, nr_idx);
-
-    base_pfn = alloc_boot_page(bootpage_size >> PAGE_SHIFT,
-            32 << (20 - 12));
-
-    ret = map_pages(HYPOS_BOOTMEM_START, base_pfn,
-            bootpage_size >> PAGE_SHIFT, PAGE_HYPOS_RW | _PAGE_BLOCK);
-
-    if (ret)
-        panic("Uable to setup the membootpage mapping.");
-
-    memset(&page_head[0], 0, nr_idx * sizeof(struct page));
-    memset(&page_head[nr_idx], -1,
-            bootpage_size - (nr_idx * sizeof(struct page)));
-
-    page_virt_end = HYPOS_BOOTMEM_START +
-        (nr_idx * sizeof(struct page));
-}
-
-// --------------------------------------------------------------
-int __bootfunc bootmem_setup(void)
-{
-    const struct bootpages *bootpages = &bootmem.hypos_bootpages;
-    const struct bootpage *bootpage;
-    paddr_t bm_start = INVALID_PADDR;
-    paddr_t bm_end = 0x0, bootpage_end = 0x0;
-    size_t  bm_size = 0;
-    unsigned int num;
-
-    bootpages_setup();
-
-    pageindex_setup();
-
-    bootmem_alloctor_setup();
-
-    for (num = 0; num < bootpages->nr_bootpages; num++) {
-        bootpage     = &bootpages->pages[num];
-        bootpage_end = bootpage->start + bootpage->size;
-
-        bm_size += bootpage->size;
-        bm_start = min(bm_start, bootpage->start);
-        bm_end   = max(bm_end, bootpage_end);
-
-        directmap_setup(PFN_DOWN(bootpage->start),
-                        PFN_DOWN(bootpage->size));
-    }
-
-    total_pages         = bm_size >> PAGE_SHIFT;
-    directmap_virt_end  = HYPOS_HEAP_VIRT_START + bm_end - bm_start;
-    directmap_pfn_start = pa_to_pfn(bm_start);
-    directmap_pfn_end   = pa_to_pfn(bm_end);
-
-    max_pages = PFN_DOWN(bm_end);
-
-    DEBUG("[BTPG] BOOTMEM RANGE [0x%016lx - 0x%016lx] %lu pages\n",
-            bm_start, bm_end, total_pages);
-
-    bootmem_mapping(bm_start, bm_end);
-
-    return 0;
-}
-// --------------------------------------------------------------
-
-/* Boot Time Memory Slots
- */
-struct bootmem_slot {
+struct bootpage {
     unsigned long start, end;
 };
 
-static char __initdata badpage[100] = "";
+static char __initdata opt_badpage[100] = "";
+static unsigned int __initdata nr_bootpages;
 
-pfn_t valid_pfn_1st = INVALID_PFN_INIT;
+static struct bootpage __initdata
+    bootpages_list[PAGE_SIZE / sizeof(struct bootpage)];
 
-/* Statically reserve (4 KB) 1 page-sized memory */
-static struct bootmem_slot __initdata
-    bootmem_slots[PAGE_SIZE / sizeof(struct bootmem_slot)];
-static unsigned int __initdata nr_bootmem_slots;
-
-static void __bootfunc bootmem_slot_add(unsigned long start,
-                                        unsigned long end)
-{
+static __initdata struct bootmem bootmem = {
+    .resv_mem.stats.max_banks = NR_MEMBANKS,
+    .heap_mem.stats.max_banks = NR_MEMBANKS,
+};
+// --------------------------------------------------------------
+static void __bootfunc bootpages_add(unsigned long start,
+                                     unsigned long end) {
     unsigned int i;
 
     if (start >= end)
         return;
 
-    for (i = 0; i < nr_bootmem_slots; i++)
-        if (start < bootmem_slots[i].end)
+    /* Locate at proper index */
+    for (i = 0; i < nr_bootpages; i++)
+        if (start < bootpages_list[i].end)
             break;
 
-    BUG_ON((i < nr_bootmem_slots) && (end > bootmem_slots[i].start));
+    BUG_ON((i < nr_bootpages) && (end > bootpages_list[i].start));
+    BUG_ON(nr_bootpages == (PAGE_SIZE / sizeof(struct bootpage)));
 
-    memmove(&bootmem_slots[i + 1], &bootmem_slots[i],
-            (nr_bootmem_slots - i) * sizeof(*bootmem_slots));
+    /* +---+---+ ~ ~ ~
+     * |   |   |
+     * +---+---+ ~ ~ ~
+     *   |   ^
+     *   +---+
+     */
+    memmove(&bootpages_list[i + 1], &bootpages_list[i],
+            (nr_bootpages - i) * sizeof(*bootpages_list));
 
-    bootmem_slots[i] = (struct bootmem_slot){start, end};
-    nr_bootmem_slots++;
+    bootpages_list[i] = (struct bootpage){ start, end };
+    nr_bootpages++;
 }
 
-static void __bootfunc bootmem_slot_zap(unsigned long start,
-                                        unsigned long end)
-{
+static void __bootfunc bootpages_zap(unsigned long start,
+                                     unsigned long end) {
     unsigned int i;
-    unsigned long _end;
-    struct bootmem_slot *slot;
 
-    for (i = 0; i < nr_bootmem_slots; i++) {
-        slot = &bootmem_slots[i];
-        if (end <= slot->start)
+    for (i = 0; i < nr_bootpages; i++) {
+        struct bootpage *bp = &bootpages_list[i];
+        if (end <= bp->start)
             break;
-        if (start >= slot->end)
+        if (start >= bp->end)
             continue;
-        if (start <= slot->start)
-            slot->start = min(end, slot->end);
-        else if (end >= slot->end)
-            slot->end = start;
+        if (start <= bp->start)
+            bp->start = min(end, bp->end);
+        else if (end >= bp->end)
+            bp->end = start;
         else {
-            _end = slot->end;
-            slot->end = start;
-            bootmem_slot_add(end, _end);
+            unsigned long _end = bp->end;
+            bp->end = start;
+            bootpages_add(end, _end);
         }
     }
 }
 
-int __bootfunc boot_page_setup(paddr_t ps, paddr_t pe)
-{
-    unsigned long bad_spfn, bad_epfn;
-    const char *ptr;
-
-    ps = ROUND_PGUP(ps);
-    pe = ROUND_PGDOWN(pe);
-
-    if (pe <= ps)
-        return -1;
-
-    valid_pfn_1st = pfn_min(pa_to_pfn(ps), valid_pfn_1st);
-    bootmem_slot_add(ps >> PAGE_SHIFT, pe >> PAGE_SHIFT);
-    ptr = badpage;
-
-    while (*ptr != '\0') {
-        bad_spfn = _strtoul(ptr, &ptr, 0);
-        bad_epfn = bad_spfn;
-
-        if (*ptr == '-') {
-            ptr++;
-            bad_epfn = _strtoul(ptr, &ptr, 0);
-            if (bad_epfn < bad_spfn)
-                bad_epfn = bad_spfn;
-        }
-
-        if (*ptr == ',')
-            ptr++;
-        else if (*ptr != '\0')
-            break;
-
-        bootmem_slot_zap(bad_spfn, bad_epfn + 1);
-    }
-
-    return 0;
-}
-
-pfn_t __bootfunc alloc_boot_page(unsigned long nr_pfns,
-                                 unsigned long pfn_align)
+pfn_t __bootfunc get_bootpages(unsigned long nr_pfns,
+                               unsigned long pfn_align)
 {
     unsigned long pg, _end;
-    unsigned int i = nr_bootmem_slots;
-    struct bootmem_slot *slot = NULL;
+    unsigned int i = nr_bootpages;
 
-    DEBUG("[BTPG] nr_bootmem_slots (%u)\n", nr_bootmem_slots);
+    BUG_ON(!nr_bootpages);
 
     while (i--) {
-        slot = &bootmem_slots[i];
-        pg = (slot->end - nr_pfns) & ~(pfn_align - 1);
+        struct bootpage *bp = &bootpages_list[i];
 
-        if (pg >= slot->end || pg < slot->start)
+        pg = (bp->end - nr_pfns) & ~(pfn_align - 1);
+        if (pg >= bp->end || pg < bp->start)
             continue;
-        _end = slot->end;
-        bootmem_slot_add(pg + nr_pfns, _end);
+
+        _end = bp->end;
+        bp->end = pg;
+        bootpages_add(pg + nr_pfns, _end);
 
         return pfn_set(pg);
     }
 
     BUG();
 
-    return pfn_set(0);
+    /* Ain't gonna reach here */
+    return INVALID_PFN;
+}
+
+void __bootfunc bootpages_setup(paddr_t ps, paddr_t pe)
+{
+    ps = ROUND_PGUP(ps);
+    pe = ROUND_PGDOWN(pe);
+
+    if (pe <= ps)
+        return;
+
+    first_valid_pfn = pfn_min(pa_to_pfn(ps), first_valid_pfn);
+    bootpages_add(ps >> PAGE_SHIFT, pe >> PAGE_SHIFT);
+}
+// --------------------------------------------------------------
+#define BOOT_MEMBANK_SIZE \
+        (HYPOS_BOOTMEM_SIZE / NR_MEMBANKS)
+#define HEAP_MEMBANK_SIZE \
+        (HYPOS_DIRECTMAP_SIZE / NR_MEMBANKS)
+
+static void __bootfunc __bootmem_setup(void)
+{
+    struct membanks *mbs = &bootmem.resv_mem;
+    struct membanks *mbh = &bootmem.heap_mem;
+    unsigned int bank;
+
+    /* Initialize the boot membanks */
+    for (bank = 0; bank < mbs->stats.max_banks; bank++) {
+        mbs->banks[bank].start = HYPOS_BOOTMEM_START
+            + (bank * BOOT_MEMBANK_SIZE);
+        mbs->banks[bank].size  = BOOT_MEMBANK_SIZE;
+        mbs->stats.nr_banks++;
+    }
+
+    /* Set up boot pages allocators.
+     */
+    for (bank = 0; bank < mbs->stats.max_banks; bank++) {
+        bootpages_setup(mbs->banks[bank].start,
+                        mbs->banks[bank].start + mbs->banks[bank].size);
+    }
+
+    /* Initialize the heap membanks */
+    for (bank = 0; bank < mbh->stats.max_banks; bank++) {
+        mbh->banks[bank].start = HYPOS_DIRECTMAP_START
+            + (bank * HEAP_MEMBANK_SIZE);
+        mbh->banks[bank].size  = HEAP_MEMBANK_SIZE;
+        mbh->stats.nr_banks++;
+    }
+}
+
+static void __bootfunc directmap_setup(unsigned long base_pfn,
+                            unsigned long nr_pfns)
+{
+    int rc;
+
+    /* First call sets the directmap physical and virtual offset. */
+    if (pfn_eq(directmap_pfn_start, INVALID_PFN)) {
+        unsigned long pfn_gb = base_pfn &
+            ~((PGTBL_LEVEL_SIZE(1) >> PAGE_SHIFT) - 1);
+
+        directmap_pfn_start  = pfn_set(base_pfn);
+        directmap_base_idx   = __pfn_to_idx(base_pfn);
+        directmap_va_start   = HYPOS_DIRECTMAP_START
+            + (base_pfn - pfn_gb) * PAGE_SIZE;
+
+        MSGI("[globl] directmap_base_idx    %016lx\n"
+             "        directmap_va_start    %016lx\n",
+                directmap_base_idx, directmap_va_start);
+    }
+
+    if (base_pfn < pfn_get(directmap_pfn_start))
+        panic("Cannot Add Direct Mapping at %lx Below Heap Start %lx\n",
+              base_pfn, pfn_get(directmap_pfn_start));
+
+    rc = map_pages((vaddr_t)__pfn_to_va(base_pfn), pfn_set(base_pfn),
+            nr_pfns, PAGE_HYPOS_RW | _PAGE_BLOCK);
+    if (rc)
+        panic("Unable to Setup the Direct Mappings.\n");
+
+    MSGO("<%s> Finished\n", __func__);
+}
+
+static void __bootfunc pageframe_setup(paddr_t ps, paddr_t pe)
+{
+    unsigned long nr_idx = pfn_to_idx(pfn_add(pa_to_pfn(pe), -1))
+            - pfn_to_idx(pa_to_pfn(ps)) + 1;
+    unsigned long pageframe_size = nr_idx * sizeof(struct page);
+    pfn_t base_pfn;
+    const unsigned long map_size = pageframe_size < MB(32) ? MB(2) : MB(32);
+    int rc;
+
+    pageframe_base_idx = pfn_to_idx(pa_to_pfn(ps));
+    pageframe_size     = ROUNDUP(pageframe_size, map_size);
+    base_pfn           = get_bootpages(pageframe_size >> PAGE_SHIFT,
+                                      32 << (20 - 12));
+    rc = map_pages(HYPOS_BOOTMEM_START, base_pfn,
+                   pageframe_size >> PAGE_SHIFT,
+                   PAGE_HYPOS_RW | _PAGE_BLOCK);
+    if (rc)
+        panic("Unable to setup pageframe mapping");
+
+    memset(&pageframe[0], 0, nr_idx * sizeof(struct page));
+    memset(&pageframe[nr_idx], -1, pageframe_size - (nr_idx * sizeof(struct page)));
+
+    pageframe_va_end = HYPOS_BOOTMEM_START + (nr_idx * sizeof(struct page));
+}
+
+// --------------------------------------------------------------
+static void __bootfunc dump_memory_layout(void)
+{
+    MSGI("[globl] Virtual Memory Layout                                       @_@\n"
+         "        ---------------------------------------------------------------\n"
+         "        Region           Size                                     Range\n"
+         "        ---------------------------------------------------------------\n"
+         "        DATA      %8lu MB     [%016lx - %016lx]\n"
+         "        FIXMAP    %8lu KB     [%016lx - %016lx]\n"
+         "        VMAP      %8lu MB     [%016lx - %016lx]\n"
+         "        BOOTMEM   %8lu MB     [%016lx - %016lx]\n"
+         "        DIRECTMAP %8lu MB     [%016lx - %016lx]\n"
+         "        ---------------------------------------------------------------\n",
+         HYPOS_DATA_VIRT_SIZE / MB(1),
+         HYPOS_DATA_VIRT_START,
+         HYPOS_DATA_VIRT_START + HYPOS_DATA_VIRT_SIZE,
+         (FIXADDR_END - FIXADDR_START) / KB(1),
+         FIXADDR_START, FIXADDR_END,
+         HYPOS_VMAP_VIRT_SIZE / MB(1),
+         HYPOS_VMAP_VIRT_START,
+         HYPOS_VMAP_VIRT_END,
+         HYPOS_BOOTMEM_SIZE / MB(1),
+         HYPOS_BOOTMEM_START,
+         HYPOS_BOOTMEM_END,
+         HYPOS_DIRECTMAP_SIZE / MB(1),
+         HYPOS_DIRECTMAP_START,
+         HYPOS_DIRECTMAP_END);
+}
+
+int __bootfunc bootmem_setup(void)
+{
+    const struct membanks *mbs = &bootmem.heap_mem;
+    unsigned int bank;
+    unsigned long mb_start = 0, mb_end = 0, mb_size = 0,
+                  mbs_start = 0, mbs_end = 0, mbs_size = 0;
+
+    dump_memory_layout();
+
+    __bootmem_setup();
+
+    for (bank = 0; bank < mbs->stats.max_banks; bank++) {
+        mb_start = mbs->banks[bank].start;
+        mb_size  = mbs->banks[bank].size;
+        mb_end   = mb_start + mb_size;
+
+        mbs_start = min(mb_start, mbs_start);
+        mbs_size += mb_size;
+        mbs_end   = max(mb_end, mbs_end);
+
+        directmap_setup(PFN_DOWN(mb_start),
+                        PFN_DOWN(mb_size));
+    }
+
+    DEBUG("[banks] MEMBANK [%016lx - %016lx] of %8lx MB\n",
+            mbs_start, mbs_end, mbs_size / MB(1));
+
+    pageframe_total_pages = mbs_size >> PAGE_SHIFT;
+    directmap_va_end      = HYPOS_HEAP_VIRT_START + mbs_end - mbs_start;
+    directmap_pfn_start   = pa_to_pfn(mbs_start);
+    directmap_pfn_end     = pa_to_pfn(mbs_end);
+
+    MSGI("[globl] directmap_va_end      %016lx\n"
+         "        directmap_pfn_start   %016lx\n"
+         "        directmap_pfn_end     %016lx\n"
+         "        pageframe_total_pages %016lx\n",
+        directmap_va_end, pfn_get(directmap_pfn_start),
+        pfn_get(directmap_pfn_end), pageframe_total_pages);
+
+    pageframe_setup(mbs_start, mbs_end);
+
+    return 0;
 }
 // --------------------------------------------------------------

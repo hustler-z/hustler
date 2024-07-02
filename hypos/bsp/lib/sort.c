@@ -6,7 +6,7 @@
  * Usage:
  */
 
-#include <common/ccattr.h>
+#include <common/compiler.h>
 #include <lib/sort.h>
 #include <lib/strops.h>
 #include <lib/math.h>

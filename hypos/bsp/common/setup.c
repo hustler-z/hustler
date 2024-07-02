@@ -11,10 +11,11 @@
 #include <asm/debug.h>
 #include <asm-generic/globl.h>
 #include <asm-generic/section.h>
-#include <asm-generic/smp.h>
 #include <asm-generic/bootmem.h>
+#include <asm-generic/smp.h>
+#include <asm/at.h>
 #include <bsp/process.h>
-#include <bsp/alloc.h>
+#include <bsp/hackmem.h>
 #include <bsp/percpu.h>
 #include <bsp/cpu.h>
 #include <bsp/sdev.h>
@@ -35,7 +36,7 @@ static void hypos_tag(void)
     MSGI("              ___  __  ____ \n");
     MSGI("    /\\_/\\/\\/\\/ _ \\/  \\/ __/ \n");
     MSGI("    \\  _ \\  / ___/ / /\\__ \\ \n");
-    MSGI("     \\/ \\/_/\\/   \\__/ /___/ @PIECE OF SHiT\n");
+    MSGI("     \\/ \\/_/\\/   \\__/ /___/ @_<\n");
     MSGI("\n");
 }
 
@@ -59,7 +60,7 @@ static int __bootfunc __bootchain(const bootfunc_t *boot_sequence)
                     boot_sequence, (char *)(*boot_one), ret);
             return -1;
         } else
-            MSGH("[BOOT] <Function %2d> Finished.\n",
+            MSGH("------------- [Boot Phase %2d Done] -------------\n",
                     boot_count);
     }
 
@@ -103,10 +104,6 @@ static bootfunc_t hypos_boot_sequence[] = {
     /* Bring up SMP CPUs
      */
     smp_setup,
-
-    /* Board Setup
-     */
-    board_setup,
 
     /* Periodic Work List Setup
      */

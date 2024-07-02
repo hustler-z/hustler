@@ -10,7 +10,7 @@
 #include <bsp/wq.h>
 #include <bsp/check.h>
 #include <bsp/lockdep.h>
-#include <bsp/alloc.h>
+#include <bsp/hackmem.h>
 #include <bsp/debug.h>
 #include <bsp/cpu.h>
 #include <common/errno.h>

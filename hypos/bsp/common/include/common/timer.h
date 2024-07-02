@@ -9,7 +9,7 @@
 #ifndef _COMMON_TIMER_H
 #define _COMMON_TIMER_H
 // --------------------------------------------------------------
-#include <common/ccattr.h>
+#include <common/compiler.h>
 #include <common/type.h>
 
 u64 __notrace get_ticks(void);

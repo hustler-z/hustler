@@ -6,11 +6,9 @@
 # ----------------------------------------------------------
 
 core-y += vcpu.o
-core-y += vmem.o
 core-y += sched.o
 core-y += virtio.o
 core-y += vgic.o
 core-y += vtimer.o
-core-y += passthru.o
-core-y += vm.o
+core-y += hvm.o
 core-y += core.o

@@ -10,7 +10,7 @@
 #define _BSP_PERCPU_H
 // --------------------------------------------------------------
 #include <asm/sysregs.h>
-#include <common/ccattr.h>
+#include <common/compiler.h>
 
 #define __DEFINE_PERCPU(attr, type, name) \
     attr __typeof__(type) percpu_ ## name

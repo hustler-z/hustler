@@ -10,7 +10,7 @@
 #define _BSP_CHECK_H
 // --------------------------------------------------------------
 
-#include <common/ccattr.h>
+#include <common/compiler.h>
 
 void panic(const char *fmt, ...);
 

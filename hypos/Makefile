@@ -17,7 +17,6 @@ BASE        ?= arm
 ARCH        ?= arm64
 BIN         := $(OUTPUT)/hypos.bin
 ELF         := $(OUTPUT)/hypos.elf
-ELFI        := $(OUTPUT)/hypos.elf.tmp
 MAP         := $(OUTPUT)/hypos.map
 ifeq ($(HOST),x86)
 CROSS_COMPILE ?= /bsp/pro/toolchains/armcc-bm-64/bin/aarch64-none-elf-
@@ -92,16 +91,16 @@ INCDIRS      += -I$(SPATH_BSPS)/include
 INCDIRS      += -I$(SPATH_LIBS)/include
 INCDIRS      += -I$(SPATH_HYPS)/include
 
-PATH_ARCX    := $(OUTPUT)/$(SPATH_BSPS)/arch/$(BASE)
-PATH_ARCH    := $(OUTPUT)/$(SPATH_BSPS)/arch/$(BASE)/$(ARCH)
-PATH_COMN    := $(OUTPUT)/$(SPATH_BSPS)/common
-PATH_BRDT    := $(OUTPUT)/$(SPATH_BSPS)/board/$(PLATFORM)/$(BOARD)
-PATH_DRIV    := $(OUTPUT)/$(SPATH_BSPS)/drivers
-PATH_LIBS    := $(OUTPUT)/$(SPATH_BSPS)/lib
+PATH_ARCX    := $(OUTPUT)/$(SPATH_ARCX)
+PATH_ARCH    := $(OUTPUT)/$(SPATH_ARCH)
+PATH_COMN    := $(OUTPUT)/$(SPATH_COMN)
+PATH_BRDT    := $(OUTPUT)/$(SPATH_BRDT)
+PATH_DRIV    := $(OUTPUT)/$(SPATH_DRIV)
+PATH_LIBS    := $(OUTPUT)/$(SPATH_LIBS)
 PATH_HYPS    := $(OUTPUT)/$(SPATH_HYPS)
 
-ASM_OFS_H   := $(SPATH_ARCH)/include/asm/offset.h
-ASM_OFS_C   := $(SPATH_ARCH)/offset.c
+ASM_OFS_H    := $(SPATH_ARCH)/include/asm/offset.h
+ASM_OFS_C    := $(SPATH_ARCH)/offset.c
 
 lds          := $(addprefix $(PATH_ARCH)/,$(lds-y))
 ifeq ($(BASE), arm)
@@ -116,13 +115,8 @@ hypsco       := $(addprefix $(PATH_HYPS)/,$(core-y))
 libsco       := $(addprefix $(PATH_LIBS)/,$(libs-y))
 
 hyposo       := $(archao) $(archco) $(archxo) \
-                $(comnco) $(brdtco) $(drivco) \
-                $(libsco) $(hypsco)
-
-comsym       := $(PATH_COMN)/sym.o
-hyposa       := $(archao) $(archco) $(archxo) \
-                $(comnco) $(brdtco) $(drivco) \
-                $(libsco) $(hypsco) $(comsym)
+                $(hypsco) $(comnco) $(libsco) \
+                $(brdtco) $(drivco)
 # ---------------------------------------------------------------
 ifeq ($(V),1)
 	Q :=
@@ -130,16 +124,9 @@ else
 	Q := @
 endif
 # ---------------------------------------------------------------
-
 SYSTEM_MAP = $(NM) $1 | \
              grep -v '\(compiled\)\|\(\.o$$\)\|\( [aUw] \)\|\(\.\.ng$$\)\|\(LASH[RL]DI\)' | \
              LC_ALL=C sort
-cc_smap    = $(Q)mkdir -p `dirname $(1)`; \
-             smap=`$(call SYSTEM_MAP,$(ELF)) | \
-             awk '$$2 ~ /[tTwW]/ {printf $$1 $$3 "\\\\000"}'`; \
-			 echo "GEN      $(subst $(OUTPUT)/,,$(1))"; \
-             $(CC) $(CFLAGS) -DSYSTEM_MAP="\"$${smap}\"" \
-             -c $(2) -o $(1)
 # ---------------------------------------------------------------
 # Compile Quick Macros
 # ---------------------------------------------------------------
@@ -196,9 +183,6 @@ $(ELF): $(ASM_OFS_H) $(hyposo) $(lds)
 	$(call cc_objdump,$@)
 	$(call cc_readelf,$@)
 # ---------------------------------------------------------------
-$(PATH_COMN)/sym.o: $(SPATH_COMN)/sym.c
-	$(call cc_smap,$@,$<)
-# ---------------------------------------------------------------
 # Generate asm/offset.h
 # ---------------------------------------------------------------
 $(ASM_OFS_H): offset.S
@@ -206,7 +190,6 @@ $(ASM_OFS_H): offset.S
 	$(Q)rm -f $<
 offset.S: $(ASM_OFS_C)
 	$(Q)$(CC) $(CFLAGS) $(INCDIRS) -S -g0 -o $@ $<
-
 # ---------------------------------------------------------------
 # Compile Submodules
 # ---------------------------------------------------------------

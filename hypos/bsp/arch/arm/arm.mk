@@ -7,7 +7,7 @@
 
 arm-y += spinlock.o
 arm-y += atomic.o
-arm-y += bootmem.o
 arm-y += traps.o
 arm-y += smp.o
 arm-y += thread.o
+arm-y += bootmem.o

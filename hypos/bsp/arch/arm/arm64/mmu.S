@@ -387,14 +387,14 @@ END(remove_idmap)
  * void zero_page(ttbl_t *pte)
  */
 FUNC(zero_page)
-    mrs  x1, DCZID_EL0
-    and  w1, w1, #0x0F
-    mov  x2, #4
-    lsl  x1, x2, x1
-1:  dc   zva, x0
-    add  x0, x0, x1
-    tst  x0, #(PAGE_SIZE - 1)
-    bne  1b
+    mrs   x1, DCZID_EL0
+    and   w1, w1, #0x0F
+    mov   x2, #4
+    lsl   x1, x2, x1
+1:  dc    zva, x0
+    add   x0, x0, x1
+    tst   x0, #(PAGE_SIZE - 1)
+    bne   1b
     ret
 END(zero_page)
 
@@ -405,4 +405,31 @@ END(zero_page)
  * (c) all address have read/write access and executable.
  */
 
+// --------------------------------------------------------------
+FUNC(__switch_ttbr)
+    dsb  ish
+    isb
+
+    /* Disable MMU */
+    mrs  x1, SCTLR_EL2
+    bic  x1, x1, #SCTLR_Axx_ELx_M
+    msr  SCTLR_EL2, x1
+    isb
+
+    flush_local_tlb
+
+    msr  TTBR0_EL2, x0
+    isb
+
+    ic   iallu
+    isb
+
+    /* Enable MMU */
+    mrs  x1, SCTLR_EL2
+    orr  x1, x1, #SCTLR_Axx_ELx_M
+    msr  SCTLR_EL2, x1
+    isb
+
+    ret
+END(__switch_ttbr)
 // --------------------------------------------------------------

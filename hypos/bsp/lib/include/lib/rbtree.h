@@ -10,7 +10,7 @@
 #define _LIB_RBTREE_H
 // ------------------------------------------------------------------------
 
-#include <common/ccattr.h>
+#include <common/compiler.h>
 #include <common/type.h>
 
 struct rb_node {

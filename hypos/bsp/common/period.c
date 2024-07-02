@@ -11,7 +11,7 @@
 #include <common/time.h>
 #include <common/timer.h>
 #include <bsp/period.h>
-#include <bsp/alloc.h>
+#include <bsp/hackmem.h>
 #include <bsp/debug.h>
 #include <lib/strops.h>
 // --------------------------------------------------------------

@@ -9,7 +9,7 @@
 #include <asm/bitops.h>
 #include <asm/barrier.h>
 #include <common/stringify.h>
-#include <common/ccattr.h>
+#include <common/compiler.h>
 #include <bsp/check.h>
 
 // --------------------------------------------------------------

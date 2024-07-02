@@ -9,7 +9,7 @@
 #ifndef _ASM_GENERIC_SECTION_H
 #define _ASM_GENERIC_SECTION_H
 // --------------------------------------------------------------
-#include <common/ccattr.h>
+#include <common/compiler.h>
 
 #define __initdata          __section(".data.init")
 #define __read_mostly       __section(".data.read_mostly")
