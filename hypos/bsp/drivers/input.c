@@ -10,7 +10,7 @@
 #include <bsp/input.h>
 #include <bsp/sdev.h>
 #include <bsp/debug.h>
-#include <bsp/check.h>
+#include <bsp/panic.h>
 #include <bsp/keyboard.h>
 #include <bsp/console.h>
 #include <lib/math.h>

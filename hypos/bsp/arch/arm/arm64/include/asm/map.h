@@ -11,7 +11,7 @@
 // --------------------------------------------------------------
 #include <asm/at.h>
 #include <asm/tlb.h>
-#include <bsp/check.h>
+#include <bsp/panic.h>
 #include <bsp/debug.h>
 
 int map_pages(unsigned long va,

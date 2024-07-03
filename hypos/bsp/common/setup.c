@@ -14,7 +14,6 @@
 #include <asm-generic/bootmem.h>
 #include <asm-generic/smp.h>
 #include <asm/at.h>
-#include <bsp/process.h>
 #include <bsp/hackmem.h>
 #include <bsp/percpu.h>
 #include <bsp/cpu.h>
@@ -60,7 +59,7 @@ static int __bootfunc __bootchain(const bootfunc_t *boot_sequence)
                     boot_sequence, (char *)(*boot_one), ret);
             return -1;
         } else
-            MSGH("------------- [Boot Phase %2d Done] -------------\n",
+            MSGH("[Boot Phase %2d Done] @_@\n",
                     boot_count);
     }
 
@@ -84,6 +83,10 @@ static bootfunc_t hypos_boot_sequence[] = {
     /* Set up Translation Table
      */
     ttbl_setup,
+
+    /* Set up Board RAM
+     */
+    board_ram_setup,
 
     /* Hypervisor Memory Chuncks for Boot-time Memory
      */
@@ -112,10 +115,6 @@ static bootfunc_t hypos_boot_sequence[] = {
     /* Peripheral Setup
      */
     device_setup,
-
-    /* Hypos Main Process
-     */
-    process_setup,
 
     /* Virtualization Setup
      */

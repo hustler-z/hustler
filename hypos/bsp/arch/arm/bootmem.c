@@ -6,11 +6,13 @@
  * Usage: boot-time memory for transition period
  */
 
-#include <asm-generic/bootmem.h>
 #include <asm/map.h>
 #include <bsp/hackmem.h>
 #include <bsp/debug.h>
+#include <bsp/board.h>
+#include <asm-generic/bootmem.h>
 #include <asm-generic/section.h>
+#include <asm-generic/globl.h>
 #include <lib/strops.h>
 #include <lib/convert.h>
 
@@ -41,6 +43,16 @@ static __initdata struct bootmem bootmem = {
     .resv_mem.stats.max_banks = NR_MEMBANKS,
     .heap_mem.stats.max_banks = NR_MEMBANKS,
 };
+
+static inline struct membanks *get_resv_membanks(void)
+{
+    return &bootmem.resv_mem;
+}
+
+static inline struct membanks *get_heap_membanks(void)
+{
+    return &bootmem.heap_mem;
+}
 // --------------------------------------------------------------
 static void __bootfunc bootpages_add(unsigned long start,
                                      unsigned long end) {
@@ -61,7 +73,7 @@ static void __bootfunc bootpages_add(unsigned long start,
      * |   |   |
      * +---+---+ ~ ~ ~
      *   |   ^
-     *   +---+
+     *   +---+   Set next bootpage ready.
      */
     memmove(&bootpages_list[i + 1], &bootpages_list[i],
             (nr_bootpages - i) * sizeof(*bootpages_list));
@@ -132,38 +144,17 @@ void __bootfunc bootpages_setup(paddr_t ps, paddr_t pe)
     bootpages_add(ps >> PAGE_SHIFT, pe >> PAGE_SHIFT);
 }
 // --------------------------------------------------------------
-#define BOOT_MEMBANK_SIZE \
-        (HYPOS_BOOTMEM_SIZE / NR_MEMBANKS)
-#define HEAP_MEMBANK_SIZE \
-        (HYPOS_DIRECTMAP_SIZE / NR_MEMBANKS)
 
 static void __bootfunc __bootmem_setup(void)
 {
-    struct membanks *mbs = &bootmem.resv_mem;
-    struct membanks *mbh = &bootmem.heap_mem;
+    struct membanks *mbs = get_resv_membanks();
     unsigned int bank;
-
-    /* Initialize the boot membanks */
-    for (bank = 0; bank < mbs->stats.max_banks; bank++) {
-        mbs->banks[bank].start = HYPOS_BOOTMEM_START
-            + (bank * BOOT_MEMBANK_SIZE);
-        mbs->banks[bank].size  = BOOT_MEMBANK_SIZE;
-        mbs->stats.nr_banks++;
-    }
 
     /* Set up boot pages allocators.
      */
-    for (bank = 0; bank < mbs->stats.max_banks; bank++) {
+    for (bank = 0; bank < mbs->stats.nr_banks; bank++) {
         bootpages_setup(mbs->banks[bank].start,
                         mbs->banks[bank].start + mbs->banks[bank].size);
-    }
-
-    /* Initialize the heap membanks */
-    for (bank = 0; bank < mbh->stats.max_banks; bank++) {
-        mbh->banks[bank].start = HYPOS_DIRECTMAP_START
-            + (bank * HEAP_MEMBANK_SIZE);
-        mbh->banks[bank].size  = HEAP_MEMBANK_SIZE;
-        mbh->stats.nr_banks++;
     }
 }
 
@@ -183,18 +174,19 @@ static void __bootfunc directmap_setup(unsigned long base_pfn,
             + (base_pfn - pfn_gb) * PAGE_SIZE;
 
         MSGI("[globl] directmap_base_idx    %016lx\n"
+             "        pfn_gb (Local)        %016lx\n"
              "        directmap_va_start    %016lx\n",
-                directmap_base_idx, directmap_va_start);
+                directmap_base_idx, pfn_gb, directmap_va_start);
     }
 
     if (base_pfn < pfn_get(directmap_pfn_start))
-        panic("Cannot Add Direct Mapping at %lx Below Heap Start %lx\n",
+        exec_panic("Cannot Add Direct Mapping at %lx Below Heap Start %lx\n",
               base_pfn, pfn_get(directmap_pfn_start));
 
     rc = map_pages((vaddr_t)__pfn_to_va(base_pfn), pfn_set(base_pfn),
             nr_pfns, PAGE_HYPOS_RW | _PAGE_BLOCK);
     if (rc)
-        panic("Unable to Setup the Direct Mappings.\n");
+        exec_panic("Unable to Setup the Direct Mappings.\n");
 
     MSGO("<%s> Finished\n", __func__);
 }
@@ -216,7 +208,7 @@ static void __bootfunc pageframe_setup(paddr_t ps, paddr_t pe)
                    pageframe_size >> PAGE_SHIFT,
                    PAGE_HYPOS_RW | _PAGE_BLOCK);
     if (rc)
-        panic("Unable to setup pageframe mapping");
+        exec_panic("Unable to setup pageframe mapping");
 
     memset(&pageframe[0], 0, nr_idx * sizeof(struct page));
     memset(&pageframe[nr_idx], -1, pageframe_size - (nr_idx * sizeof(struct page)));
@@ -225,42 +217,74 @@ static void __bootfunc pageframe_setup(paddr_t ps, paddr_t pe)
 }
 
 // --------------------------------------------------------------
-static void __bootfunc dump_memory_layout(void)
+static void __bootfunc dump_va_layout(void)
 {
-    MSGI("[globl] Virtual Memory Layout                                       @_@\n"
-         "        ---------------------------------------------------------------\n"
-         "        Region           Size                                     Range\n"
-         "        ---------------------------------------------------------------\n"
-         "        DATA      %8lu MB     [%016lx - %016lx]\n"
-         "        FIXMAP    %8lu KB     [%016lx - %016lx]\n"
-         "        VMAP      %8lu MB     [%016lx - %016lx]\n"
-         "        BOOTMEM   %8lu MB     [%016lx - %016lx]\n"
-         "        DIRECTMAP %8lu MB     [%016lx - %016lx]\n"
-         "        ---------------------------------------------------------------\n",
+    MSGI("[globl] Virtual Memory Layout                                  @_@\n"
+         "        ----------------------------------------------------------\n"
+         "        Region           Size                                Range\n"
+         "        ----------------------------------------------------------\n"
+         "        DATA     %8lu MB [%016lx - %016lx]\n"
+         "        FIXMAP   %8lu KB [%016lx - %016lx]\n"
+         "        BOOTMEM  %8lu MB [%016lx - %016lx]\n"
+         "        VMAP     %8lu MB [%016lx - %016lx]\n"
+         "        DMAP     %8lu MB [%016lx - %016lx]\n"
+         "        ----------------------------------------------------------\n",
          HYPOS_DATA_VIRT_SIZE / MB(1),
          HYPOS_DATA_VIRT_START,
          HYPOS_DATA_VIRT_START + HYPOS_DATA_VIRT_SIZE,
          (FIXADDR_END - FIXADDR_START) / KB(1),
          FIXADDR_START, FIXADDR_END,
-         HYPOS_VMAP_VIRT_SIZE / MB(1),
-         HYPOS_VMAP_VIRT_START,
-         HYPOS_VMAP_VIRT_END,
          HYPOS_BOOTMEM_SIZE / MB(1),
          HYPOS_BOOTMEM_START,
          HYPOS_BOOTMEM_END,
+         HYPOS_VMAP_VIRT_SIZE / MB(1),
+         HYPOS_VMAP_VIRT_START,
+         HYPOS_VMAP_VIRT_END,
          HYPOS_DIRECTMAP_SIZE / MB(1),
          HYPOS_DIRECTMAP_START,
          HYPOS_DIRECTMAP_END);
 }
 
+int __bootfunc board_ram_setup(void)
+{
+    struct membanks *mbs = get_resv_membanks();
+    struct hypos_board *this_board = board_setup();
+    paddr_t code_spaddr = get_globl()->boot_spaddr;
+    paddr_t code_epaddr = get_globl()->boot_epaddr;
+    size_t bank_size = HYPOS_BOOTMEM_SIZE / NR_MEMBANKS;
+    int bank;
+
+    if (this_board->dram.start != code_spaddr)
+        MSGE("Code ain't Start at %016lx but %016lx\n",
+                this_board->dram.start, code_spaddr);
+
+    MSGI("[globl] Physical Memory Available                              @_<\n"
+         "        ----------------------------------------------------------\n"
+         "        DRAM  [%016lx - %016lx] %8lu MB\n"
+         "        USED  [%016lx - %016lx] %8lu BYTES\n"
+         "        ----------------------------------------------------------\n",
+         this_board->dram.start, this_board->dram.end,
+         this_board->dram.size / MB(1),
+         code_spaddr, code_epaddr,
+         (code_epaddr - code_spaddr));
+
+    for (bank = 0; bank < mbs->stats.max_banks; bank++) {
+        mbs->banks[bank].start = code_epaddr + (bank + 1) * PAGE_SIZE;
+        mbs->banks[bank].size  = bank_size;
+        mbs->stats.nr_banks++;
+    }
+
+    return 0;
+}
+
 int __bootfunc bootmem_setup(void)
 {
-    const struct membanks *mbs = &bootmem.heap_mem;
+    const struct membanks *mbs = get_resv_membanks();
     unsigned int bank;
     unsigned long mb_start = 0, mb_end = 0, mb_size = 0,
                   mbs_start = 0, mbs_end = 0, mbs_size = 0;
 
-    dump_memory_layout();
+    dump_va_layout();
 
     __bootmem_setup();
 

@@ -45,6 +45,9 @@ typedef s64                stime_t;
 
 typedef u64   register_t;
 
+typedef u32   bw_u32;
+typedef u64   bw_u64;
+
 typedef enum {
     false = 0,
     true,

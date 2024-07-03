@@ -20,7 +20,7 @@
 #include <lib/math.h>
 #include <lib/strops.h>
 #include <bsp/debug.h>
-#include <bsp/check.h>
+#include <bsp/panic.h>
 
 // --------------------------------------------------------------
 static __initdata DECLARE_BITMAP(inuse, NUM_FIX_PFNMAP);
@@ -32,7 +32,7 @@ __bootfunc void *map_pfn(pfn_t pfn)
     bit = find_first_zero_bit(inuse, NUM_FIX_PFNMAP);
 
     if (bit == NUM_FIX_PFNMAP)
-        panic("Out of pfn map slots\n");
+        exec_panic("Out of pfn map slots\n");
 
     set_bit(bit, inuse);
     slot = bit + FIX_PFNMAP_START;
@@ -112,6 +112,8 @@ static int ttbl_next_level(bool read_only,
     if (!pte_is_valid(*entry)) {
         if (read_only)
             return MAP_FAILED;
+
+        DEBUG("This Entry (%p) is not Valid\n", entry);
 
         ret = create_ttbl(entry);
 

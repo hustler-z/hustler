@@ -8,6 +8,7 @@
 
 #include <asm/define.h>
 #include <asm/debug.h>
+#include <asm/offset.h>
 
 // --------------------------------------------------------------
 .macro early_uart_ready xb c
@@ -88,4 +89,35 @@ FUNC(asm_putn)
 END(asm_putn)
 
 RODATA_SECT(.rodata.debug, hex, "0123456789abcdef")
+// --------------------------------------------------------------
+
+/* XXX: For Hypervisor dump_stack()
+ * void save_context(struct hcpu_regs *regs);
+ *                              |
+ *                              ▼
+ * ~ --------------------------------------------------------- ~
+ *   x0        . . .        x28 fp lr sp pc cpsr esr    . . .
+ *                                 |
+ *                            <offset 240>
+ */
+FUNC(save_context)
+    dmb  sy
+
+    /* Store SP - x29 */
+    str  x29, [x0, #(HCPU_LR - 8)]
+
+    mov  x1, sp
+    str  x1, [x0, #HCPU_SP]
+
+    mov  x1, lr
+    str  x1, [x0, #HCPU_LR]
+
+    mrs  x1, ESR_EL2
+    str  x1, [x0, #HCPU_ESR]
+
+    mrs  x1, SPSR_EL2
+    str  x1, [x0, #HCPU_CPSR]
+
+    ret
+END(save_context)
 // --------------------------------------------------------------

@@ -10,7 +10,7 @@
 #include <asm-generic/spinlock.h>
 #include <bsp/stdio.h>
 #include <bsp/hackmem.h>
-#include <bsp/check.h>
+#include <bsp/panic.h>
 #include <lib/ctype.h>
 #include <lib/math.h>
 #include <lib/strops.h>

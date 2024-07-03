@@ -15,7 +15,7 @@
 #include <common/compiler.h>
 #include <common/traps.h>
 #include <bsp/debug.h>
-#include <bsp/check.h>
+#include <bsp/panic.h>
 #include <bsp/percpu.h>
 
 // --------------------------------------------------------------
@@ -198,31 +198,31 @@ static void dump_far(unsigned long esr)
         eclass = "Illegal Excecution State";
         break;
     case ESR_ELx_EC_SVC32:
-        eclass = "SVC Instruction Excecution in AArch32";
+        eclass = "SVC Instruction Excecution. AArch32";
         break;
     case ESR_ELx_EC_HVC32:
-        eclass = "HVC Instruction Excecution in AArch32";
+        eclass = "HVC Instruction Excecution. AArch32";
         break;
     case ESR_ELx_EC_SMC32:
-        eclass = "SMC Instruction Excecution in AArch32";
+        eclass = "SMC Instruction Excecution. AArch32";
         break;
     case ESR_ELx_EC_SVC64:
-        eclass = "SVC Instruction Excecution in AArch64";
+        eclass = "SVC Instruction Excecution. AArch64";
         break;
     case ESR_ELx_EC_HVC64:
-        eclass = "HVC Instruction Excecution in AArch64";
+        eclass = "HVC Instruction Excecution. AArch64";
         break;
     case ESR_ELx_EC_SMC64:
-        eclass = "SMC Instruction Excecution in AArch64";
+        eclass = "SMC Instruction Excecution. AArch64";
         break;
     case ESR_ELx_EC_SYS64:
-        eclass = "MSR/MRS in AArch64";
+        eclass = "MSR/MRS. AArch64";
         break;
     case ESR_ELx_EC_SVE:
         eclass = "SVE Instruction";
         break;
     case ESR_ELx_EC_ERET:
-        eclass = "Trapped ERET,ERETAA,ERETAB";
+        eclass = "Trapped ERET. ERETAA. ERETAB";
         break;
     case ESR_ELx_EC_FPAC:
         eclass = "Pointer Authentication Failure";
@@ -231,19 +231,19 @@ static void dump_far(unsigned long esr)
         eclass = "Implementation Defined";
         break;
     case ESR_ELx_EC_IABT_LOW:
-        eclass = "Instruction Abort from Lower EL";
+        eclass = "Instruction Abort. Lower EL";
         break;
     case ESR_ELx_EC_IABT_CUR:
-        eclass = "Instruction Abort from Current EL";
+        eclass = "Instruction Abort. Current EL";
         break;
     case ESR_ELx_EC_PC_ALIGN:
         eclass = "PC Alignment Fault Exception";
         break;
     case ESR_ELx_EC_DABT_LOW:
-        eclass = "Data Abort from Lower EL";
+        eclass = "Data Abort. Lower EL";
         break;
     case ESR_ELx_EC_DABT_CUR:
-        eclass = "Data Abort from Current EL";
+        eclass = "Data Abort. Current EL";
         break;
     case ESR_ELx_EC_SP_ALIGN:
         eclass = "SP Alignment Fault Exception";
@@ -252,40 +252,40 @@ static void dump_far(unsigned long esr)
         eclass = "Memory Operation Exception";
         break;
     case ESR_ELx_EC_FP_EXC32:
-        eclass = "Trapped Floating-point Exception from AArch32";
+        eclass = "Trapped Floating-point Exception. AArch32";
         break;
     case ESR_ELx_EC_FP_EXC64:
-        eclass = "Trapped Floating-point Exception from AArch64";
+        eclass = "Trapped Floating-point Exception. AArch64";
         break;
     case ESR_ELx_EC_SERROR:
         eclass = "Serror Exception";
         break;
     case ESR_ELx_EC_BREAKPT_LOW:
-        eclass = "Breakpoint Exception from Lower EL";
+        eclass = "Breakpoint Exception. Lower EL";
         break;
     case ESR_ELx_EC_BREAKPT_CUR:
-        eclass = "Breakpoint Exception from Current EL";
+        eclass = "Breakpoint Exception. Current EL";
         break;
     case ESR_ELx_EC_SOFTSTP_LOW:
-        eclass = "Software Step Exception from Lower EL";
+        eclass = "Software Step Exception. Lower EL";
         break;
     case ESR_ELx_EC_SOFTSTP_CUR:
-        eclass = "Software Step Exception from Current EL";
+        eclass = "Software Step Exception. Current EL";
         break;
     case ESR_ELx_EC_WATCHPT_LOW:
-        eclass = "Watchpoint from Lower EL";
+        eclass = "Watchpoint. Lower EL";
         break;
     case ESR_ELx_EC_WATCHPT_CUR:
-        eclass = "Watchpoint from Current EL";
+        eclass = "Watchpoint. Current EL";
         break;
     case ESR_ELx_EC_BKPT32:
         eclass = "Not Implemented";
         break;
     case ESR_ELx_EC_VECTOR32:
-        eclass = "Vector Catch Exception from AArch32";
+        eclass = "Vector Catch Exception. AArch32";
         break;
     case ESR_ELx_EC_BRK64:
-        eclass = "BRK Instruction Execution in AArch64";
+        eclass = "BRK Instruction Execution. AArch64";
         return;
     case ESR_ELx_EC_MAX:
         eclass = "Not Implemented";
@@ -345,7 +345,7 @@ static void dump_far(unsigned long esr)
         extra = __fault_status_code(hesr.iss, &level);
 
     MSGI("@_@\n");
-    MSGI("ESR     %016lx (%s [%s]  IL %u Bits  Level-%u)\n"
+    MSGI("ESR     %016lx (%s <%s>  IL %u Bits  Level %u)\n"
          "ISS     %08x %s [%c]\n"
          "FAR     %016lx\n",
          hesr.bits, eclass, el_code, hesr.len ? 32 : 16, level,
@@ -360,9 +360,9 @@ static void dump_trace(const struct hcpu_regs *regs)
 
     MSGI("Call Trace\n");
 
-    MSGI("    [<%p>] %pS (PC)\n", __void__(regs->pc),
+    MSGI("    [<%p>]  %pS (PC)\n", __void__(regs->pc),
             __void__(regs->pc));
-    MSGI("    [<%p>] %pS (LR)\n", __void__(regs->lr),
+    MSGI("    [<%p>]  %pS (LR)\n", __void__(regs->lr),
             __void__(regs->lr));
 
     /* Bounds for range of valid frame pointer.
@@ -382,7 +382,7 @@ static void dump_trace(const struct hcpu_regs *regs)
         next  = frame[0];
         addr  = frame[1];
 
-        MSGI("    [<%p>] %pS\n", __void__(addr),
+        MSGI("    [<%p>]  %pS\n", __void__(addr),
                 __void__(addr));
 
         low = (register_t)&frame[1];
@@ -454,8 +454,8 @@ void dump_regs(const struct hcpu_regs *regs)
 static void dump_execution_status(struct hcpu_regs *regs,
         char *tag)
 {
-    MSGE("------------- [Hypervisor Crashed] -------------\n");
-    MSGI("        HYPOS F-ing Dead like a Head Shot at a Zombie!!!\n");
+    MSGE("------------------ [Hypervisor Crashed] ------------------\n");
+    MSGI("        HYPOS F-ing Dead like a Head Shot at a Zombie  >_@\n");
     dump_far(regs->esr);
     dump_regs(regs);
     dump_stack(regs);
@@ -476,7 +476,7 @@ void panic_par(paddr_t par)
             stage,
             snd_in_1st ? "During 2nd Stage Lookup" : "",
             fsc_level_str(level));
-    panic("<BUG>   Calm Down, @_<\n ");
+    exec_panic("<BUG>   Calm Down, @_<\n ");
 }
 
 // --------------------------------------------------------------
@@ -484,7 +484,7 @@ void do_bad_sync(struct hcpu_regs *regs)
 {
     local_irq_enable();
     dump_execution_status(regs, bad_tags[SYNC_CODE]);
-    panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      >_@",
+    trap_panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      >_@",
             bad_tags[SYNC_CODE]);
 }
 
@@ -495,7 +495,7 @@ void do_bad_irq(struct hcpu_regs *regs)
 {
     local_irq_enable();
     dump_execution_status(regs, bad_tags[IRQ_CODE]);
-    panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      >_@",
+    trap_panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      >_@",
             bad_tags[IRQ_CODE]);
 }
 
@@ -506,7 +506,7 @@ void do_bad_fiq(struct hcpu_regs *regs)
 {
     local_irq_enable();
     dump_execution_status(regs, bad_tags[FIQ_CODE]);
-    panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      >_@",
+    trap_panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      >_@",
             bad_tags[FIQ_CODE]);
 }
 
@@ -517,7 +517,7 @@ void do_bad_error(struct hcpu_regs *regs)
 {
     local_irq_enable();
     dump_execution_status(regs, bad_tags[ERROR_CODE]);
-    panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      >_@",
+    trap_panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      >_@",
             bad_tags[ERROR_CODE]);
 }
 

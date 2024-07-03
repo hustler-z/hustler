@@ -36,7 +36,13 @@ struct bootmem {
 pfn_t get_bootpages(unsigned long nr_pfns,
                     unsigned long pfn_align);
 void bootpages_setup(paddr_t ps, paddr_t pe);
+int board_ram_setup(void);
 int bootmem_setup(void);
 
+enum {
+    MEMBANK_NORMAL = 0,
+    MEMBANK_FDT,
+    MEMBANK_HEAP,
+};
 // --------------------------------------------------------------
 #endif /* _ASM_GENERIC_BOOTMEM_H */

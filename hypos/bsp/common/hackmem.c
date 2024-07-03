@@ -10,7 +10,7 @@
 #include <asm-generic/section.h>
 #include <asm/ttbl.h>
 #include <bsp/hackmem.h>
-#include <bsp/check.h>
+#include <bsp/panic.h>
 #include <bsp/debug.h>
 #include <lib/strops.h>
 

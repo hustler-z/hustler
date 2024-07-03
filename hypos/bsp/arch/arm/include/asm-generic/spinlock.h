@@ -6,11 +6,11 @@
  * Usage:
  */
 
-#ifndef _BSP_LOCK_H
-#define _BSP_LOCK_H
+#ifndef _ASM_GENERIC_LOCK_H
+#define _ASM_GENERIC_LOCK_H
 // --------------------------------------------------------------
 #include <asm/lock.h>
-#include <bsp/check.h>
+#include <bsp/panic.h>
 #include <common/type.h>
 
 #define DEFINE_SPINLOCK(lock) \
@@ -29,4 +29,4 @@ static inline void assert_have_no_spinlock(void)
     ASSERT(!have_spinlock());
 }
 // --------------------------------------------------------------
-#endif /* _BSP_LOCK_H */
+#endif /* _ASM_GENERIC_LOCK_H */

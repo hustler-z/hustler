@@ -10,7 +10,7 @@
 #include <asm/barrier.h>
 #include <common/stringify.h>
 #include <common/compiler.h>
-#include <bsp/check.h>
+#include <bsp/panic.h>
 
 // --------------------------------------------------------------
 
@@ -103,5 +103,4 @@ bitop(set_bit, orr)
 testop(test_and_change_bit, eor)
 testop(test_and_clear_bit, bic)
 testop(test_and_set_bit, orr)
-
 // --------------------------------------------------------------

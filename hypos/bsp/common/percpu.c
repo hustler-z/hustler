@@ -11,7 +11,7 @@
 #include <bsp/percpu.h>
 #include <bsp/debug.h>
 #include <bsp/cpu.h>
-#include <bsp/check.h>
+#include <bsp/panic.h>
 
 // --------------------------------------------------------------
 DEFINE_PERCPU(unsigned int, cpu_id);

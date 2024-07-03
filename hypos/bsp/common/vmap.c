@@ -16,7 +16,7 @@
 #include <lib/bitops.h>
 #include <lib/bitmap.h>
 #include <bsp/hackmem.h>
-#include <bsp/check.h>
+#include <bsp/panic.h>
 #include <bsp/vmap.h>
 
 static DEFINE_SPINLOCK(vm_lock);

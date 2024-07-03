@@ -67,8 +67,12 @@ _entry:
     bl   early_uart_init
 
 #if ASM_DBG
-    DBG("- (OFS) 0x")
+    DBG("- (PHY) ")
     dump_reg x20
+    DBG(" -\r\n")
+
+    DBG("- (FDT) ")
+    dump_reg x21
     DBG(" -\r\n")
 #endif
 
@@ -80,7 +84,7 @@ _entry:
 
 bootcpu:
 #if ASM_DBG
-    DBG("- (CPU) 0x")
+    DBG("- (CPU) ")
     dump_reg x4
     DBG(" -\r\n")
 #endif
@@ -113,7 +117,7 @@ runtime_switched:
 FUNC_LOCAL(el2_entry)
     mrs  x7, CurrentEL
 #if ASM_DBG
-    DBG("- (EL)  0x")
+    DBG("- (ELx) ")
     dump_reg x7
     DBG(" -\r\n")
 #endif
@@ -173,9 +177,9 @@ FUNC_LOCAL(zero_bss)
 
 #if ASM_DBG
     adr_l x5, __bss_start
-    DBG("- BSS   [0x")
+    DBG("- BSS   [")
     dump_reg x5
-    DBG(" - 0x")
+    DBG(" - ")
     adr_l x6, __bss_end
     dump_reg x6
     DBG("] -\r\n")

@@ -412,6 +412,11 @@
     asm volatile("mrs  %0, "__stringify(name) : "=r" (_r));   \
     _r; })
 
+#define READ_REG(Xn) ({                       \
+    unsigned long reg;                        \
+    asm volatile("mov %0, " #Xn : "=r"(reg)); \
+    reg; })
+
 #define READ_SYSREG(name)          READ_SYSREG64(name)
 #define WRITE_SYSREG(v, name)      WRITE_SYSREG64(v, name)
 // --------------------------------------------------------------

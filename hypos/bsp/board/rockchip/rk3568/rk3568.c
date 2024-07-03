@@ -11,6 +11,8 @@
 #include <rk3568/rk3568.h>
 #include <rk3568/grf.h>
 #include <rockchip/hardware.h>
+#include <bsp/board.h>
+
 // --------------------------------------------------------------
 /* PMU_GRF_GPIO0D_IOMUX_L */
 enum {
@@ -48,5 +50,22 @@ void __bootfunc board_uart_init(void)
              GPIO0D1_MASK | GPIO0D0_MASK,
              GPIO0D1_UART2_TXM0 << GPIO0D1_SHIFT |
              GPIO0D0_UART2_RXM0 << GPIO0D0_SHIFT);
+}
+
+struct hypos_board radax_zero3w = {
+    .dram.start  = 0x00200000,
+    .dram.end    = 0x3fffffff,
+    .flush.start = 0x0,
+    .flush.size  = 0x0,
+    .name = "Radxa Zero 3W",
+};
+
+struct hypos_board *__bootfunc board_setup(void)
+{
+    struct hypos_board *this = &radax_zero3w;
+
+    this->dram.size = this->dram.end - this->dram.start;
+
+    return this;
 }
 // --------------------------------------------------------------

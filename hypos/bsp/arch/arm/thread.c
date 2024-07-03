@@ -11,7 +11,7 @@
 #include <asm-generic/spinlock.h>
 #include <asm/barrier.h>
 #include <bsp/cpu.h>
-#include <bsp/check.h>
+#include <bsp/panic.h>
 
 // --------------------------------------------------------------
 struct thread_percpu __thread_percpu thread_percpu_local[NR_CPUS];

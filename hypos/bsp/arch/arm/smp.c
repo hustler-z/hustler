@@ -15,7 +15,7 @@
 #include <common/softirq.h>
 #include <common/timer.h>
 #include <bsp/debug.h>
-#include <bsp/check.h>
+#include <bsp/panic.h>
 #include <lib/math.h>
 #include <core/vcpu.h>
 

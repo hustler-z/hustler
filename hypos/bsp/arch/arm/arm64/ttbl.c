@@ -15,7 +15,7 @@
 #include <asm-generic/globl.h>
 #include <common/exit.h>
 #include <bsp/debug.h>
-#include <bsp/check.h>
+#include <bsp/panic.h>
 #include <bsp/percpu.h>
 
 // --------------------------------------------------------------
@@ -212,13 +212,12 @@ static void hypos_enforce_wnx(void)
 
 static void __bootfunc boot_idmap_setup(void)
 {
-    paddr_t idmap_paddr = va_to_pa(__hypos_start);
+    paddr_t idmap_spaddr = va_to_pa(__hypos_start);
     ttbl_t pte;
-    TTBL_OFFSETS(idmap_offset, idmap_paddr);
+    TTBL_OFFSETS(idmap_offset, idmap_spaddr);
 
-    MSGH("<HEAD> [VA] 0x%016lx -> [PA] 0x%016lx\n",
-            (vaddr_t)__hypos_start,
-            (paddr_t)idmap_paddr);
+    get_globl()->boot_spaddr = idmap_spaddr;
+    get_globl()->boot_epaddr = idmap_spaddr + code_size();
 
     zero_page(boot_idmap1);
     zero_page(boot_idmap2);

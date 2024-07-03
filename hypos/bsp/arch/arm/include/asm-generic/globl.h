@@ -32,6 +32,11 @@ struct hypos_globl {
     unsigned int        boot_status; /* hypos_boot_status */
     unsigned long       phys_offset;
     unsigned long       boot_param;
+    paddr_t             boot_spaddr;
+    paddr_t             boot_epaddr;
+    paddr_t             bootmem_paddr;
+    size_t              bootmem_size;
+    size_t              dram_size;
     struct hlist_head   pw_list;
     struct hypos_device_table *dev_tbl;
     struct funcjmp      *fjmp;

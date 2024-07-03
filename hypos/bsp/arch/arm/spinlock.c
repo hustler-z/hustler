@@ -10,7 +10,7 @@
 #include <asm-generic/section.h>
 #include <asm-generic/thread.h>
 #include <bsp/cpu.h>
-#include <bsp/check.h>
+#include <bsp/panic.h>
 
 // --------------------------------------------------------------
 

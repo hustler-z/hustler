@@ -195,10 +195,10 @@ FUNC_LOCAL(page_table_setup)
 .endr
 
 #if ASM_DBG
-    DBG("- HYPOS [0x")
+    DBG("- HYPOS [")
     adr_l x5, __hypos_start
     dump_reg x5
-    DBG(" - 0x")
+    DBG(" - ")
     adr_l x6, __hypos_end
     dump_reg x6
     DBG("] -\r\n")

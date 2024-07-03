@@ -1,20 +1,27 @@
 /**
  * Hustler's Project
  *
- * File:  check.h
+ * File:  panic.h
  * Date:  2024/06/07
  * Usage:
  */
 
-#ifndef _BSP_CHECK_H
-#define _BSP_CHECK_H
+#ifndef _BSP_PANIC_H
+#define _BSP_PANIC_H
 // --------------------------------------------------------------
 
 #include <common/compiler.h>
+#include <common/type.h>
 
-void panic(const char *fmt, ...);
+void panic(bool in_exception, const char *fmt, ...);
 
-void __bug_crap(const char *file,
+#define trap_panic(fmt, ...) \
+    panic(true, fmt, ##__VA_ARGS__)
+
+#define exec_panic(fmt, ...) \
+    panic(false, fmt, ##__VA_ARGS__)
+
+void __bug_crap(const char *assertion, const char *file,
         unsigned int line, const char *function);
 void __warn_crap(const char *assertion, const char *file,
         unsigned int line, const char *function);
@@ -25,7 +32,7 @@ void __assert_crap(const char *assertion, const char *file,
     __assert_crap(msg, __FILE__, __LINE__, __func__)
 
 #define BUG() ({        \
-    __bug_crap(__FILE__, __LINE__, __func__); })
+    __bug_crap("BUG", __FILE__, __LINE__, __func__); })
 
 #define WARN_ON(c) ({   \
     if (unlikely(c))    \
@@ -33,7 +40,10 @@ void __assert_crap(const char *assertion, const char *file,
 
 /* When shit is real, do BUG()
  */
-#define BUG_ON(c) do { if (unlikely(c)) BUG(); } while (0)
+#define BUG_ON(c) do {                                \
+    if (unlikely(c))                                  \
+        __bug_crap(#c, __FILE__, __LINE__, __func__); \
+} while (0)
 
 /* When shit ain't real, do ASSERT()
  */
@@ -43,4 +53,4 @@ void __assert_crap(const char *assertion, const char *file,
 
 #define ASSERT_UNREACHABLE()    assert_fail("unreachable")
 // --------------------------------------------------------------
-#endif /* _BSP_CHECK_H */
+#endif /* _BSP_PANIC_H */

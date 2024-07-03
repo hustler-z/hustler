@@ -12,7 +12,7 @@
 
 #include <asm/bitops.h>
 #include <bsp/percpu.h>
-#include <bsp/check.h>
+#include <bsp/panic.h>
 #include <bsp/cpu.h>
 #include <common/type.h>
 #include <lib/bitmap.h>

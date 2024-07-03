@@ -53,6 +53,11 @@ static inline unsigned long text_section_size(void)
     return (unsigned long)(__hypos_text_end - __hypos_start);
 }
 
+static inline unsigned long code_size(void)
+{
+    return (unsigned long)(__hypos_end - __hypos_start);
+}
+
 static inline unsigned long data_section_size(void)
 {
     return (unsigned long)(__hypos_end - __hypos_data_start);

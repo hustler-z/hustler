@@ -19,7 +19,7 @@
 #include <common/type.h>
 #include <common/traps.h>
 #include <lib/math.h>
-#include <bsp/check.h>
+#include <bsp/panic.h>
 
 #define TTBL_OFFSETS(var, va)     \
     const unsigned int var[4] = { \
@@ -303,7 +303,11 @@ extern pfn_t directmap_pfn_end;
 extern unsigned long directmap_base_idx;
 // --------------------------------------------------------------
 
-/* ----------------------------------------- directmap base index
+/* HEAP MEMBANKS (Physical Address to Virtual Address)
+ *
+ * [VA] 0x00000a0000000000 [PA] 0x0000000000200000        (_head)
+ *
+ *
  */
 static inline void *pa_to_va(paddr_t pa)
 {

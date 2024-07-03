@@ -8,7 +8,7 @@
 
 #include <bsp/mutex.h>
 #include <bsp/wq.h>
-#include <bsp/check.h>
+#include <bsp/panic.h>
 #include <bsp/lockdep.h>
 #include <bsp/hackmem.h>
 #include <bsp/debug.h>
@@ -257,7 +257,7 @@ void mutex_destroy(struct mutex *m)
     if (m->state)
         BUG();
     if (!wq_is_empty(&m->wq))
-        panic("waitqueue not empty");
+        exec_panic("waitqueue not empty");
     mutex_destroy_check(m);
 }
 
@@ -380,7 +380,7 @@ static void __condition_wait(struct condition *cv, struct mutex *m,
     /* Link this condition to this mutex until reinitialized */
     old_itr_status = spinlock_xsave(&cv->spinlock);
     if (cv->mtx && cv->mtx != m)
-        panic("invalid mutex");
+        exec_panic("invalid mutex");
 
     cv->mtx = m;
     spinunlock(&cv->spinlock);

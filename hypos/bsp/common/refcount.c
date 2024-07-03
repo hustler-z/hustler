@@ -8,7 +8,7 @@
 
 #include <common/refcount.h>
 #include <common/type.h>
-#include <bsp/check.h>
+#include <bsp/panic.h>
 
 // --------------------------------------------------------------
 bool refcount_inc(struct refcount *r)
