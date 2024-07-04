@@ -7,7 +7,7 @@
  */
 
 #include <bsp/sdev.h>
-#include <bsp/hackmem.h>
+#include <bsp/hypmem.h>
 #include <bsp/serial.h>
 #include <bsp/keyboard.h>
 #include <asm-generic/globl.h>
@@ -102,7 +102,7 @@ struct stdio_dev *stdio_clone(struct stdio_dev *dev)
     if (!dev)
         return NULL;
 
-    _dev = hcalloc(1, sizeof(struct stdio_dev));
+    _dev = calloc(1, sizeof(struct stdio_dev));
     if (!_dev)
         return NULL;
 
@@ -151,7 +151,7 @@ int stdio_deregister_dev(struct stdio_dev *dev, int force)
     }
 
     list_del(&dev->list);
-    hfree(dev);
+    free(dev);
 
     /* reassign hypos_device list */
     list_for_each(pos, &devs.list) {

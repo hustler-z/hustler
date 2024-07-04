@@ -11,3 +11,4 @@ arm-y += traps.o
 arm-y += smp.o
 arm-y += thread.o
 arm-y += bootmem.o
+arm-y += globl.o

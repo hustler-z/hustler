@@ -9,7 +9,7 @@
 #include <asm/barrier.h>
 #include <asm-generic/spinlock.h>
 #include <bsp/stdio.h>
-#include <bsp/hackmem.h>
+#include <bsp/hypmem.h>
 #include <bsp/panic.h>
 #include <lib/ctype.h>
 #include <lib/math.h>
@@ -668,7 +668,7 @@ str_to_int_convert(const char **nptr, int base, unsigned int unsign)
      * If base is 0, allow 0x for hex and 0 for octal, else
      * assume decimal; if base is already 16, allow 0x.
      */
-    info = (struct str_info *)halloc(sizeof(struct str_info));
+    info = (struct str_info *)alloc(sizeof(struct str_info));
     if (!info)
         return NULL;
 
@@ -753,7 +753,7 @@ strtoq(const char *nptr, char **endptr, int base)
     if (endptr != 0)
         *endptr = __DECONST(char *, info->any ? s - 1 : nptr);
 
-    hfree(info);
+    free(info);
 
     return acc;
 }
@@ -779,7 +779,7 @@ strtouq(const char *nptr, char **endptr, int base)
     if (endptr != 0)
         *endptr = __DECONST(char *, info->any ? s - 1 : nptr);
 
-    hfree(info);
+    free(info);
 
     return acc;
 }

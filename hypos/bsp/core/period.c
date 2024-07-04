@@ -11,7 +11,7 @@
 #include <common/time.h>
 #include <common/timer.h>
 #include <bsp/period.h>
-#include <bsp/hackmem.h>
+#include <bsp/hypmem.h>
 #include <bsp/debug.h>
 #include <lib/strops.h>
 // --------------------------------------------------------------
@@ -35,7 +35,7 @@ struct periodic_work *periodic_work_register(
 {
     struct periodic_work *work;
 
-    work = hcalloc(1, sizeof(struct periodic_work));
+    work = calloc(1, sizeof(struct periodic_work));
     if (!work) {
         DEBUG("Memory allocation error\n");
         return NULL;
@@ -55,7 +55,7 @@ struct periodic_work *periodic_work_register(
 int periodic_work_unregister(struct periodic_work *work)
 {
     hlist_del(&work->list);
-    hfree(work);
+    free(work);
 
     return 0;
 }

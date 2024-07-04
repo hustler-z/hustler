@@ -7,7 +7,7 @@
  */
 
 #include <lib/strops.h>
-#include <bsp/hackmem.h>
+#include <bsp/hypmem.h>
 
 // ------------------------------------------------------------------------
 char *strcpy(char *dest, const char *src)
@@ -282,7 +282,7 @@ char *strdup(const char *s)
     char *new;
 
     if ((s == NULL)	||
-        ((new = halloc(strlen(s) + 1)) == NULL) ) {
+        ((new = alloc(strlen(s) + 1)) == NULL) ) {
         return NULL;
     }
 
@@ -303,7 +303,7 @@ char *strndup(const char *s, size_t n)
     if (n < len)
         len = n;
 
-    new = halloc(len + 1);
+    new = alloc(len + 1);
     if (new == NULL)
         return NULL;
 

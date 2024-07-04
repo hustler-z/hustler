@@ -8,7 +8,7 @@
 
 #include <asm-generic/globl.h>
 #include <bsp/device.h>
-#include <bsp/hackmem.h>
+#include <bsp/hypmem.h>
 #include <bsp/debug.h>
 #include <common/errno.h>
 #include <common/type.h>
@@ -46,7 +46,7 @@ static int hypos_device_bind(struct hypos_driver *drv,
 {
     struct hypos_device *dev;
 
-    dev = halloc(sizeof(struct hypos_device));
+    dev = alloc(sizeof(struct hypos_device));
     if (!dev) {
         DEBUG("[dev] allocate device failed!!\n");
         return -ENOMEM;

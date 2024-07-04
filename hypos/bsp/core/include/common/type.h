@@ -86,8 +86,11 @@ typedef enum {
 
 #define INT32_MAX	S32_MAX
 
+#define NULL_PTR(p) ((void *)(p) == NULL)
+
 typedef unsigned long __attribute__((__mode__(__pointer__))) ap_t;
 
+#define __void__(x)     ((void *)(unsigned long)(x))
 // --------------------------------------------------------------
 #include <asm-generic/bitops.h>
 

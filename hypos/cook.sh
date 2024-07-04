@@ -4,6 +4,7 @@ TC_PREFIX=/bsp/pro/toolchains/armcc-bm-64/bin/aarch64-none-elf
 ELF=out/hypos.elf
 FADDR=
 CMD=
+OBJ=
 
 usage() {
 printf "Quick Debug Tool
@@ -15,8 +16,10 @@ options:
 cmd:
     al                   addr2line => locate line number
     bd                   build hypos
-    cr                   prep for code review
+    cr                   prepare for code review
     ca                   clean all up
+    bs                   build dumpsym
+    nm                   symbols lookup
 "
 }
 
@@ -32,6 +35,19 @@ addr2line() {
     fi
 
     $TC_PREFIX-addr2line -e $ELF $FADDR -f
+}
+
+nm() {
+    if [ -z $OBJ ];then
+        echo "./cook.sh -c nm -t [ELF]"
+        exit
+    fi
+
+    $TC_PREFIX-nm -pa $OBJ | doc/dumpsym --all-symbols --sort-by-name --sort
+}
+
+build_symbols() {
+    gcc doc/dumpsym.c -o doc/dumpsym
 }
 
 build_hypos() {
@@ -65,6 +81,12 @@ debug() {
         cr)
             prep_review
             ;;
+        bs)
+            build_symbols
+            ;;
+        nm)
+            nm
+            ;;
         *)
             usage
             exit
@@ -72,7 +94,7 @@ debug() {
     esac
 }
 
-while getopts 'c:a:h' OPT; do
+while getopts 'c:a:t:h' OPT; do
     case $OPT in
         'h')
             usage
@@ -83,6 +105,9 @@ while getopts 'c:a:h' OPT; do
             ;;
         'a')
             FADDR=$OPTARG
+            ;;
+        "t")
+            OBJ="$OPTARG"
             ;;
         *)
             usage

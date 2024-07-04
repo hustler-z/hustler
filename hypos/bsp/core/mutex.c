@@ -10,7 +10,7 @@
 #include <bsp/wq.h>
 #include <bsp/panic.h>
 #include <bsp/lockdep.h>
-#include <bsp/hackmem.h>
+#include <bsp/hypmem.h>
 #include <bsp/debug.h>
 #include <bsp/cpu.h>
 #include <common/errno.h>
@@ -438,7 +438,7 @@ static struct lockdep_node *lockdep_add_to_graph(
         if (node->lock_id == lock_id)
             return node;
 
-    node = hcalloc(1, sizeof(*node));
+    node = calloc(1, sizeof(*node));
     if (!node)
         return NULL;
 
@@ -460,7 +460,7 @@ static vaddr_t *dup_call_stack(vaddr_t *stack)
     while (stack[n])
         n++;
 
-    nstack = halloc((n + 1) * sizeof(vaddr_t));
+    nstack = alloc((n + 1) * sizeof(vaddr_t));
     if (!nstack)
         return NULL;
 
@@ -490,7 +490,7 @@ static int lockdep_add_edge(struct lockdep_node *from,
         if (edge->to == to)
             return 0;
 
-    edge = hcalloc(1, sizeof(*edge));
+    edge = calloc(1, sizeof(*edge));
     if (!edge)
         return -ENOMEM;
     edge->to = to;
@@ -518,8 +518,8 @@ static void lockdep_bfs_queue_delete(struct lockdep_bfs_head *queue)
 
     TAILQ_FOREACH_SAFE(cur, queue, link, next) {
         TAILQ_REMOVE(queue, cur, link);
-        hfree(cur->path);
-        hfree(cur);
+        free(cur->path);
+        free(cur);
     }
 }
 
@@ -533,11 +533,11 @@ static uptr_t *lockdep_graph_get_shortest_cycle(struct lockdep_node *node)
     TAILQ_INIT(&queue);
     node->flags |= LOCKDEP_NODE_BFS_VISITED;
 
-    qe = hcalloc(1, sizeof(*qe));
+    qe = calloc(1, sizeof(*qe));
     if (!qe)
         goto out;
     qe->node = node;
-    qe->path = halloc(sizeof(uptr_t));
+    qe->path = alloc(sizeof(uptr_t));
     if (!qe->path)
         goto out;
     qe->path[0] = node->lock_id;
@@ -557,11 +557,11 @@ static uptr_t *lockdep_graph_get_shortest_cycle(struct lockdep_node *node)
                 uptr_t *tmp = NULL;
                 nlen = qe->pathlen + 1;
 
-                tmp = hrealloc(qe->path,
+                tmp = realloc(qe->path,
                           nlen * sizeof(uptr_t));
                 if (!tmp) {
                     MSGH("<%s> Out of memory\n", __func__);
-                    hfree(qe->path);
+                    free(qe->path);
                     ret = NULL;
                     goto out;
                 }
@@ -578,11 +578,11 @@ static uptr_t *lockdep_graph_get_shortest_cycle(struct lockdep_node *node)
                 e->to->flags |= LOCKDEP_NODE_BFS_VISITED;
 
                 nlen = qe->pathlen + 1;
-                nqe = hcalloc(1, sizeof(*nqe));
+                nqe = calloc(1, sizeof(*nqe));
                 if (!nqe)
                     goto out;
                 nqe->node = e->to;
-                nqe->path = halloc(nlen * sizeof(uptr_t));
+                nqe->path = alloc(nlen * sizeof(uptr_t));
                 if (!nqe->path)
                     goto out;
                 nqe->pathlen = nlen;
@@ -593,13 +593,13 @@ static uptr_t *lockdep_graph_get_shortest_cycle(struct lockdep_node *node)
             }
         }
 
-        hfree(qe->path);
-        hfree(qe);
+        free(qe->path);
+        free(qe);
         qe = NULL;
     }
 
 out:
-    hfree(qe);
+    free(qe);
     lockdep_bfs_queue_delete(&queue);
     return ret;
 }
@@ -713,7 +713,7 @@ static void lockdep_print_cycle_info(struct lockdep_node_head *graph,
             lockdep_print_edge_info(from, edge);
         }
     }
-    hfree(cycle);
+    free(cycle);
 }
 
 int __lockdep_lock_acquire(struct lockdep_node_head *graph,
@@ -743,7 +743,7 @@ int __lockdep_lock_acquire(struct lockdep_node_head *graph,
         return res;
     }
 
-    lock = hcalloc(1, sizeof(*lock));
+    lock = calloc(1, sizeof(*lock));
     if (!lock)
         return -ENOMEM;
 
@@ -765,7 +765,7 @@ int __lockdep_lock_tryacquire(struct lockdep_node_head *graph,
     if (!node)
         return -ENOMEM;
 
-    lock = hcalloc(1, sizeof(*lock));
+    lock = calloc(1, sizeof(*lock));
     if (!lock)
         return -ENOMEM;
 
@@ -783,8 +783,8 @@ int __lockdep_lock_release(struct lockdep_lock_head *owned, uptr_t id)
     TAILQ_FOREACH_REVERSE(lock, owned, lockdep_lock_head, link) {
         if (lock->node->lock_id == id) {
             TAILQ_REMOVE(owned, lock, link);
-            hfree(lock->call_stack);
-            hfree(lock);
+            free(lock->call_stack);
+            free(lock);
 
             return 0;
         }
@@ -796,9 +796,9 @@ int __lockdep_lock_release(struct lockdep_lock_head *owned, uptr_t id)
 
 static void lockdep_free_edge(struct lockdep_edge *edge)
 {
-    hfree(edge->call_stack_from);
-    hfree(edge->call_stack_to);
-    hfree(edge);
+    free(edge->call_stack_from);
+    free(edge->call_stack_to);
+    free(edge);
 }
 
 static void lockdep_node_delete(struct lockdep_node *node)
@@ -809,7 +809,7 @@ static void lockdep_node_delete(struct lockdep_node *node)
     STAILQ_FOREACH_SAFE(edge, &node->edges, link, next)
         lockdep_free_edge(edge);
 
-    hfree(node);
+    free(node);
 }
 
 void lockdep_graph_delete(struct lockdep_node_head *graph)
@@ -830,7 +830,7 @@ void lockdep_queue_delete(struct lockdep_lock_head *owned)
 
     TAILQ_FOREACH_SAFE(lock, owned, link, next) {
         TAILQ_REMOVE(owned, lock, link);
-        hfree(lock);
+        free(lock);
     }
 }
 
@@ -869,7 +869,7 @@ static void lockdep_node_destroy(struct lockdep_node_head *graph,
     STAILQ_FOREACH_SAFE(edge, &node->edges, link, next)
         lockdep_free_edge(edge);
 
-    hfree(node);
+    free(node);
 }
 
 void lockdep_lock_destroy(struct lockdep_node_head *graph,

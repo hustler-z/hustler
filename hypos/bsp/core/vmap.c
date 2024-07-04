@@ -15,7 +15,7 @@
 #include <asm/map.h>
 #include <lib/bitops.h>
 #include <lib/bitmap.h>
-#include <bsp/hackmem.h>
+#include <bsp/hypmem.h>
 #include <bsp/panic.h>
 #include <bsp/vmap.h>
 
@@ -56,7 +56,7 @@ void __bootfunc vm_init_type(enum vmap_region type, void *start, void *end)
         if (get_globl()->boot_status == EARLY_BOOT_STAGE)
             pfn = get_bootpages(1, 1);
         else {
-            struct page *pg = halloc_page(0);
+            struct page *pg = alloc_page(0);
 
             BUG_ON(!pg);
             pfn = page_to_pfn(pg);
@@ -128,7 +128,7 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
         if (get_globl()->boot_status == EARLY_BOOT_STAGE)
             pfn = get_bootpages(1, 1);
         else {
-            struct page *pg = halloc_page(0);
+            struct page *pg = alloc_page(0);
 
             if (!pg)
                 return NULL;
@@ -152,7 +152,7 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
         if (get_globl()->boot_status == EARLY_BOOT_STAGE)
             bootpages_setup(pfn_to_pa(pfn), pfn_to_pa(pfn) + PAGE_SIZE);
         else
-            hfree_page(pfn_to_page(pfn));
+            free_page(pfn_to_page(pfn));
 
         if (start >= vm_top[t]) {
             spinunlock(&vm_lock);
@@ -292,12 +292,12 @@ static void *vmalloc_type(size_t size, enum vmap_region type)
     if (PFN_DOWN(size) > pages)
         return NULL;
 
-    pfn = hmalloc_array(pfn_t, pages);
+    pfn = malloc_array(pfn_t, pages);
     if ( pfn == NULL )
         return NULL;
 
     for (i = 0; i < pages; i++) {
-        pg = halloc_page(0);
+        pg = alloc_page(0);
         if ( pg == NULL )
             goto error;
         pfn[i] = page_to_pfn(pg);
@@ -307,13 +307,13 @@ static void *vmalloc_type(size_t size, enum vmap_region type)
     if ( va == NULL )
         goto error;
 
-    hmfree(pfn);
+    mfree(pfn);
     return va;
 
  error:
     while (i--)
-        hfree_page(pfn_to_page(pfn[i]));
-    hmfree(pfn);
+        free_page(pfn_to_page(pfn[i]));
+    mfree(pfn);
     return NULL;
 }
 
@@ -363,6 +363,6 @@ void vfree(void *va)
     vunmap(va);
 
     while ((pg = pglist_remove_head(&pglist)) != NULL)
-        hfree_page(pg);
+        free_page(pg);
 }
 // --------------------------------------------------------------

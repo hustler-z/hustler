@@ -58,17 +58,21 @@ const struct vsection *find_text_section(unsigned long addr)
 
     return section;
 }
+
 // --------------------------------------------------------------
-
-const unsigned int symbols_offsets[1];
+#ifdef SYMBOLS_ORIGIN
+extern const unsigned int symbols_offsets[];
 #define symbols_address(n) (SYMBOLS_ORIGIN + symbols_offsets[n])
-const unsigned int symbols_num_syms;
-const u8 symbols_names[1];
-const struct symbol_offset symbols_sorted_offsets[1];
-const u8 symbols_token_table[1];
-const u16 symbols_token_index[1];
-const unsigned int symbols_markers[1];
-
+#else
+extern const unsigned int symbols_addresses[];
+#define symbols_address(n) symbols_addresses[n]
+#endif
+extern const unsigned int symbols_num_syms;
+extern const u8 symbols_names[];
+extern const struct symbol_offset symbols_sorted_offsets[];
+extern const u8 symbols_token_table[];
+extern const u16 symbols_token_index[];
+extern const unsigned int symbols_markers[];
 // --------------------------------------------------------------
 
 static unsigned int symbols_expand_symbol(unsigned int off, char *result)
@@ -232,7 +236,7 @@ unsigned long symbols_lookup_by_name(const char *symname)
         (void)symbols_expand_symbol(s->stream, name);
 
         rc = strcmp(symname, name);
-        if ( rc < 0 )
+        if (rc < 0)
             high = mid;
         else if ( rc > 0 )
             low = mid + 1;

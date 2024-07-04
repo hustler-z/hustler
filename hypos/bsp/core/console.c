@@ -14,7 +14,7 @@
 #include <bsp/debug.h>
 #include <bsp/env.h>
 #include <bsp/serial.h>
-#include <bsp/hackmem.h>
+#include <bsp/hypmem.h>
 #include <bsp/period.h>
 #include <bsp/sdev.h>
 #include <common/compiler.h>
@@ -897,27 +897,27 @@ int run_command_repeatable(const char *cmd, int flag)
 
 int run_command_list(const char *cmd, int len, int flag)
 {
-    int need_buff = 1;
-    char *buff = (char *)cmd;	/* cast away const */
+    int need_buf = 1;
+    char *buf = (char *)cmd;	/* cast away const */
     int rcode = 0;
 
     if (len == -1) {
         len = strlen(cmd);
         /* the built-in parser will change our string if it sees \n */
-        need_buff = strchr(cmd, '\n') != NULL;
+        need_buf = strchr(cmd, '\n') != NULL;
     }
-    if (need_buff) {
-        buff = halloc(len + 1);
-        if (!buff)
+    if (need_buf) {
+        buf = alloc(len + 1);
+        if (!buf)
             return 1;
-        memcpy(buff, cmd, len);
-        buff[len] = '\0';
+        memcpy(buf, cmd, len);
+        buf[len] = '\0';
     }
 
-    rcode = console_run_command_list(buff, flag);
+    rcode = console_run_command_list(buf, flag);
 
-    if (need_buff)
-        hfree(buff);
+    if (need_buf)
+        free(buf);
 
     return rcode;
 }

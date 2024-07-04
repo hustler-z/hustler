@@ -41,8 +41,6 @@ void do_exit(int exit_code)
 
 extern void save_context(struct hcpu_regs *regs);
 
-#define __void__(x)     ((void *)(unsigned long)(x))
-
 static void hack_stack(void)
 {
     struct hcpu_regs regs;
@@ -53,7 +51,7 @@ static void hack_stack(void)
 
     MSGI(">_@\n");
 
-    MSGI("Call Trace on CPU %d\n", smp_processor_id());
+    MSGI("Call Trace on CPU [%d]\n", smp_processor_id());
 
     MSGI("    [<%p>]  %pS\n", __void__(regs.lr),
             __void__(regs.lr));
@@ -88,23 +86,25 @@ static void panic_end(void)
     hang();
 }
 
+static DEFINE_SPINLOCK(panic_lock);
+
 void panic(bool in_exception, const char *fmt, ...)
 {
-    static DEFINE_SPINLOCK(lock);
+
 
     local_irq_disable();
 
     if (!in_exception)
         hack_stack();
 
-    spinlock(&lock);
+    spinlock(&panic_lock);
 
     va_list args;
     va_start(args, fmt);
     vpr_common(fmt, args);
     va_end(args);
 
-    spinunlock(&lock);
+    spinunlock(&panic_lock);
 
     panic_end();
 }
@@ -113,16 +113,22 @@ void warn(const char *fmt, ...)
 {
     va_list args;
 
+    spinlock(&panic_lock);
+
+    hack_stack();
+
     va_start(args, fmt);
     vpr_common(fmt, args);
     va_end(args);
+
+    spinunlock(&panic_lock);
 }
 
 void __warn_crap(const char *assertion, const char *file,
         unsigned int line, const char *function)
 {
     warn("[warns] %s %u - %s()\n"
-         "        {%s} Bombed",
+         "        \"%s\" Bombed ^_^",
          file, line,
          function, assertion);
 }
@@ -131,7 +137,7 @@ void __bug_crap(const char *assertion, const char *file,
         unsigned int line, const char *function)
 {
     panic(false, "[panic] %s %u - %s()\n"
-                 "        {%s -> True} F*cked Up",
+                 "        \"%s\" -> True  F*cked Up ^_^",
                  file, line,
                  function, assertion);
 }
@@ -140,7 +146,7 @@ void __assert_crap(const char *assertion, const char *file,
         unsigned int line, const char *function)
 {
     panic(false, "[assrt] %s %u - %s()\n"
-                 "        {%s -> False} Bombed",
+                 "        \"%s\" -> False Bombed ^_^",
                  file, line,
                  function, assertion);
 }

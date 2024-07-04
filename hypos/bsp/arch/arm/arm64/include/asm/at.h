@@ -303,6 +303,12 @@ extern pfn_t directmap_pfn_end;
 extern unsigned long directmap_base_idx;
 // --------------------------------------------------------------
 
+#define is_heap_pfn(pfn) ({                  \
+    unsigned long _pfn = pfn_get(pfn);       \
+    (_pfn >= pfn_get(directmap_pfn_start) && \
+     _pfn < pfn_get(directmap_pfn_end));     \
+})
+
 /* HEAP MEMBANKS (Physical Address to Virtual Address)
  *
  * [VA] 0x00000a0000000000 [PA] 0x0000000000200000        (_head)
@@ -394,6 +400,11 @@ struct pglist_head {
 #define pageframe               ((struct page *)HYPOS_BOOTMEM_START)
 #define page_to_idx(pg)         ((pg) - pageframe)
 #define idx_to_page(idx)        (pageframe + (idx))
+
+#define pa_to_page(pa)          pfn_to_page(pa_to_pfn(pa))
+#define page_to_pa(pg)          (pfn_to_pa(page_to_pfn(pg)))
+
+#define NR_PAGEFRAME            (HYPOS_BOOTMEM_SIZE / sizeof(*pageframe))
 
 static inline struct page *va_to_page(const void *v)
 {

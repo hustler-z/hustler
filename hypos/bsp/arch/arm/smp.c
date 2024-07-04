@@ -11,6 +11,7 @@
 #include <asm/barrier.h>
 #include <asm-generic/smp.h>
 #include <asm-generic/section.h>
+#include <asm-generic/globl.h>
 #include <common/errno.h>
 #include <common/softirq.h>
 #include <common/timer.h>
@@ -56,6 +57,8 @@ int __cpu_up(unsigned int cpu)
     rc = prep_smp_mm(cpu);
     if (rc < 0)
         return rc;
+
+    get_globl()->boot_status = SMP_BOOT_STAGE;
 
     boot_setup.stack = hypos_vcpus[cpu]->arch.stack;
 

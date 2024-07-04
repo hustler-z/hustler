@@ -60,7 +60,7 @@ SECTIONS
         *(.rodata .rodata.*)
         . = ALIGN(8);
         __rodata_end = .;
-    } : text
+    } : data
 
     __hypos_text_end = .;
 

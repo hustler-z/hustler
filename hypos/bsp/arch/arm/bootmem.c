@@ -7,7 +7,8 @@
  */
 
 #include <asm/map.h>
-#include <bsp/hackmem.h>
+#include <asm/bitops.h>
+#include <bsp/hypmem.h>
 #include <bsp/debug.h>
 #include <bsp/board.h>
 #include <asm-generic/bootmem.h>
@@ -29,14 +30,10 @@ unsigned long __read_mostly directmap_base_idx;
 
 pfn_t first_valid_pfn = INVALID_PFN_INIT;
 // --------------------------------------------------------------
-struct bootpage {
-    unsigned long start, end;
-};
 
-static char __initdata opt_badpage[100] = "";
-static unsigned int __initdata nr_bootpages;
+unsigned int __initdata nr_bootpages;
 
-static struct bootpage __initdata
+struct bootpage __initdata
     bootpages_list[PAGE_SIZE / sizeof(struct bootpage)];
 
 static __initdata struct bootmem bootmem = {
@@ -217,6 +214,42 @@ static void __bootfunc pageframe_setup(paddr_t ps, paddr_t pe)
 }
 
 // --------------------------------------------------------------
+#define IDX_GROUP_SHIFT PGTBL_LEVEL_SHIFT(2)
+
+#define IDX_GROUP_COUNT ((1 << IDX_GROUP_SHIFT) / \
+                         (ISOLATE_LSB(sizeof(*pageframe))))
+
+unsigned long __read_mostly idx_group_valid[BITS_TO_LONGS(
+    (NR_PAGEFRAME + IDX_GROUP_COUNT - 1) / IDX_GROUP_COUNT)] = { [0] = 1 };
+
+void set_idx_range(unsigned long smfn, unsigned long emfn)
+{
+    unsigned long idx, eidx;
+
+    idx = __pfn_to_idx(smfn) / IDX_GROUP_COUNT;
+    eidx = (__pfn_to_idx(emfn - 1) + IDX_GROUP_COUNT) / IDX_GROUP_COUNT;
+
+    for ( ; idx < eidx; ++idx)
+        set_bit(idx, idx_group_valid);
+}
+
+static void __bootfunc idx_setup(void)
+{
+    paddr_t bank_start, bank_size, bank_end;
+    struct membanks *mbs = get_resv_membanks();
+    int bank;
+
+    for (bank = 0 ; bank < mbs->stats.nr_banks; bank++) {
+        bank_start = mbs->banks[bank].start;
+        bank_size = mbs->banks[bank].size;
+        bank_end = bank_start + bank_size;
+
+        set_idx_range(__pa_to_pfn(bank_start),
+                      __pa_to_pfn(bank_end));
+    }
+}
+
+// --------------------------------------------------------------
 static void __bootfunc dump_va_layout(void)
 {
     MSGI("[globl] Virtual Memory Layout                                  @_@\n"
@@ -252,6 +285,7 @@ int __bootfunc board_ram_setup(void)
     paddr_t code_spaddr = get_globl()->boot_spaddr;
     paddr_t code_epaddr = get_globl()->boot_epaddr;
     size_t bank_size = HYPOS_BOOTMEM_SIZE / NR_MEMBANKS;
+    paddr_t resv_mem_start;
     int bank;
 
     if (this_board->dram.start != code_spaddr)
@@ -268,11 +302,16 @@ int __bootfunc board_ram_setup(void)
          code_spaddr, code_epaddr,
          (code_epaddr - code_spaddr));
 
+    resv_mem_start = PAGE_ALIGN(code_epaddr);
+
     for (bank = 0; bank < mbs->stats.max_banks; bank++) {
-        mbs->banks[bank].start = code_epaddr + (bank + 1) * PAGE_SIZE;
+        mbs->banks[bank].start = resv_mem_start + (bank * PAGE_SIZE);
         mbs->banks[bank].size  = bank_size;
         mbs->stats.nr_banks++;
     }
+
+    DEBUG("Reserved Membanks been Initialized [%u Banks]\n",
+            mbs->stats.nr_banks);
 
     return 0;
 }
@@ -285,6 +324,8 @@ int __bootfunc bootmem_setup(void)
                   mbs_start = 0, mbs_end = 0, mbs_size = 0;
 
     dump_va_layout();
+
+    idx_setup();
 
     __bootmem_setup();
 

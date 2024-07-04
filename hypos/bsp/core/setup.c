@@ -14,7 +14,7 @@
 #include <asm-generic/bootmem.h>
 #include <asm-generic/smp.h>
 #include <asm/at.h>
-#include <bsp/hackmem.h>
+#include <bsp/hypmem.h>
 #include <bsp/percpu.h>
 #include <bsp/cpu.h>
 #include <bsp/sdev.h>
@@ -59,8 +59,8 @@ static int __bootfunc __bootchain(const bootfunc_t *boot_sequence)
                     boot_sequence, (char *)(*boot_one), ret);
             return -1;
         } else
-            MSGH("[Boot Phase %2d Done] @_@\n",
-                    boot_count);
+            MSGH("[Boot Phase %2d <%p> Done] @_@\n",
+                    boot_count,  __void__(*boot_one));
     }
 
     return 0;
@@ -95,6 +95,10 @@ static bootfunc_t hypos_boot_sequence[] = {
     /* Hypos VMAP Setup
      */
     vmap_setup,
+
+    /* Set up Buddy Allocators and Other Allocators
+     */
+    hypmem_setup,
 
     /* Interrupt Controller Setup
      */

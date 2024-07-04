@@ -7,7 +7,7 @@
  */
 
 #include <bsp/keyboard.h>
-#include <bsp/hackmem.h>
+#include <bsp/hypmem.h>
 #include <common/errno.h>
 #include <lib/strops.h>
 // --------------------------------------------------------------
@@ -87,7 +87,7 @@ int keyboard_setup(void)
 {
     struct hypos_device *dev;
 
-    dev = halloc(sizeof(struct hypos_device));
+    dev = alloc(sizeof(struct hypos_device));
     if (!dev)
         return -ENOMEM;
 

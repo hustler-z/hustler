@@ -5,15 +5,6 @@
  * Date:  2024/06/07
  * Usage:
  */
-
-/**
- * Hustler's Project
- *
- * File:  input.h
- * Date:  2024/06/07
- * Usage:
- */
-
 #ifndef _BSP_KEYBOARD_H
 #define _BSP_KEYBOARD_H
 // --------------------------------------------------------------

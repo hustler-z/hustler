@@ -10,7 +10,7 @@
 #include <asm-generic/globl.h>
 #include <asm-generic/section.h>
 #include <lib/list.h>
-#include <bsp/debug.h>
+#include <bsp/panic.h>
 
 // --------------------------------------------------------------
 
@@ -29,8 +29,11 @@ struct hypos_globl __initdata boot_globl = {
 
 struct hypos_globl *get_globl(void)
 {
-    struct hypos_globl *globl;
+    struct hypos_globl *globl = &boot_globl;
 
-    return (globl = &boot_globl);
+    ASSERT(globl->boot_status == EARLY_BOOT_STAGE ||
+           globl->boot_status == SMP_BOOT_STAGE);
+
+    return globl;
 }
 // --------------------------------------------------------------

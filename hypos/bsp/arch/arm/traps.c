@@ -352,13 +352,11 @@ static void dump_far(unsigned long esr)
          hesr.iss, extra, (wnr == 'N') ? 'N' : wnr, far);
 }
 
-#define __void__(x)     ((void *)(unsigned long)(x))
-
 static void dump_trace(const struct hcpu_regs *regs)
 {
     register_t *frame, next, addr, low, high;
 
-    MSGI("Call Trace\n");
+    MSGI("Call Trace on CPU [%d]\n", smp_processor_id());
 
     MSGI("    [<%p>]  %pS (PC)\n", __void__(regs->pc),
             __void__(regs->pc));

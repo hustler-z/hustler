@@ -17,6 +17,7 @@ BASE        ?= arm
 ARCH        ?= arm64
 BIN         := $(OUTPUT)/hypos.bin
 ELF         := $(OUTPUT)/hypos.elf
+SYM         := $(OUTPUT)/hypos-sym.elf
 MAP         := $(OUTPUT)/hypos.map
 ifeq ($(HOST),x86)
 CROSS_COMPILE ?= /bsp/pro/toolchains/armcc-bm-64/bin/aarch64-none-elf-
@@ -54,50 +55,49 @@ CFLAGS      += -Wno-unused-variable -Wno-pointer-arith
 CFLAGS      += -mno-outline-atomics -Wno-unused-function
 LDFLAGS     += -nostdlib -g -Wall
 # LDFLAGS     += -Wl,--no-warn-rwx-segments
-ASFLAGS     += -nostdlib -g -Wall
-ASFLAGS     += -D__ASSEMBLY__
+AFLAGS      += -nostdlib -g -Wall
+AFLAGS      += -D__ASSEMBLY__
 
 ifeq ($(BOARD),rk3568)
 CFLAGS      += -D__RK3568__
-ASFLAGS     += -D__RK3568__
+AFLAGS      += -D__RK3568__
 endif
 # ---------------------------------------------------------------
 # Source Tree Setup
 # ---------------------------------------------------------------
 SPATH_BSPS   := bsp
-
-include $(SPATH_BSPS)/arch/$(BASE)/$(ARCH)/$(ARCH).mk
-include $(SPATH_BSPS)/arch/$(BASE)/$(BASE).mk
-include $(SPATH_BSPS)/common/common.mk
-include $(SPATH_BSPS)/board/$(PLATFORM)/$(BOARD)/$(BOARD).mk
-include $(SPATH_BSPS)/drivers/drivers.mk
-include $(SPATH_BSPS)/lib/lib.mk
-include $(SPATH_BSPS)/core/core.mk
-
+# ---------------------------------------------------------------
 SPATH_ARCX   := $(SPATH_BSPS)/arch/$(BASE)
 SPATH_ARCH   := $(SPATH_ARCX)/$(ARCH)
-SPATH_COMN   := $(SPATH_BSPS)/common
-SPATH_BRDP   := $(SPATH_BSPS)/board/$(PLATFORM)
+SPATH_BRDP   := $(SPATH_BSPS)/core/board/$(PLATFORM)
 SPATH_BRDT   := $(SPATH_BRDP)/$(BOARD)
-SPATH_DRIV   := $(SPATH_BSPS)/drivers
-SPATH_LIBS   := $(SPATH_BSPS)/lib
-SPATH_HYPS   := $(SPATH_BSPS)/core
+SPATH_DRIV   := $(SPATH_BSPS)/core/drivers
+SPATH_LIBS   := $(SPATH_BSPS)/libs
+SPATH_CORE   := $(SPATH_BSPS)/core
+
+include $(SPATH_ARCX)/$(BASE).mk
+include $(SPATH_ARCH)/$(ARCH).mk
+include $(SPATH_BRDT)/$(BOARD).mk
+include $(SPATH_DRIV)/drivers.mk
+include $(SPATH_LIBS)/lib.mk
+include $(SPATH_CORE)/core.mk
 
 INCDIRS      += -I$(SPATH_ARCX)/include
 INCDIRS      += -I$(SPATH_ARCH)/include
-INCDIRS      += -I$(SPATH_COMN)/include
 INCDIRS      += -I$(SPATH_BRDP)/include
-INCDIRS      += -I$(SPATH_BSPS)/include
 INCDIRS      += -I$(SPATH_LIBS)/include
-INCDIRS      += -I$(SPATH_HYPS)/include
-
+INCDIRS      += -I$(SPATH_CORE)/include
+# ---------------------------------------------------------------
+AFLAGS       += $(INCDIRS)
+CFLAGS       += $(INCDIRS)
+LDFLAGS      += $(INCDIRS)
+# ---------------------------------------------------------------
 PATH_ARCX    := $(OUTPUT)/$(SPATH_ARCX)
 PATH_ARCH    := $(OUTPUT)/$(SPATH_ARCH)
-PATH_COMN    := $(OUTPUT)/$(SPATH_COMN)
 PATH_BRDT    := $(OUTPUT)/$(SPATH_BRDT)
 PATH_DRIV    := $(OUTPUT)/$(SPATH_DRIV)
 PATH_LIBS    := $(OUTPUT)/$(SPATH_LIBS)
-PATH_HYPS    := $(OUTPUT)/$(SPATH_HYPS)
+PATH_CORE    := $(OUTPUT)/$(SPATH_CORE)
 
 ASM_OFS_H    := $(SPATH_ARCH)/include/asm/offset.h
 ASM_OFS_C    := $(SPATH_ARCH)/offset.c
@@ -108,15 +108,14 @@ archxo       := $(addprefix $(PATH_ARCX)/,$(arm-y))
 archco       := $(addprefix $(PATH_ARCH)/,$(armc-y))
 archao       := $(addprefix $(PATH_ARCH)/,$(arma-y))
 endif
-comnco       := $(addprefix $(PATH_COMN)/,$(common-y))
 brdtco       := $(addprefix $(PATH_BRDT)/,$($(BOARD)-y))
 drivco       := $(addprefix $(PATH_DRIV)/,$(drivers-y))
-hypsco       := $(addprefix $(PATH_HYPS)/,$(core-y))
+hypsco       := $(addprefix $(PATH_CORE)/,$(core-y))
 libsco       := $(addprefix $(PATH_LIBS)/,$(libs-y))
 
 hyposo       := $(archao) $(archco) $(archxo) \
-                $(hypsco) $(comnco) $(libsco) \
-                $(brdtco) $(drivco)
+                $(libsco) $(hypsco) $(drivco) \
+                $(brdtco)
 # ---------------------------------------------------------------
 ifeq ($(V),1)
 	Q :=
@@ -130,39 +129,48 @@ SYSTEM_MAP = $(NM) $1 | \
 # ---------------------------------------------------------------
 # Compile Quick Macros
 # ---------------------------------------------------------------
+# Recompile the "hypos" with Debug Symbols on.
+cc_dumpsym = $(Q)mkdir -p `dirname $(1)`; \
+             echo "DUMPSYM  $(subst $(OUTPUT)/,,$(1)) (with Symbols)"; \
+             gcc doc/dumpsym.c -o $(OUTPUT)/dumpsym; \
+             $(NM) -pa $(2) | $(OUTPUT)/dumpsym --all-symbols --sort-by-name --sort > $(SYM).S; \
+             $(CC) $(AFLAGS) -c $(SYM).S -o $(SYM).o; \
+             $(CC) $(SYM).o $(filter-out $(PATH_CORE)/syms.o,$(hyposo)) $(LDFLAGS) -T$(lds) -o $(1)
+# ---------------------------------------------------------------
 cc_objdump = $(Q)mkdir -p `dirname $(1)`; \
              echo "OBJDUMP  $(patsubst %.elf,%.asm,$(subst $(OUTPUT)/,,$(1)))"; \
              $(OBJDUMP) -S -r -l -d $(1) > $(patsubst %.elf,%.asm,$(1))
-
+# ---------------------------------------------------------------
 cc_readelf = $(Q)mkdir -p `dirname $(1)`; \
              echo "READELF  $(patsubst %.elf,%.sec,$(subst $(OUTPUT)/,,$(1)))"; \
              $(READELF) -S -lW $(1) > $(patsubst %.elf,%.sec,$(1)); \
              echo "OBJDUMP  $(patsubst %.elf,%.hdr,$(subst $(OUTPUT)/,,$(1)))"; \
              $(OBJDUMP) -h $(1) > $(patsubst %.elf,%.hdr,$(1))
-
+# ---------------------------------------------------------------
 cc_objcopy = $(Q)mkdir -p `dirname $(1)`; \
              echo "OBJCOPY  $(subst $(OUTPUT)/,,$(1))"; \
              $(OBJCOPY) -O binary $(2) $(1)
-
+# ---------------------------------------------------------------
+# Link all *.o Files into an Executable.
 cc_ld      = $(Q)mkdir -p `dirname $(1)`; \
-             echo "LD       $(subst $(OUTPUT)/,,$(1))"; \
-             $(CC) $(3) $(LDFLAGS) $(INCDIRS) -T$(2) -o $(1)
-
+             echo "LD       $(subst $(OUTPUT)/,,$(1))     (with no Symbols)"; \
+             $(CC) $(3) $(LDFLAGS) -T$(2) -o $(1)
+# ---------------------------------------------------------------
 cc_cc      = $(Q)mkdir -p `dirname $(1)`; \
              echo "CC       $(subst $(OUTPUT)/,,$(1))"; \
-             $(CC) $(CFLAGS) $(INCDIRS) -c $(2) -o $(1)
-
+             $(CC) $(CFLAGS) -c $(2) -o $(1)
+# ---------------------------------------------------------------
 cc_as      = $(Q)mkdir -p `dirname $(1)`; \
              echo "AS       $(subst $(OUTPUT)/,,$(1))"; \
-             $(CC) $(ASFLAGS) $(INCDIRS) -c $(2) -o $(1)
-
+             $(CC) $(AFLAGS) -c $(2) -o $(1)
+# ---------------------------------------------------------------
 cc_nm      = $(Q)mkdir -p `dirname $(1)`; \
              echo "SYMTABS  $(subst $(OUTPUT)/,,$(1))"; \
              $(call SYSTEM_MAP,$(2)) > $(1)
-
+# ---------------------------------------------------------------
 cc_lds     = $(Q)mkdir -p `dirname $(1)`; \
              echo "LDS      $(subst $(OUTPUT)/,,$(1))"; \
-             $(CX) -P $(ASFLAGS) $(INCDIRS) -DLINKER_SCRIPT -o $(1) $(2)
+             $(CX) -P $(AFLAGS) -DLINKER_SCRIPT -o $(1) $(2)
 # ---------------------------------------------------------------
 define all_sources
 	(find $(WKDIR) -type f -name '*.[chS]' -print)
@@ -172,11 +180,14 @@ endef
 # ---------------------------------------------------------------
 .PHONY: all
 all: $(BIN) $(MAP)
-$(BIN): $(ELF)
+$(BIN): $(SYM)
 	$(call cc_objcopy,$@,$<)
 
-$(MAP): $(ELF)
+$(MAP): $(SYM)
 	$(call cc_nm,$@,$<)
+
+$(SYM): $(ELF)
+	$(call cc_dumpsym,$@,$<)
 
 $(ELF): $(ASM_OFS_H) $(hyposo) $(lds)
 	$(call cc_ld,$@,$(lds),$(filter-out $(ASM_OFS_H),$(filter-out $(lds),$^)))
@@ -199,13 +210,11 @@ $(archxo): $(PATH_ARCX)/%.o: $(SPATH_ARCX)/%.c
 	$(call cc_cc,$@,$<)
 $(archco): $(PATH_ARCH)/%.o: $(SPATH_ARCH)/%.c
 	$(call cc_cc,$@,$<)
-$(comnco): $(PATH_COMN)/%.o: $(SPATH_COMN)/%.c
-	$(call cc_cc,$@,$<)
 $(brdtco): $(PATH_BRDT)/%.o: $(SPATH_BRDT)/%.c
 	$(call cc_cc,$@,$<)
 $(drivco): $(PATH_DRIV)/%.o: $(SPATH_DRIV)/%.c
 	$(call cc_cc,$@,$<)
-$(hypsco): $(PATH_HYPS)/%.o: $(SPATH_HYPS)/%.c
+$(hypsco): $(PATH_CORE)/%.o: $(SPATH_CORE)/%.c
 	$(call cc_cc,$@,$<)
 $(libsco): $(PATH_LIBS)/%.o: $(SPATH_LIBS)/%.c
 	$(call cc_cc,$@,$<)

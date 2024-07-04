@@ -33,6 +33,10 @@ struct bootmem {
     struct membanks heap_mem;
 };
 
+struct bootpage {
+    unsigned long start, end;
+};
+
 pfn_t get_bootpages(unsigned long nr_pfns,
                     unsigned long pfn_align);
 void bootpages_setup(paddr_t ps, paddr_t pe);
