@@ -63,8 +63,8 @@
  */
 
 typedef struct __packed {
-    unsigned long valid: 1;
-    unsigned long table: 1;
+    unsigned long valid:1;
+    unsigned long table:1;
 
     /* Memory Attributes
      *
@@ -98,21 +98,21 @@ typedef struct __packed {
      *       0    secure
      *       -------------------------------------------
      */
-    unsigned long ai: 3;
-    unsigned long ns: 1;
-    unsigned long ap: 2;
-    unsigned long sh: 2;
-    unsigned long af: 1;
-    unsigned long ng: 1;
+    unsigned long ai:3;
+    unsigned long ns:1;
+    unsigned long ap:2;
+    unsigned long sh:2;
+    unsigned long af:1;
+    unsigned long ng:1;
 
     /* Base address of block or next table
      * [47:12]
      */
-    unsigned long base: 36;
+    unsigned long base:36;
 
     /* [51:48] reserved set as zeros
      */
-    unsigned long res1: 4;
+    unsigned long res1:4;
 
     /* Upper attributes (16 bits)
      * contig - contiguous
@@ -125,20 +125,20 @@ typedef struct __packed {
      * pxn - Privileged Execute Never (Called XN at EL3,
      *       and EL2 when HCR_EL2.E2H == 0)
      */
-    unsigned long contig: 1;
-    unsigned long pxn: 1;
-    unsigned long uxn: 1;
-    unsigned long res2: 9;
+    unsigned long contig:1;
+    unsigned long pxn:1;
+    unsigned long uxn:1;
+    unsigned long res2:9;
 } ttbl_entry_t;
 
 /* For the purpose of page table walking
  */
 typedef struct __packed {
-    unsigned long valid: 1;
-    unsigned long table: 1;
-    unsigned long pad2: 10;
-    unsigned long base: 36;
-    unsigned long pad1: 16;
+    unsigned long valid:1;
+    unsigned long table:1;
+    unsigned long pad2:10;
+    unsigned long base:36;
+    unsigned long pad1:16;
 } ttbl_walk_t;
 
 typedef union {
@@ -284,14 +284,14 @@ static inline paddr_t _va_to_pa(vaddr_t va) {
 #define pfn_to_idx(pfn)         __pfn_to_idx(pfn_get(pfn))
 #define idx_to_pfn(idx)         pfn_set(__idx_to_pfn(idx))
 // --------------------------------------------------------------
-extern unsigned long pageframe_base_idx;
-extern unsigned long pageframe_va_end;
+extern unsigned long pgframe_base_idx;
+extern unsigned long pgframe_va_end;
 // --------------------------------------------------------------
 #define pfn_to_page(pfn) \
-    (pageframe + (pfn_to_idx(pfn) - pageframe_base_idx))
+    (pgframe + (pfn_to_idx(pfn) - pgframe_base_idx))
 
 #define page_to_pfn(pg) \
-    (idx_to_pfn((unsigned long)((pg) - pageframe) + pageframe_base_idx))
+    (idx_to_pfn((unsigned long)((pg) - pgframe) + pgframe_base_idx))
 
 #define vmap_to_pfn(va)    pa_to_pfn(va_to_pa((vaddr_t)(va)))
 #define vmap_to_page(va)   pfn_to_page(vmap_to_pfn(va))
@@ -312,8 +312,6 @@ extern unsigned long directmap_base_idx;
 /* HEAP MEMBANKS (Physical Address to Virtual Address)
  *
  * [VA] 0x00000a0000000000 [PA] 0x0000000000200000        (_head)
- *
- *
  */
 static inline void *pa_to_va(paddr_t pa)
 {
@@ -389,22 +387,20 @@ struct page {
         u32 used;
         u32 status;
     } tiny;
-
-    u64 pad;
 };
 
 struct pglist_head {
     struct page *next, *tail;
 };
 
-#define pageframe               ((struct page *)HYPOS_BOOTMEM_START)
-#define page_to_idx(pg)         ((pg) - pageframe)
-#define idx_to_page(idx)        (pageframe + (idx))
+#define pgframe                 ((struct page *)HYPOS_PGFRAME_START)
+#define page_to_idx(pg)         ((pg) - pgframe)
+#define idx_to_page(idx)        (pgframe + (idx))
 
 #define pa_to_page(pa)          pfn_to_page(pa_to_pfn(pa))
 #define page_to_pa(pg)          (pfn_to_pa(page_to_pfn(pg)))
 
-#define NR_PAGEFRAME            (HYPOS_BOOTMEM_SIZE / sizeof(*pageframe))
+#define NR_PAGEFRAME            (HYPOS_PGFRAME_SIZE / sizeof(*pgframe))
 
 static inline struct page *va_to_page(const void *v)
 {
@@ -417,7 +413,7 @@ static inline struct page *va_to_page(const void *v)
     idx = (va - HYPOS_HEAP_VIRT_START) >> PAGE_SHIFT;
     idx += pfn_to_idx(directmap_pfn_start);
 
-    return pageframe + idx - directmap_base_idx;
+    return pgframe + idx - directmap_base_idx;
 }
 
 static inline void *page_to_va(const struct page *pg)

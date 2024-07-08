@@ -11,17 +11,46 @@
 // --------------------------------------------------------------
 #include <common/type.h>
 
-struct hypos_board {
+enum board_option {
+    RADXA_ZERO3 = 0,
+    RADXA_ZERO2PRO,
+    /* TODO */
+};
+
+struct hypos_vmem_range {
+    const vaddr_t start;
+    const vaddr_t end;
+    const size_t  size;
+};
+
+struct hypos_vmem {
+    struct hypos_vmem_range data;
+    struct hypos_vmem_range fixmap;
+    struct hypos_vmem_range boot;
+    struct hypos_vmem_range vmap;
+    struct hypos_vmem_range directmap;
+};
+
+struct hypos_pmem {
     struct {
-        paddr_t start;
-        paddr_t end;
-        size_t  size;
+        const paddr_t start;
+        const paddr_t end;
+        const size_t  size;
     } dram;
 
     struct {
-        paddr_t start;
-        size_t  size;
+        const paddr_t start;
+        const paddr_t end;
+        const size_t  size;
     } flush;
+
+    /* Number of PFNs for the Whole RAM */
+    size_t nr_pfns;
+};
+
+struct hypos_board {
+    struct hypos_pmem pmem;
+    struct hypos_vmem vmem;
 
     /* TODO */
 
@@ -29,6 +58,9 @@ struct hypos_board {
     char name[32];
 };
 
-struct hypos_board *board_setup(void);
+struct hypos_board *board_get(void);
+struct hypos_vmem  *vmem_get(void);
+struct hypos_pmem  *pmem_get(void);
+int board_setup(void);
 // --------------------------------------------------------------
 #endif /* _BSP_BOARD_H */

@@ -85,7 +85,7 @@ static int create_ttbl(ttbl_t *entry)
     if (get_globl()->boot_status != EARLY_BOOT_STAGE) {
         MSGH("Not Implemented yet\n");
     } else
-        pfn = get_bootpages(1, 1);
+        pfn = get_memchunks(1, 1);
 
     ptr = map_table(pfn);
     zero_page(ptr);
@@ -113,7 +113,8 @@ static int ttbl_next_level(bool read_only,
         if (read_only)
             return MAP_FAILED;
 
-        DEBUG("This Entry (%p) is not Valid\n", entry);
+        MSGQ(false, "This Entry (%p) ain't Valid, Thus Create a New Entry @_<\n",
+                entry);
 
         ret = create_ttbl(entry);
 
@@ -213,7 +214,7 @@ static int ttbl_update_entry(pfn_t root,
                 offsets[level]);
         if (ret == MAP_FAILED) {
             if (flags & (_PAGE_PRESENT|_PAGE_POPULATE)) {
-                MSGH("%s() unable to map level %u\n",
+                MSGH("%s() Unable to Map Level %u\n",
                         __func__, level);
                 ret = -ENOENT;
                 goto out;
@@ -252,7 +253,7 @@ static int ttbl_update_entry(pfn_t root,
         } else
             pte = *entry;
 
-        pte.ttbl.ap = PAGE_AP_MASK(flags);
+        pte.ttbl.ap  = PAGE_AP_MASK(flags);
         pte.ttbl.uxn = PAGE_XN_MASK(flags);
         pte.ttbl.contig = !!(flags & _PAGE_CONTIG);
     }

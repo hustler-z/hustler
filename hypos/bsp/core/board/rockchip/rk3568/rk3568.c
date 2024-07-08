@@ -6,6 +6,7 @@
  * Usage:
  */
 
+#include <asm/ttbl.h>
 #include <asm-generic/bitops.h>
 #include <asm-generic/section.h>
 #include <rk3568/rk3568.h>
@@ -51,21 +52,32 @@ void __bootfunc board_uart_init(void)
              GPIO0D1_UART2_TXM0 << GPIO0D1_SHIFT |
              GPIO0D0_UART2_RXM0 << GPIO0D0_SHIFT);
 }
+// --------------------------------------------------------------
+#define RZ3W_RESV_MEM_START         _AT(vaddr_t, 0x00200000)
+#define RZ3W_RESV_MEM_END           _AT(vaddr_t, 0x3fffffff)
 
-struct hypos_board radax_zero3w = {
-    .dram.start  = 0x00200000,
-    .dram.end    = 0x3fffffff,
-    .flush.start = 0x0,
-    .flush.size  = 0x0,
+struct hypos_board __board_data radax_zero3w = {
+    .pmem.dram.start      = RZ3W_RESV_MEM_START,
+    .pmem.dram.end        = RZ3W_RESV_MEM_END,
+    .pmem.dram.size       = RZ3W_RESV_MEM_END - RZ3W_RESV_MEM_START,
+    .pmem.flush.start     = 0x0,
+    .pmem.flush.size      = 0x0,
+    .pmem.flush.end       = 0x0,
+    .vmem.data.start      = HYPOS_DATA_VIRT_START,
+    .vmem.data.size       = HYPOS_DATA_VIRT_SIZE,
+    .vmem.data.end        = HYPOS_DATA_VIRT_START + HYPOS_DATA_VIRT_SIZE,
+    .vmem.fixmap.start    = FIXADDR_START,
+    .vmem.fixmap.size     = FIXADDR_END - FIXADDR_START,
+    .vmem.fixmap.end      = FIXADDR_END,
+    .vmem.boot.start      = HYPOS_PGFRAME_START,
+    .vmem.boot.size       = HYPOS_PGFRAME_SIZE,
+    .vmem.boot.end        = HYPOS_PGFRAME_START + HYPOS_PGFRAME_SIZE,
+    .vmem.vmap.start      = HYPOS_VMAP_VIRT_START,
+    .vmem.vmap.size       = HYPOS_VMAP_VIRT_SIZE,
+    .vmem.vmap.end        = HYPOS_VMAP_VIRT_START + HYPOS_VMAP_VIRT_SIZE,
+    .vmem.directmap.start = HYPOS_DIRECTMAP_START,
+    .vmem.directmap.size  = HYPOS_DIRECTMAP_SIZE,
+    .vmem.directmap.end   = HYPOS_DIRECTMAP_START + HYPOS_DIRECTMAP_SIZE,
     .name = "Radxa Zero 3W",
 };
-
-struct hypos_board *__bootfunc board_setup(void)
-{
-    struct hypos_board *this = &radax_zero3w;
-
-    this->dram.size = this->dram.end - this->dram.start;
-
-    return this;
-}
 // --------------------------------------------------------------

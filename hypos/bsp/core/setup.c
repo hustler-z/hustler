@@ -22,6 +22,7 @@
 #include <bsp/debug.h>
 #include <bsp/period.h>
 #include <bsp/vmap.h>
+#include <bsp/board.h>
 #include <common/exit.h>
 #include <common/board.h>
 #include <common/gicv3.h>
@@ -59,8 +60,8 @@ static int __bootfunc __bootchain(const bootfunc_t *boot_sequence)
                     boot_sequence, (char *)(*boot_one), ret);
             return -1;
         } else
-            MSGH("[Boot Phase %2d <%p> Done] @_@\n",
-                    boot_count,  __void__(*boot_one));
+            MSGH("Boot Phase %ps <%02d> Finished @_<\n",
+                    __void__(*boot_one), boot_count);
     }
 
     return 0;
@@ -74,6 +75,10 @@ static int __bootfunc __bootchain(const bootfunc_t *boot_sequence)
  * --------------------------------------------------------------
  */
 static bootfunc_t hypos_boot_sequence[] = {
+    /* Set up Board Type
+     */
+    board_setup,
+
     percpu_setup,
 
     /* Hypervisor CPU Setup
@@ -83,10 +88,6 @@ static bootfunc_t hypos_boot_sequence[] = {
     /* Set up Translation Table
      */
     ttbl_setup,
-
-    /* Set up Board RAM
-     */
-    board_ram_setup,
 
     /* Hypervisor Memory Chuncks for Boot-time Memory
      */

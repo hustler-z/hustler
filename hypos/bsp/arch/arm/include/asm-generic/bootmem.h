@@ -10,14 +10,23 @@
 #define _ASM_GENERIC_BOOTMEM_H
 // --------------------------------------------------------------
 #include <asm/at.h>
+#include <common/type.h>
 
 /* Boot-time Allocaters */
 #define NR_MEMBANKS         (256) /* Total of 256 Boot Pages */
+#define INVALID_PADDR       (~0UL)
 
 struct membank {
     unsigned long start;
     unsigned long size;
-    unsigned long type;
+    unsigned int type;
+    unsigned int nr_pfns;
+};
+
+enum membank_type {
+    STATIC_MEMBANK_TYPE,
+    HEAP_MEMBANK_TYPE,
+    INVALID_MEMBANK_TYPE,
 };
 
 struct membanks {
@@ -25,28 +34,29 @@ struct membanks {
         unsigned int nr_banks;
         unsigned int max_banks;
     } stats;
+
+    struct {
+        paddr_t start;
+        paddr_t end;
+    } range;
+
     struct membank banks[NR_MEMBANKS];
 };
 
 struct bootmem {
-    struct membanks resv_mem;
+    struct membanks boot_mem;
     struct membanks heap_mem;
 };
 
-struct bootpage {
+struct memchunk {
     unsigned long start, end;
 };
 
-pfn_t get_bootpages(unsigned long nr_pfns,
+pfn_t get_memchunks(unsigned long nr_pfns,
                     unsigned long pfn_align);
-void bootpages_setup(paddr_t ps, paddr_t pe);
-int board_ram_setup(void);
+void memchunks_setup(paddr_t ps, paddr_t pe);
+
 int bootmem_setup(void);
 
-enum {
-    MEMBANK_NORMAL = 0,
-    MEMBANK_FDT,
-    MEMBANK_HEAP,
-};
 // --------------------------------------------------------------
 #endif /* _ASM_GENERIC_BOOTMEM_H */

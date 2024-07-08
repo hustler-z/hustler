@@ -352,18 +352,17 @@ int __bootfunc ttbl_setup(void)
 
     ttbr = (ap_t)hypos_pgtbl0 + get_globl()->phys_offset;
 
-    MSGH("<TTBR> Before Switch TTBR - 0x%016lx to 0x%016lx\n",
-            READ_SYSREG(TTBR0_EL2),
-            (unsigned long)ttbr);
+    get_globl()->arch.boot_ttbr = READ_SYSREG(TTBR0_EL2);
 
     switch_ttbr(ttbr);
 
-    MSGH("<TTBR> After Switch TTBR  - 0x%016lx\n",
-            READ_SYSREG(TTBR0_EL2));
+    get_globl()->arch.exec_ttbr = READ_SYSREG(TTBR0_EL2);
+
+    MSGH("Switch TTBR from %016lx to %016lx\n",
+            get_globl()->arch.boot_ttbr,
+            get_globl()->arch.exec_ttbr);
 
     hypos_enforce_wnx();
-
-    DEBUG("<TTBR> <%s> Finished\n", __func__);
 
     return 0;
 }

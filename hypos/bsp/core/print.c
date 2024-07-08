@@ -330,7 +330,22 @@ static char *pointer(char *str, const char *end, const char **fmt_ptr,
         return str;
     }
 
-    case 's': /* Symbol name with offset and size (iff offset != 0) */
+    case 's': /* Symbol name only */
+    {
+        unsigned long sym_size, sym_offset;
+        char namebuf[KSYM_NAME_LEN + 1];
+
+        /* Advance parents fmt string, as we have consumed 's' or 'S' */
+        ++*fmt_ptr;
+
+        s = symbols_lookup((unsigned long)arg, &sym_size, &sym_offset, namebuf);
+
+        /* If the symbol is not found, fall back to printing the address */
+        if (!s)
+            break;
+
+        return string(str, end, s, -1, -1, 0);
+    }
     case 'S': /* Symbol name unconditionally with offset and size */
     {
         unsigned long sym_size, sym_offset;

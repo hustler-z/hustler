@@ -13,14 +13,16 @@
 #include <bsp/board.h>
 #include <asm-generic/bootmem.h>
 #include <asm-generic/section.h>
+#include <asm-generic/bitops.h>
 #include <asm-generic/globl.h>
 #include <lib/strops.h>
 #include <lib/convert.h>
 
 // --------------------------------------------------------------
-unsigned long __read_mostly pageframe_base_idx;
-unsigned long __read_mostly pageframe_va_end;
-unsigned long __read_mostly pageframe_total_pages;
+unsigned long __read_mostly pgframe_base_idx;
+unsigned long __read_mostly pgframe_va_end;
+unsigned long __read_mostly pgframe_total_pages;
+unsigned long __read_mostly pgframe_max_pages;
 
 unsigned long __read_mostly directmap_va_start;
 unsigned long __read_mostly directmap_va_end;
@@ -29,29 +31,37 @@ pfn_t __read_mostly directmap_pfn_end = INVALID_PFN_INIT;
 unsigned long __read_mostly directmap_base_idx;
 
 pfn_t first_valid_pfn = INVALID_PFN_INIT;
-// --------------------------------------------------------------
+unsigned int __initdata nr_memchunks;
 
-unsigned int __initdata nr_bootpages;
+static char __initdata bad_memchunk[100]="";
 
-struct bootpage __initdata
-    bootpages_list[PAGE_SIZE / sizeof(struct bootpage)];
+/* Static allocate a page for memchunks_list */
+struct memchunk __initdata
+    memchunks_list[PAGE_SIZE / sizeof(struct memchunk)];
 
 static __initdata struct bootmem bootmem = {
-    .resv_mem.stats.max_banks = NR_MEMBANKS,
+    .boot_mem.stats.max_banks = NR_MEMBANKS,
     .heap_mem.stats.max_banks = NR_MEMBANKS,
 };
-
-static inline struct membanks *get_resv_membanks(void)
-{
-    return &bootmem.resv_mem;
-}
 
 static inline struct membanks *get_heap_membanks(void)
 {
     return &bootmem.heap_mem;
 }
+
+static inline struct membanks *get_boot_membanks(void)
+{
+    return &bootmem.boot_mem;
+}
 // --------------------------------------------------------------
-static void __bootfunc bootpages_add(unsigned long start,
+
+/* Use memchunks to track bootmem (Physical Memory)
+ *
+ * ----------------------------- ~
+ * 0            ...            255
+ * ----------------------------- ~
+ */
+static void __bootfunc memchunks_add(unsigned long start,
                                      unsigned long end) {
     unsigned int i;
 
@@ -59,69 +69,74 @@ static void __bootfunc bootpages_add(unsigned long start,
         return;
 
     /* Locate at proper index */
-    for (i = 0; i < nr_bootpages; i++)
-        if (start < bootpages_list[i].end)
+    for (i = 0; i < nr_memchunks; i++)
+        if (start < memchunks_list[i].end)
             break;
 
-    BUG_ON((i < nr_bootpages) && (end > bootpages_list[i].start));
-    BUG_ON(nr_bootpages == (PAGE_SIZE / sizeof(struct bootpage)));
+    BUG_ON((i < nr_memchunks) && (end > memchunks_list[i].start));
+    BUG_ON(nr_memchunks == (PAGE_SIZE / sizeof(struct memchunk)));
 
-    /* +---+---+ ~ ~ ~
-     * |   |   |
-     * +---+---+ ~ ~ ~
-     *   |   ^
-     *   +---+   Set next bootpage ready.
-     */
-    memmove(&bootpages_list[i + 1], &bootpages_list[i],
-            (nr_bootpages - i) * sizeof(*bootpages_list));
+    memmove(&memchunks_list[i + 1], &memchunks_list[i],
+            (nr_memchunks - i) * sizeof(*memchunks_list));
 
-    bootpages_list[i] = (struct bootpage){ start, end };
-    nr_bootpages++;
+    memchunks_list[i] = (struct memchunk){ start, end };
+    nr_memchunks++;
 }
 
-static void __bootfunc bootpages_zap(unsigned long start,
+static void __bootfunc memchunks_zap(unsigned long start,
                                      unsigned long end) {
     unsigned int i;
 
-    for (i = 0; i < nr_bootpages; i++) {
-        struct bootpage *bp = &bootpages_list[i];
-        if (end <= bp->start)
+    for (i = 0; i < nr_memchunks; i++) {
+        struct memchunk *mc = &memchunks_list[i];
+        if (end <= mc->start)
             break;
-        if (start >= bp->end)
+        if (start >= mc->end)
             continue;
-        if (start <= bp->start)
-            bp->start = min(end, bp->end);
-        else if (end >= bp->end)
-            bp->end = start;
+        if (start <= mc->start)
+            mc->start = min(end, mc->end);
+        else if (end >= mc->end)
+            mc->end = start;
         else {
-            unsigned long _end = bp->end;
-            bp->end = start;
-            bootpages_add(end, _end);
+            unsigned long _end = mc->end;
+            mc->end = start;
+            memchunks_add(end, _end);
         }
     }
 }
 
-pfn_t __bootfunc get_bootpages(unsigned long nr_pfns,
+pfn_t __bootfunc get_memchunks(unsigned long nr_pfns,
                                unsigned long pfn_align)
 {
     unsigned long pg, _end;
-    unsigned int i = nr_bootpages;
+    unsigned int  i = 0;
 
-    BUG_ON(!nr_bootpages);
+    BUG_ON(!nr_memchunks);
+    MSGQ(false, "Tryna Allocate %4lu PFNs out from %3u Memchunks @_@\n",
+            nr_pfns, nr_memchunks);
 
-    while (i--) {
-        struct bootpage *bp = &bootpages_list[i];
+    while (i++ < nr_memchunks) {
+        struct memchunk *mc = &memchunks_list[i];
 
-        pg = (bp->end - nr_pfns) & ~(pfn_align - 1);
-        if (pg >= bp->end || pg < bp->start)
+        pg = (mc->end - nr_pfns) & ~(pfn_align - 1);
+
+        if (pg >= mc->end || pg < mc->start)
             continue;
 
-        _end = bp->end;
-        bp->end = pg;
-        bootpages_add(pg + nr_pfns, _end);
+        _end = mc->end;
+        mc->end = pg;
+        memchunks_add(pg + nr_pfns, _end);
+
+        MSGQ(true, "Note [%08lx - %08lx] (%2lu PFNs) been Allocated out from "
+                    "Memchunk<%3u> [%08lx - %08lx]\n",
+              pg + nr_pfns, _end, nr_pfns, i, mc->start, mc->end);
 
         return pfn_set(pg);
     }
+
+    /* XXX: Check the usage when memchunk allocator crashed here */
+    MSGE("Ain't no Memchunks [%3u/%3u] When Tryna Get %4lu PFNs\n",
+            i > nr_memchunks ? 257 : i, nr_memchunks, nr_pfns);
 
     BUG();
 
@@ -129,7 +144,7 @@ pfn_t __bootfunc get_bootpages(unsigned long nr_pfns,
     return INVALID_PFN;
 }
 
-void __bootfunc bootpages_setup(paddr_t ps, paddr_t pe)
+void __bootfunc memchunks_setup(paddr_t ps, paddr_t pe)
 {
     ps = ROUND_PGUP(ps);
     pe = ROUND_PGDOWN(pe);
@@ -138,27 +153,14 @@ void __bootfunc bootpages_setup(paddr_t ps, paddr_t pe)
         return;
 
     first_valid_pfn = pfn_min(pa_to_pfn(ps), first_valid_pfn);
-    bootpages_add(ps >> PAGE_SHIFT, pe >> PAGE_SHIFT);
+    memchunks_add(ps >> PAGE_SHIFT, pe >> PAGE_SHIFT);
 }
 // --------------------------------------------------------------
-
-static void __bootfunc __bootmem_setup(void)
-{
-    struct membanks *mbs = get_resv_membanks();
-    unsigned int bank;
-
-    /* Set up boot pages allocators.
-     */
-    for (bank = 0; bank < mbs->stats.nr_banks; bank++) {
-        bootpages_setup(mbs->banks[bank].start,
-                        mbs->banks[bank].start + mbs->banks[bank].size);
-    }
-}
-
 static void __bootfunc directmap_setup(unsigned long base_pfn,
                             unsigned long nr_pfns)
 {
     int rc;
+    const struct hypos_board *this_board = board_get();
 
     /* First call sets the directmap physical and virtual offset. */
     if (pfn_eq(directmap_pfn_start, INVALID_PFN)) {
@@ -167,13 +169,8 @@ static void __bootfunc directmap_setup(unsigned long base_pfn,
 
         directmap_pfn_start  = pfn_set(base_pfn);
         directmap_base_idx   = __pfn_to_idx(base_pfn);
-        directmap_va_start   = HYPOS_DIRECTMAP_START
+        directmap_va_start   = this_board->vmem.directmap.start
             + (base_pfn - pfn_gb) * PAGE_SIZE;
-
-        MSGI("[globl] directmap_base_idx    %016lx\n"
-             "        pfn_gb (Local)        %016lx\n"
-             "        directmap_va_start    %016lx\n",
-                directmap_base_idx, pfn_gb, directmap_va_start);
     }
 
     if (base_pfn < pfn_get(directmap_pfn_start))
@@ -184,180 +181,204 @@ static void __bootfunc directmap_setup(unsigned long base_pfn,
             nr_pfns, PAGE_HYPOS_RW | _PAGE_BLOCK);
     if (rc)
         exec_panic("Unable to Setup the Direct Mappings.\n");
-
-    MSGO("<%s> Finished\n", __func__);
 }
 
-static void __bootfunc pageframe_setup(paddr_t ps, paddr_t pe)
+static void __bootfunc pgframe_setup(paddr_t ps, paddr_t pe)
 {
     unsigned long nr_idx = pfn_to_idx(pfn_add(pa_to_pfn(pe), -1))
-            - pfn_to_idx(pa_to_pfn(ps)) + 1;
-    unsigned long pageframe_size = nr_idx * sizeof(struct page);
-    pfn_t base_pfn;
-    const unsigned long map_size = pageframe_size < MB(32) ? MB(2) : MB(32);
-    int rc;
+                           - pfn_to_idx(pa_to_pfn(ps)) + 1;
+    unsigned long pgframe_size = nr_idx * sizeof(struct page);
+    const struct hypos_vmem *vmem = vmem_get();
+    pfn_t base_pfn, tmp_pfn;
+    int rc, i = pgframe_size >> PAGE_SHIFT;
 
-    pageframe_base_idx = pfn_to_idx(pa_to_pfn(ps));
-    pageframe_size     = ROUNDUP(pageframe_size, map_size);
-    base_pfn           = get_bootpages(pageframe_size >> PAGE_SHIFT,
-                                      32 << (20 - 12));
-    rc = map_pages(HYPOS_BOOTMEM_START, base_pfn,
-                   pageframe_size >> PAGE_SHIFT,
+    if (pgframe_size > vmem->boot.size)
+        exec_panic("The Frame Can't Cover the PA [%016lx - %016lx]\n",
+                ps, pe);
+
+    pgframe_base_idx = pfn_to_idx(pa_to_pfn(ps));
+
+    for (; i > 0; i--) {
+        tmp_pfn = get_memchunks(1, 1);
+        if (i == 1)
+            base_pfn = tmp_pfn;
+    }
+
+    MSGQ(true, "Page Frame Table Base PFN %08lx Size of %8lu Bytes\n",
+            pfn_get(base_pfn), pgframe_size);
+
+    rc = map_pages(vmem->boot.start, base_pfn,
+                   pgframe_size >> PAGE_SHIFT,
                    PAGE_HYPOS_RW | _PAGE_BLOCK);
     if (rc)
-        exec_panic("Unable to setup pageframe mapping");
+        exec_panic("Unable to setup pgframe mapping");
 
-    memset(&pageframe[0], 0, nr_idx * sizeof(struct page));
-    memset(&pageframe[nr_idx], -1, pageframe_size - (nr_idx * sizeof(struct page)));
+    memset(&pgframe[0], 0, nr_idx * sizeof(struct page));
+    memset(&pgframe[nr_idx], -1, pgframe_size -
+            (nr_idx * sizeof(struct page)));
 
-    pageframe_va_end = HYPOS_BOOTMEM_START + (nr_idx * sizeof(struct page));
+    pgframe_va_end = vmem->boot.start
+            + (nr_idx * sizeof(struct page));
 }
-
 // --------------------------------------------------------------
-#define IDX_GROUP_SHIFT PGTBL_LEVEL_SHIFT(2)
-
-#define IDX_GROUP_COUNT ((1 << IDX_GROUP_SHIFT) / \
-                         (ISOLATE_LSB(sizeof(*pageframe))))
-
-unsigned long __read_mostly idx_group_valid[BITS_TO_LONGS(
-    (NR_PAGEFRAME + IDX_GROUP_COUNT - 1) / IDX_GROUP_COUNT)] = { [0] = 1 };
-
-void set_idx_range(unsigned long smfn, unsigned long emfn)
+static void __bootfunc dump_va(void)
 {
-    unsigned long idx, eidx;
+    const struct hypos_board *this_board = board_get();
 
-    idx = __pfn_to_idx(smfn) / IDX_GROUP_COUNT;
-    eidx = (__pfn_to_idx(emfn - 1) + IDX_GROUP_COUNT) / IDX_GROUP_COUNT;
-
-    for ( ; idx < eidx; ++idx)
-        set_bit(idx, idx_group_valid);
-}
-
-static void __bootfunc idx_setup(void)
-{
-    paddr_t bank_start, bank_size, bank_end;
-    struct membanks *mbs = get_resv_membanks();
-    int bank;
-
-    for (bank = 0 ; bank < mbs->stats.nr_banks; bank++) {
-        bank_start = mbs->banks[bank].start;
-        bank_size = mbs->banks[bank].size;
-        bank_end = bank_start + bank_size;
-
-        set_idx_range(__pa_to_pfn(bank_start),
-                      __pa_to_pfn(bank_end));
-    }
-}
-
-// --------------------------------------------------------------
-static void __bootfunc dump_va_layout(void)
-{
     MSGI("[globl] Virtual Memory Layout                                  @_@\n"
          "        ----------------------------------------------------------\n"
          "        Region           Size                                Range\n"
          "        ----------------------------------------------------------\n"
          "        DATA     %8lu MB [%016lx - %016lx]\n"
          "        FIXMAP   %8lu KB [%016lx - %016lx]\n"
-         "        BOOTMEM  %8lu MB [%016lx - %016lx]\n"
+         "        BOOT     %8lu MB [%016lx - %016lx]\n"
          "        VMAP     %8lu MB [%016lx - %016lx]\n"
          "        DMAP     %8lu MB [%016lx - %016lx]\n"
          "        ----------------------------------------------------------\n",
-         HYPOS_DATA_VIRT_SIZE / MB(1),
-         HYPOS_DATA_VIRT_START,
-         HYPOS_DATA_VIRT_START + HYPOS_DATA_VIRT_SIZE,
-         (FIXADDR_END - FIXADDR_START) / KB(1),
-         FIXADDR_START, FIXADDR_END,
-         HYPOS_BOOTMEM_SIZE / MB(1),
-         HYPOS_BOOTMEM_START,
-         HYPOS_BOOTMEM_END,
-         HYPOS_VMAP_VIRT_SIZE / MB(1),
-         HYPOS_VMAP_VIRT_START,
-         HYPOS_VMAP_VIRT_END,
-         HYPOS_DIRECTMAP_SIZE / MB(1),
-         HYPOS_DIRECTMAP_START,
-         HYPOS_DIRECTMAP_END);
+         this_board->vmem.data.size / MB(1),
+         this_board->vmem.data.start,
+         this_board->vmem.data.end,
+         this_board->vmem.fixmap.size / KB(1),
+         this_board->vmem.fixmap.start,
+         this_board->vmem.fixmap.end,
+         this_board->vmem.boot.size / MB(1),
+         this_board->vmem.boot.start,
+         this_board->vmem.boot.end,
+         this_board->vmem.vmap.size / MB(1),
+         this_board->vmem.vmap.start,
+         this_board->vmem.vmap.end,
+         this_board->vmem.directmap.size / MB(1),
+         this_board->vmem.directmap.start,
+         this_board->vmem.directmap.end);
 }
 
-int __bootfunc board_ram_setup(void)
+static void __bootfunc mbh_setup(paddr_t ps, paddr_t pe)
 {
-    struct membanks *mbs = get_resv_membanks();
-    struct hypos_board *this_board = board_setup();
-    paddr_t code_spaddr = get_globl()->boot_spaddr;
-    paddr_t code_epaddr = get_globl()->boot_epaddr;
-    size_t bank_size = HYPOS_BOOTMEM_SIZE / NR_MEMBANKS;
-    paddr_t resv_mem_start;
-    int bank;
+    struct membanks *mbh = get_heap_membanks();
+    unsigned int bank;
+    size_t bank_size = (pe - ps) / mbh->stats.max_banks;
 
-    if (this_board->dram.start != code_spaddr)
+    /* Set up heap membanks */
+    for (bank = 0; bank < mbh->stats.max_banks; bank++) {
+        mbh->banks[bank].start = ps + (bank * bank_size);
+        mbh->banks[bank].size  = bank_size;
+        mbh->banks[bank].type  = STATIC_MEMBANK_TYPE;
+        mbh->stats.nr_banks++;
+    }
+
+    mbh->range.start = ps;
+    mbh->range.end = mbh->banks[mbh->stats.nr_banks - 1].start + bank_size;
+
+    ASSERT(mbh->range.end <= pe);
+}
+
+static void __bootfunc mbb_setup(paddr_t ps, paddr_t pe)
+{
+    struct membanks *mbb = get_boot_membanks();
+    const struct hypos_vmem *vmem = vmem_get();
+    size_t bank_size = vmem->boot.size / mbb->stats.max_banks;
+    unsigned int bank;
+    unsigned long mb_start, mb_end;
+
+    /* Set up boot membanks */
+    for (bank = 0; bank < mbb->stats.max_banks; bank++) {
+        mbb->banks[bank].start = ps + (bank * bank_size);
+        mbb->banks[bank].size  = bank_size;
+        mbb->banks[bank].type  = HEAP_MEMBANK_TYPE;
+        mbb->stats.nr_banks++;
+    }
+
+    mbb->range.start = ps;
+    mbb->range.end = mbb->banks[mbb->stats.nr_banks - 1].start + bank_size;
+
+    ASSERT(mbb->range.end == pe);
+
+    /* Set up memchunk allocators. */
+    for (bank = 0; bank < mbb->stats.nr_banks; bank++) {
+        const struct membank *mb = &mbb->banks[bank];
+        memchunks_setup(mb->start, mb->start + mb->size);
+    }
+
+    /* Set up direct mapping for page frames */
+    for (bank = 0; bank < mbb->stats.nr_banks; bank++) {
+        const struct membank *mb = &mbb->banks[bank];
+        mb_start = min(mb->start, mb_start);
+        mb_end   = max(mb->start + mb->size, mb_end);
+
+        directmap_setup(PFN_DOWN(mb->start),
+                        PFN_DOWN(mb->size));
+    }
+}
+
+/* Now First of All, Save Enough Memory Space for Page Frames:
+ *
+ * Number of PFNs = ram_size / PAGE_SIZE
+ * Reserved Memory = Number of PFNs * sizeof(struct page)
+ */
+static void __bootfunc mb_setup(void)
+{
+    struct hypos_pmem *pmem = pmem_get();
+    struct hypos_vmem *vmem = vmem_get();
+    const paddr_t code_spaddr = get_globl()->boot_spaddr;
+    const paddr_t code_epaddr = get_globl()->boot_epaddr;
+
+    if (pmem->dram.start != code_spaddr)
         MSGE("Code ain't Start at %016lx but %016lx\n",
-                this_board->dram.start, code_spaddr);
+                pmem->dram.start, code_spaddr);
 
     MSGI("[globl] Physical Memory Available                              @_<\n"
          "        ----------------------------------------------------------\n"
-         "        DRAM  [%016lx - %016lx] %8lu MB\n"
-         "        USED  [%016lx - %016lx] %8lu BYTES\n"
+         "        DRAM  [%016lx - %016lx]    %8lu MB\n"
+         "        USED  [%016lx - %016lx)    %8lu KB\n"
+         "        LEFT  [%016lx - %016lx]    %8lu MB\n"
          "        ----------------------------------------------------------\n",
-         this_board->dram.start, this_board->dram.end,
-         this_board->dram.size / MB(1),
+         pmem->dram.start,
+         pmem->dram.end,
+         pmem->dram.size / MB(1),
          code_spaddr, code_epaddr,
-         (code_epaddr - code_spaddr));
+         (code_epaddr - code_spaddr) / KB(1),
+         code_epaddr, pmem->dram.end,
+         (pmem->dram.end - code_epaddr) / MB(1));
 
-    resv_mem_start = PAGE_ALIGN(code_epaddr);
+    pmem->nr_pfns = (pmem->dram.end - code_epaddr) / PAGE_SIZE;
 
-    for (bank = 0; bank < mbs->stats.max_banks; bank++) {
-        mbs->banks[bank].start = resv_mem_start + (bank * PAGE_SIZE);
-        mbs->banks[bank].size  = bank_size;
-        mbs->stats.nr_banks++;
-    }
+    MSGH("This Board Needs to Set up %8lu PFNs (Size of %4lu MB)\n",
+        pmem->nr_pfns, (pmem->nr_pfns * sizeof(struct page)) / MB(1));
 
-    DEBUG("Reserved Membanks been Initialized [%u Banks]\n",
-            mbs->stats.nr_banks);
+    mbb_setup(code_epaddr, code_epaddr + vmem->boot.size);
 
-    return 0;
+    mbh_setup(code_epaddr + vmem->boot.size, pmem->dram.end);
 }
 
 int __bootfunc bootmem_setup(void)
 {
-    const struct membanks *mbs = get_resv_membanks();
+    const struct membanks *mbb = (const struct membanks *)get_boot_membanks();
+    const struct membanks *mbh = (const struct membanks *)get_heap_membanks();
     unsigned int bank;
-    unsigned long mb_start = 0, mb_end = 0, mb_size = 0,
-                  mbs_start = 0, mbs_end = 0, mbs_size = 0;
+    unsigned long mbh_start = INVALID_PADDR,
+                  mbh_end = 0,
+                  mbh_size = 0;
 
-    dump_va_layout();
+    dump_va();
 
-    idx_setup();
+    mb_setup();
 
-    __bootmem_setup();
+    pgframe_setup(mbb->range.start, mbb->range.end);
 
-    for (bank = 0; bank < mbs->stats.max_banks; bank++) {
-        mb_start = mbs->banks[bank].start;
-        mb_size  = mbs->banks[bank].size;
-        mb_end   = mb_start + mb_size;
-
-        mbs_start = min(mb_start, mbs_start);
-        mbs_size += mb_size;
-        mbs_end   = max(mb_end, mbs_end);
-
-        directmap_setup(PFN_DOWN(mb_start),
-                        PFN_DOWN(mb_size));
-    }
-
-    DEBUG("[banks] MEMBANK [%016lx - %016lx] of %8lx MB\n",
-            mbs_start, mbs_end, mbs_size / MB(1));
-
-    pageframe_total_pages = mbs_size >> PAGE_SHIFT;
-    directmap_va_end      = HYPOS_HEAP_VIRT_START + mbs_end - mbs_start;
-    directmap_pfn_start   = pa_to_pfn(mbs_start);
-    directmap_pfn_end     = pa_to_pfn(mbs_end);
+    pgframe_total_pages = mbh_size >> PAGE_SHIFT;
+    directmap_va_end    = HYPOS_HEAP_VIRT_START + mbh_end - mbh_start;
+    directmap_pfn_start = pa_to_pfn(mbh_start);
+    directmap_pfn_end   = pa_to_pfn(mbh_end);
 
     MSGI("[globl] directmap_va_end      %016lx\n"
          "        directmap_pfn_start   %016lx\n"
          "        directmap_pfn_end     %016lx\n"
-         "        pageframe_total_pages %016lx\n",
+         "        pgframe_total_pages   %16lu\n",
         directmap_va_end, pfn_get(directmap_pfn_start),
-        pfn_get(directmap_pfn_end), pageframe_total_pages);
+        pfn_get(directmap_pfn_end), pgframe_total_pages);
 
-    pageframe_setup(mbs_start, mbs_end);
+
+    pgframe_max_pages = PFN_DOWN(mbh_end);
 
     return 0;
 }

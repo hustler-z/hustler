@@ -10,8 +10,12 @@
 #define _ARCH_GLOBAL_H
 // --------------------------------------------------------------
 #ifndef __ASSEMBLY__
+#include <common/type.h>
 
 struct arch_globl {
+    paddr_t boot_ttbr;
+    paddr_t exec_ttbr;
+
     /* page allocation related */
 
 };

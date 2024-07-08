@@ -54,7 +54,7 @@ void __bootfunc vm_init_type(enum vmap_region type, void *start, void *end)
         int rc;
 
         if (get_globl()->boot_status == EARLY_BOOT_STAGE)
-            pfn = get_bootpages(1, 1);
+            pfn = get_memchunks(1, 1);
         else {
             struct page *pg = alloc_page(0);
 
@@ -126,7 +126,7 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
             return NULL;
 
         if (get_globl()->boot_status == EARLY_BOOT_STAGE)
-            pfn = get_bootpages(1, 1);
+            pfn = get_memchunks(1, 1);
         else {
             struct page *pg = alloc_page(0);
 
@@ -150,7 +150,7 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
         }
 
         if (get_globl()->boot_status == EARLY_BOOT_STAGE)
-            bootpages_setup(pfn_to_pa(pfn), pfn_to_pa(pfn) + PAGE_SIZE);
+            memchunks_setup(pfn_to_pa(pfn), pfn_to_pa(pfn) + PAGE_SIZE);
         else
             free_page(pfn_to_page(pfn));
 

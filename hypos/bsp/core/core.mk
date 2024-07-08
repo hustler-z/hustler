@@ -36,3 +36,4 @@ core-y += mutex.o
 core-y += refcount.o
 core-y += syms.o
 core-y += numa.o
+core-y += board.o

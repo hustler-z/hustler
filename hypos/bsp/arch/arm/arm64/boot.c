@@ -35,7 +35,7 @@ void section_map_dump(void)
 
 int __bootfunc hcpu_setup(void)
 {
-    MSGH("[ENV]  phys_offset - 0x%016lx\n",
+    MSGQ(true, "[check] phys_offset - 0x%016lx\n",
             get_globl()->phys_offset);
 
     section_map_dump();

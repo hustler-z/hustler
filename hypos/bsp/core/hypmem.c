@@ -1216,22 +1216,22 @@ int __init end_boot_allocator(void)
     unsigned int i;
 
     /* Pages that are free now go to the domain sub-allocator. */
-    for (i = 0; i < nr_bootpages; i++) {
-        struct bootpages *r = &bootpages_list[i];
-        if ((bp->start < bp->end) &&
-            (pfn_to_nid(_pfn(bp->start)) == cpu_to_node(0))) {
-            pages_setup(pfn_to_page(_pfn(bp->start)), bp->end - bp->start);
-            bp->end = bp->start;
+    for (i = 0; i < nr_memchunks; i++) {
+        struct memchunks *r = &memchunks_list[i];
+        if ((mc->start < mc->end) &&
+            (pfn_to_nid(_pfn(mc->start)) == cpu_to_node(0))) {
+            pages_setup(pfn_to_page(_pfn(mc->start)), mc->end - mc->start);
+            mc->end = mc->start;
             break;
         }
     }
-    for (i = nr_bootpages; i-- > 0; ) {
-        struct bootpages *r = &bootpages_list[i];
-        if (bp->start < bp->end)
-            pages_setup(pfn_to_page(_pfn(bp->start)), bp->end - bp->start)
+    for (i = nr_memchunks; i-- > 0; ) {
+        struct memchunks *r = &memchunks_list[i];
+        if (mc->start < mc->end)
+            pages_setup(pfn_to_page(_pfn(mc->start)), mc->end - mc->start)
     }
 
-    nr_bootpages = 0;
+    nr_memchunks = 0;
 
     if (!dma_bitsize && arch_want_default_dmazone())
         dma_bitsize = arch_get_dma_bitsize();
@@ -1358,32 +1358,32 @@ void mfree(void *p)
 
 }
 // --------------------------------------------------------------
-extern unsigned int nr_bootpages;
-extern struct bootpage bootpages_list[];
+extern unsigned int nr_memchunks;
+extern struct memchunk memchunks_list[];
 
 int __bootfunc hypmem_setup(void)
 {
     unsigned int i;
 
-    for (i = 0; i < nr_bootpages; i++) {
-        struct bootpage *bp = &bootpages_list[i];
-        if ((bp->start < bp->end) &&
-            (pfn_to_nid(pfn_set(bp->start)) == cpu_to_node(0))) {
-            _pages_setup(pfn_to_page(pfn_set(bp->start)),
-                    bp->end - bp->start);
-            bp->end = bp->start;
+    for (i = 0; i < nr_memchunks; i++) {
+        struct memchunk *mc = &memchunks_list[i];
+        if ((mc->start < mc->end) &&
+            (pfn_to_nid(pfn_set(mc->start)) == cpu_to_node(0))) {
+            _pages_setup(pfn_to_page(pfn_set(mc->start)),
+                    mc->end - mc->start);
+            mc->end = mc->start;
             break;
         }
     }
 
-    for (i = nr_bootpages; i-- > 0; ) {
-        struct bootpage *bp = &bootpages_list[i];
-        if (bp->start < bp->end)
-            _pages_setup(pfn_to_page(pfn_set(bp->start)),
-                    bp->end - bp->start);
+    for (i = nr_memchunks; i-- > 0; ) {
+        struct memchunk *mc = &memchunks_list[i];
+        if (mc->start < mc->end)
+            _pages_setup(pfn_to_page(pfn_set(mc->start)),
+                    mc->end - mc->start);
     }
 
-    nr_bootpages = 0;
+    nr_memchunks = 0;
 
     return 0;
 }

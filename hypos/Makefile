@@ -131,7 +131,7 @@ SYSTEM_MAP = $(NM) $1 | \
 # ---------------------------------------------------------------
 # Recompile the "hypos" with Debug Symbols on.
 cc_dumpsym = $(Q)mkdir -p `dirname $(1)`; \
-             echo "DUMPSYM  $(subst $(OUTPUT)/,,$(1)) (with Symbols)"; \
+             echo "DUMPSYM  $(subst $(OUTPUT)/,,$(1))"; \
              gcc doc/dumpsym.c -o $(OUTPUT)/dumpsym; \
              $(NM) -pa $(2) | $(OUTPUT)/dumpsym --all-symbols --sort-by-name --sort > $(SYM).S; \
              $(CC) $(AFLAGS) -c $(SYM).S -o $(SYM).o; \
@@ -153,7 +153,7 @@ cc_objcopy = $(Q)mkdir -p `dirname $(1)`; \
 # ---------------------------------------------------------------
 # Link all *.o Files into an Executable.
 cc_ld      = $(Q)mkdir -p `dirname $(1)`; \
-             echo "LD       $(subst $(OUTPUT)/,,$(1))     (with no Symbols)"; \
+             echo "LD       $(subst $(OUTPUT)/,,$(1))"; \
              $(CC) $(3) $(LDFLAGS) -T$(2) -o $(1)
 # ---------------------------------------------------------------
 cc_cc      = $(Q)mkdir -p `dirname $(1)`; \

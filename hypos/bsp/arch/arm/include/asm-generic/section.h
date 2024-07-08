@@ -16,6 +16,7 @@
 #define __bootfunc          __section(".boot.setup")
 #define __thread_percpu     __section(".bss.thread_percpu")
 #define __ro_after_init     __section(".data.ro_after_init")
+#define __board_data        __section(".board.data")
 
 extern char __hypos_start[], __hypos_end[];
 #define is_core_section(v) ({                      \

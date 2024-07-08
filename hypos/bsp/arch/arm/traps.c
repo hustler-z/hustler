@@ -345,7 +345,7 @@ static void dump_far(unsigned long esr)
         extra = __fault_status_code(hesr.iss, &level);
 
     MSGI("@_@\n");
-    MSGI("ESR     %016lx (%s <%s>  IL %u Bits  Level %u)\n"
+    MSGI("ESR     %016lx [%s <%s> IL %u-Bits Level %u]\n"
          "ISS     %08x %s [%c]\n"
          "FAR     %016lx\n",
          hesr.bits, eclass, el_code, hesr.len ? 32 : 16, level,
@@ -453,7 +453,7 @@ static void dump_execution_status(struct hcpu_regs *regs,
         char *tag)
 {
     MSGE("------------------ [Hypervisor Crashed] ------------------\n");
-    MSGI("        HYPOS F-ing Dead like a Head Shot at a Zombie  >_@\n");
+    MSGI("        HYPOS F-ing Dead like a Head Shot at a Zombie  "BLANK_ALIGN">_@\n");
     dump_far(regs->esr);
     dump_regs(regs);
     dump_stack(regs);
@@ -482,7 +482,8 @@ void do_bad_sync(struct hcpu_regs *regs)
 {
     local_irq_enable();
     dump_execution_status(regs, bad_tags[SYNC_CODE]);
-    trap_panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      >_@",
+    trap_panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      "
+               "                 >_@",
             bad_tags[SYNC_CODE]);
 }
 
@@ -493,7 +494,8 @@ void do_bad_irq(struct hcpu_regs *regs)
 {
     local_irq_enable();
     dump_execution_status(regs, bad_tags[IRQ_CODE]);
-    trap_panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      >_@",
+    trap_panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      "
+               "                 >_@",
             bad_tags[IRQ_CODE]);
 }
 
@@ -504,7 +506,8 @@ void do_bad_fiq(struct hcpu_regs *regs)
 {
     local_irq_enable();
     dump_execution_status(regs, bad_tags[FIQ_CODE]);
-    trap_panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      >_@",
+    trap_panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      "
+               "                 >_@",
             bad_tags[FIQ_CODE]);
 }
 
@@ -515,7 +518,8 @@ void do_bad_error(struct hcpu_regs *regs)
 {
     local_irq_enable();
     dump_execution_status(regs, bad_tags[ERROR_CODE]);
-    trap_panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      >_@",
+    trap_panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      "
+               "                 >_@",
             bad_tags[ERROR_CODE]);
 }
 

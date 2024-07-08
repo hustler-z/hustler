@@ -81,9 +81,16 @@ SECTIONS
 
     . = ALIGN(PAGE_SIZE);
 
-    /* Use for storing global data:
-     * (a) device drivers
-     * (b) some necessities
+    /* Store Board Related Infos
+     */
+    .board : {
+        *(board.data)
+        . = ALIGN(8);
+    } : data
+
+    . = ALIGN(PAGE_SIZE);
+
+    /* Use for Storing Global Device Data
      */
     __hypos_list : {
         KEEP(*(SORT(__hypos_list*)));

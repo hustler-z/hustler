@@ -30,6 +30,7 @@ struct hypos_globl {
     bool                keyboard_enable;
     bool                print_once;
     unsigned int        boot_status; /* hypos_boot_status */
+    unsigned int        board_type;
     unsigned long       phys_offset;
     unsigned long       boot_param;
     paddr_t             boot_spaddr;

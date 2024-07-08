@@ -23,6 +23,9 @@
 #define DEBUG(fmt, ...)
 #endif
 
+/* For Better LOG Alignment */
+#define BLANK_ALIGN    "        "
+
 #define MSGH(fmt, ...) pr("[hypos] "fmt, ##__VA_ARGS__)
 #define MSGI(fmt, ...) pr(fmt, ##__VA_ARGS__)
 #define MSGE(fmt, ...) pr("[error] "fmt, ##__VA_ARGS__)
