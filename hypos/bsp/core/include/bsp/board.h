@@ -44,7 +44,15 @@ struct hypos_pmem {
         const size_t  size;
     } flush;
 
-    /* Number of PFNs for the Whole RAM */
+    /* Available physical memory for hypos
+     * memory space mapping.
+     */
+    struct {
+        paddr_t start;
+        paddr_t end;
+    } avail;
+
+    /* Number of PFNs for the whole RAM */
     size_t nr_pfns;
 };
 

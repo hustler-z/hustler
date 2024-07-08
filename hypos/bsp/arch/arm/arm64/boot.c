@@ -22,20 +22,22 @@ struct boot_setup boot_setup = {
 
 void section_map_dump(void)
 {
-    MSGH("<MAPS> Code Section Dump:\n");
-    MSGH("<TEXT> R E [0x%016lx - 0x%016lx] %6lu KB\n",
-            (unsigned long)__hypos_start,
-            (unsigned long)__hypos_text_end,
-            text_section_size() / KB(1));
-    MSGH("<DATA> RWE [0x%016lx - 0x%016lx] %6lu KB\n",
-            (unsigned long)__hypos_data_start,
-            (unsigned long)__hypos_end,
-            data_section_size() / KB(1));
+    MSGI("[globl] Section map dump:\n"
+         BLANK_ALIGN"----------------------------------------------------------\n"
+         BLANK_ALIGN"<TEXT>  R E  [%016lx - %016lx]  %3lu KB\n"
+         BLANK_ALIGN"<DATA>  RWE  [%016lx - %016lx]  %3lu KB\n"
+         BLANK_ALIGN"----------------------------------------------------------\n",
+        (unsigned long)__hypos_start,
+        (unsigned long)__hypos_text_end,
+        text_section_size() / KB(1),
+        (unsigned long)__hypos_data_start,
+        (unsigned long)__hypos_end,
+        data_section_size() / KB(1));
 }
 
 int __bootfunc hcpu_setup(void)
 {
-    MSGQ(true, "[check] phys_offset - 0x%016lx\n",
+    MSGQ(true, "Note phys_offset - 0x%016lx\n",
             get_globl()->phys_offset);
 
     section_map_dump();

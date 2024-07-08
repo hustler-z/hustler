@@ -13,7 +13,7 @@
 #include <asm-generic/section.h>
 #include <asm-generic/globl.h>
 #include <asm-generic/spinlock.h>
-#include <asm-generic/bootmem.h>
+#include <asm-generic/membank.h>
 #include <common/errno.h>
 #include <common/type.h>
 #include <lib/bitops.h>

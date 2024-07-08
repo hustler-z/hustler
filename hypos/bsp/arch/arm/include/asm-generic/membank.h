@@ -12,8 +12,8 @@
 #include <asm/at.h>
 #include <common/type.h>
 
-/* Boot-time Allocaters */
-#define NR_MEMBANKS         (256) /* Total of 256 Boot Pages */
+/* Boot-time Allocaters for Page Frame Table and other Purposes */
+#define NR_BOOT_MEMBANKS    (8)      /* Total of 8 Boot Pages */
 #define INVALID_PADDR       (~0UL)
 
 struct membank {
@@ -24,7 +24,7 @@ struct membank {
 };
 
 enum membank_type {
-    STATIC_MEMBANK_TYPE,
+    PAGE_MEMBANK_TYPE,
     HEAP_MEMBANK_TYPE,
     INVALID_MEMBANK_TYPE,
 };
@@ -40,12 +40,12 @@ struct membanks {
         paddr_t end;
     } range;
 
-    struct membank banks[NR_MEMBANKS];
+    struct membank banks[NR_BOOT_MEMBANKS];
 };
 
-struct bootmem {
-    struct membanks boot_mem;
-    struct membanks heap_mem;
+struct memblock {
+    struct membanks boot_mbs;
+    /* TODO */
 };
 
 struct memchunk {

@@ -284,14 +284,14 @@ static inline paddr_t _va_to_pa(vaddr_t va) {
 #define pfn_to_idx(pfn)         __pfn_to_idx(pfn_get(pfn))
 #define idx_to_pfn(idx)         pfn_set(__idx_to_pfn(idx))
 // --------------------------------------------------------------
-extern unsigned long pgframe_base_idx;
-extern unsigned long pgframe_va_end;
+extern unsigned long page_frame_table_base_idx;
+extern unsigned long page_frame_table_va_end;
 // --------------------------------------------------------------
 #define pfn_to_page(pfn) \
-    (pgframe + (pfn_to_idx(pfn) - pgframe_base_idx))
+    (page_frame_table + (pfn_to_idx(pfn) - page_frame_table_base_idx))
 
 #define page_to_pfn(pg) \
-    (idx_to_pfn((unsigned long)((pg) - pgframe) + pgframe_base_idx))
+    (idx_to_pfn((unsigned long)((pg) - page_frame_table) + page_frame_table_base_idx))
 
 #define vmap_to_pfn(va)    pa_to_pfn(va_to_pa((vaddr_t)(va)))
 #define vmap_to_page(va)   pfn_to_page(vmap_to_pfn(va))
@@ -393,14 +393,14 @@ struct pglist_head {
     struct page *next, *tail;
 };
 
-#define pgframe                 ((struct page *)HYPOS_PGFRAME_START)
-#define page_to_idx(pg)         ((pg) - pgframe)
-#define idx_to_page(idx)        (pgframe + (idx))
+#define page_frame_table        ((struct page *)HYPOS_PAGE_FRAME_START)
+#define page_to_idx(pg)         ((pg) - page_frame_table)
+#define idx_to_page(idx)        (page_frame_table + (idx))
 
 #define pa_to_page(pa)          pfn_to_page(pa_to_pfn(pa))
 #define page_to_pa(pg)          (pfn_to_pa(page_to_pfn(pg)))
 
-#define NR_PAGEFRAME            (HYPOS_PGFRAME_SIZE / sizeof(*pgframe))
+#define NR_PAGEFRAME            (HYPOS_PAGE_FRAME_SIZE / sizeof(*page_frame_table))
 
 static inline struct page *va_to_page(const void *v)
 {
@@ -413,7 +413,7 @@ static inline struct page *va_to_page(const void *v)
     idx = (va - HYPOS_HEAP_VIRT_START) >> PAGE_SHIFT;
     idx += pfn_to_idx(directmap_pfn_start);
 
-    return pgframe + idx - directmap_base_idx;
+    return page_frame_table + idx - directmap_base_idx;
 }
 
 static inline void *page_to_va(const struct page *pg)

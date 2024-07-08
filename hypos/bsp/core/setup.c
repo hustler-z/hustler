@@ -11,7 +11,7 @@
 #include <asm/debug.h>
 #include <asm-generic/globl.h>
 #include <asm-generic/section.h>
-#include <asm-generic/bootmem.h>
+#include <asm-generic/membank.h>
 #include <asm-generic/smp.h>
 #include <asm/at.h>
 #include <bsp/hypmem.h>
@@ -60,8 +60,8 @@ static int __bootfunc __bootchain(const bootfunc_t *boot_sequence)
                     boot_sequence, (char *)(*boot_one), ret);
             return -1;
         } else
-            MSGH("Boot Phase %ps <%02d> Finished @_<\n",
-                    __void__(*boot_one), boot_count);
+            MSGH("Boot phase <%02d> done executing %ps() @_<\n",
+                    boot_count, __void__(*boot_one));
     }
 
     return 0;

@@ -8,7 +8,7 @@
  */
 
 #include <asm-generic/section.h>
-#include <asm-generic/bootmem.h>
+#include <asm-generic/membank.h>
 #include <asm/ttbl.h>
 #include <bsp/hypmem.h>
 #include <bsp/panic.h>

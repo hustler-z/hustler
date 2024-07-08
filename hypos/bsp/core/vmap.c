@@ -8,7 +8,7 @@
 
 #include <asm-generic/spinlock.h>
 #include <asm-generic/section.h>
-#include <asm-generic/bootmem.h>
+#include <asm-generic/membank.h>
 #include <asm-generic/globl.h>
 #include <asm/at.h>
 #include <asm/bitops.h>
@@ -16,6 +16,7 @@
 #include <lib/bitops.h>
 #include <lib/bitmap.h>
 #include <bsp/hypmem.h>
+#include <bsp/board.h>
 #include <bsp/panic.h>
 #include <bsp/vmap.h>
 
@@ -74,8 +75,10 @@ void __bootfunc vm_init_type(enum vmap_region type, void *start, void *end)
 
 int __bootfunc vmap_setup(void)
 {
-    vm_init_type(VMAP_DEFAULT, (void *)HYPOS_VMAP_VIRT_START,
-        (void *)(HYPOS_VMAP_VIRT_START + HYPOS_VMAP_VIRT_SIZE));
+    const struct hypos_vmem *vmem = vmem_get();
+
+    vm_init_type(VMAP_DEFAULT, (void *)vmem->vmap.start,
+        (void *)vmem->vmap.end);
 
     return 0;
 }

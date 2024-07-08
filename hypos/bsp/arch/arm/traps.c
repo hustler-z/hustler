@@ -454,6 +454,7 @@ static void dump_execution_status(struct hcpu_regs *regs,
 {
     MSGE("------------------ [Hypervisor Crashed] ------------------\n");
     MSGI("        HYPOS F-ing Dead like a Head Shot at a Zombie  "BLANK_ALIGN">_@\n");
+    MSGI(BLANK_ALIGN"----------------------------------------------------------\n");
     dump_far(regs->esr);
     dump_regs(regs);
     dump_stack(regs);
