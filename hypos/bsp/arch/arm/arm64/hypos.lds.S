@@ -81,15 +81,6 @@ SECTIONS
 
     . = ALIGN(PAGE_SIZE);
 
-    /* Store Board Related Infos
-     */
-    .board : {
-        *(board.data)
-        . = ALIGN(8);
-    } : data
-
-    . = ALIGN(PAGE_SIZE);
-
     /* Use for Storing Global Device Data
      */
     __hypos_list : {

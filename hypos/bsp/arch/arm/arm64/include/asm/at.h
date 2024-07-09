@@ -279,10 +279,10 @@ static inline paddr_t _va_to_pa(vaddr_t va) {
 #define pa_to_directmapoff(x) (x)
 #define directmapoff_to_pa(x) (x)
 
-#define __pfn_to_idx(x)         (x)
-#define __idx_to_pfn(x)         (x)
-#define pfn_to_idx(pfn)         __pfn_to_idx(pfn_get(pfn))
-#define idx_to_pfn(idx)         pfn_set(__idx_to_pfn(idx))
+#define __pfn_to_idx(x)  (x)
+#define __idx_to_pfn(x)  (x)
+#define pfn_to_idx(pfn)  __pfn_to_idx(pfn_get(pfn))
+#define idx_to_pfn(idx)  pfn_set(__idx_to_pfn(idx))
 // --------------------------------------------------------------
 extern unsigned long page_frame_table_base_idx;
 extern unsigned long page_frame_table_va_end;
@@ -291,10 +291,11 @@ extern unsigned long page_frame_table_va_end;
     (page_frame_table + (pfn_to_idx(pfn) - page_frame_table_base_idx))
 
 #define page_to_pfn(pg) \
-    (idx_to_pfn((unsigned long)((pg) - page_frame_table) + page_frame_table_base_idx))
+    (idx_to_pfn((unsigned long)((pg) - page_frame_table) \
+                + page_frame_table_base_idx))
 
-#define vmap_to_pfn(va)    pa_to_pfn(va_to_pa((vaddr_t)(va)))
-#define vmap_to_page(va)   pfn_to_page(vmap_to_pfn(va))
+#define vmap_to_pfn(va)  pa_to_pfn(va_to_pa((vaddr_t)(va)))
+#define vmap_to_page(va) pfn_to_page(vmap_to_pfn(va))
 // --------------------------------------------------------------
 extern unsigned long directmap_va_start;
 extern unsigned long directmap_va_end;
@@ -309,18 +310,7 @@ extern unsigned long directmap_base_idx;
      _pfn < pfn_get(directmap_pfn_end));     \
 })
 
-/* HEAP MEMBANKS (Physical Address to Virtual Address)
- *
- * [VA] 0x00000a0000000000 [PA] 0x0000000000200000        (_head)
- */
-static inline void *pa_to_va(paddr_t pa)
-{
-    ASSERT((pfn_to_idx(pa_to_pfn(pa)) - directmap_base_idx)
-           < (HYPOS_DIRECTMAP_SIZE >> PAGE_SHIFT));
-    return (void *)(HYPOS_HEAP_VIRT_START -
-                    (directmap_base_idx << PAGE_SHIFT) +
-                    pa_to_directmapoff(pa));
-}
+void *pa_to_va(paddr_t pa);
 
 #define __va(x)          (pa_to_va(x))
 #define pfn_to_va(pfn)   (pa_to_va(pfn_get(pfn) << PAGE_SHIFT))
@@ -393,7 +383,9 @@ struct pglist_head {
     struct page *next, *tail;
 };
 
-#define page_frame_table        ((struct page *)HYPOS_PAGE_FRAME_START)
+extern struct page *page_frame_table;
+void page_frame_table_init(void);
+
 #define page_to_idx(pg)         ((pg) - page_frame_table)
 #define idx_to_page(idx)        (page_frame_table + (idx))
 

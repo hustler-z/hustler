@@ -12,3 +12,4 @@ arm-y += smp.o
 arm-y += thread.o
 arm-y += membank.o
 arm-y += globl.o
+arm-y += at.o

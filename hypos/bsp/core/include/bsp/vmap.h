@@ -28,7 +28,7 @@ void *vmap_contig(pfn_t pfn, unsigned int nr);
 void vunmap(const void *va);
 
 void *vmalloc(size_t size);
-void *hvmalloc(size_t size);
+void *hypos_vmalloc(size_t size);
 
 void *vzalloc(size_t size);
 void vfree(void *va);

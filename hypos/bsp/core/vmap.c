@@ -36,7 +36,8 @@ static unsigned int __read_mostly vm_end[VMAP_REGION_NR];
 static unsigned int vm_low[VMAP_REGION_NR];
 
 // --------------------------------------------------------------
-void __bootfunc vm_init_type(enum vmap_region type, void *start, void *end)
+void __bootfunc vm_init_type(enum vmap_region type, void *start,
+        void *end)
 {
     unsigned int i, nr;
     unsigned long va;
@@ -75,10 +76,11 @@ void __bootfunc vm_init_type(enum vmap_region type, void *start, void *end)
 
 int __bootfunc vmap_setup(void)
 {
-    const struct hypos_vmem *vmem = vmem_get();
+    const struct hypos_mem_region *vmap
+                                = hypos_mem_get(VMAP_REGION);
 
-    vm_init_type(VMAP_DEFAULT, (void *)vmem->vmap.start,
-        (void *)vmem->vmap.end);
+    vm_init_type(VMAP_DEFAULT, (void *)vmap->va_start,
+                        (void *)(vmap->va_start + vmap->size));
 
     return 0;
 }
@@ -102,7 +104,9 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
     for (; ;) {
         pfn_t pfn;
 
-        ASSERT(vm_low[t] == vm_top[t] || !test_bit(vm_low[t], vm_bitmap(t)));
+        ASSERT(vm_low[t] == vm_top[t]
+                || !test_bit(vm_low[t], vm_bitmap(t)));
+
         for (start = vm_low[t]; start < vm_top[t]; ) {
             bit = find_next_bit(vm_bitmap(t), vm_top[t], start + 1);
             if (bit > vm_top[t])
@@ -112,7 +116,8 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
             if (bit < vm_top[t]) {
                 if (start + nr < bit)
                     break;
-                start = find_next_zero_bit(vm_bitmap(t), vm_top[t], bit + 1);
+                start = find_next_zero_bit(vm_bitmap(t), vm_top[t],
+                                           bit + 1);
             } else {
                 if (start + nr <= bit)
                     break;
@@ -325,7 +330,7 @@ void *vmalloc(size_t size)
     return vmalloc_type(size, VMAP_DEFAULT);
 }
 
-void *hvmalloc(size_t size)
+void *hypos_vmalloc(size_t size)
 {
     return vmalloc_type(size, VMAP_HYPOS);
 }

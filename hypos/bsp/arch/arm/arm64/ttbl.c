@@ -116,14 +116,16 @@ ttbl_t pfn_to_entry(pfn_t pfn, unsigned int attr)
         .ttbl = {
             .valid = 1,
             .table = 0,
-            .ai = attr,
-            .af = 1,
-            .ns = 1,
-            .ap = 0,  /* 0b00, 0b01 - Read & Write */
-            .ng = 1,
+            .ai   = attr,
+            .af   = 1,
+            .ns   = 1,
+            .ap   = 0,  /* 0b00, 0b01 - Read & Write */
+            .ng   = 1,
             .contig = 0,
-            .uxn = 1, /* No executable in user space */
-            .pxn = 0,
+            .uxn  = 1, /* No executable in user space */
+            .pxn  = 0,
+            .res1 = 0,
+            .res2 = 0,
         }
     };
 

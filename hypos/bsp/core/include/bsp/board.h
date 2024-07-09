@@ -17,58 +17,46 @@ enum board_option {
     /* TODO */
 };
 
-struct hypos_vmem_range {
-    const vaddr_t start;
-    const vaddr_t end;
+enum memory_region_option {
+    DATA_REGION = 0,
+    FIXMAP_REGION,
+    VMAP_REGION,
+    BOOTMEM_REGION,
+    DIRECTMAP_REGION,
+};
+
+struct hypos_mem_region {
+    const vaddr_t va_start;
     const size_t  size;
+    paddr_t       pa_start;
 };
 
-struct hypos_vmem {
-    struct hypos_vmem_range data;
-    struct hypos_vmem_range fixmap;
-    struct hypos_vmem_range boot;
-    struct hypos_vmem_range vmap;
-    struct hypos_vmem_range directmap;
+struct hypos_ram_region {
+    const paddr_t ram_start;
+    const paddr_t ram_end;
+    unsigned long nr_pfns;
+    paddr_t map_start;
+    paddr_t map_end;
 };
 
-struct hypos_pmem {
-    struct {
-        const paddr_t start;
-        const paddr_t end;
-        const size_t  size;
-    } dram;
-
-    struct {
-        const paddr_t start;
-        const paddr_t end;
-        const size_t  size;
-    } flush;
-
-    /* Available physical memory for hypos
-     * memory space mapping.
-     */
-    struct {
-        paddr_t start;
-        paddr_t end;
-    } avail;
-
-    /* Number of PFNs for the whole RAM */
-    size_t nr_pfns;
+struct hypos_mem {
+    struct hypos_ram_region *dram;
+    struct hypos_mem_region *data;
+    struct hypos_mem_region *fixmap;
+    struct hypos_mem_region *vmap;
+    struct hypos_mem_region *bootmem;
+    struct hypos_mem_region *directmap;
 };
 
 struct hypos_board {
-    struct hypos_pmem pmem;
-    struct hypos_vmem vmem;
-
+    struct hypos_mem *mem;
     /* TODO */
 
-    /* Board Name */
-    char name[32];
+    char *name; /* Board Name */
 };
 
-struct hypos_board *board_get(void);
-struct hypos_vmem  *vmem_get(void);
-struct hypos_pmem  *pmem_get(void);
 int board_setup(void);
+struct hypos_ram_region *hypos_ram_get(void);
+struct hypos_mem_region *hypos_mem_get(unsigned int region);
 // --------------------------------------------------------------
 #endif /* _BSP_BOARD_H */

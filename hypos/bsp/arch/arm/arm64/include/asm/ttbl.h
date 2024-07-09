@@ -49,20 +49,26 @@
  *
  * --------------------------------------------------------------------
  */
-#define KB(_kb)                (_AC(_kb, UL) << 10)
-#define MB(_mb)                (_AC(_mb, UL) << 20)
-#define GB(_gb)                (_AC(_gb, UL) << 30)
+#define KB(_kb)                    (_AC(_kb, UL) << 10)
+#define MB(_mb)                    (_AC(_mb, UL) << 20)
+#define GB(_gb)                    (_AC(_gb, UL) << 30)
 
-/* Memory Layout
+/* Memory slot of 8G */
+#define MEM_SLOT0(slot)             (_AT(vaddr_t, slot) << 39)
+
+/* - Aarch64 Memory Layout -
+ *
+ * For embedded device of maximum 32G of RAM
+ * [0000000800000000 - 0000001000000000)
  * --------------------------------------------------------------------
- * DATA
- * FIXMAP
- * VMAP
- * PAGE_FRAME
- * DIRECTMAP
+ * 8M                  DATA
+ *                     FIXMAP
+ *                     VMAP
+ *                     PAGEFRAME
+ *                     DIRECTMAP
  * --------------------------------------------------------------------
  */
-#define HYPOS_DATA_VIRT_START      PAGE_ALIGN(0x00000A0000000000)
+#define HYPOS_DATA_VIRT_START      MEM_SLOT0(1)
 #define HYPOS_DATA_VIRT_SIZE       MB(8)
 #define HYPOS_DATA_NR_ENTRIES(lvl) (HYPOS_DATA_VIRT_SIZE / PGTBL_LEVEL_SIZE(lvl))
 // --------------------------------------------------------------
@@ -88,15 +94,6 @@
 #define FIX_PFNMAP_END             (FIX_PFNMAP_START + NUM_FIX_PFNMAP - 1)
 #define FIXADDR_START              HYPOS_FIXMAP_ADDR(0)
 #define FIXADDR_END                HYPOS_FIXMAP_ADDR(FIX_PFNMAP_END)
-#define HYPOS_PAGE_FRAME_START     PAGE_ALIGN(FIXADDR_END + PAGE_SIZE)
-#define HYPOS_PAGE_FRAME_SIZE      MB(128)
-#define HYPOS_PAGE_FRAME_END       (HYPOS_PAGE_FRAME_START + HYPOS_PAGE_FRAME_SIZE)
-#define HYPOS_VMAP_VIRT_START      PAGE_ALIGN(HYPOS_PAGE_FRAME_END + PAGE_SIZE)
-#define HYPOS_VMAP_VIRT_SIZE       MB(256)
-#define HYPOS_VMAP_VIRT_END        (HYPOS_VMAP_VIRT_START + HYPOS_VMAP_VIRT_SIZE)
-#define HYPOS_DIRECTMAP_START      PAGE_ALIGN(HYPOS_VMAP_VIRT_END + PAGE_SIZE)
-#define HYPOS_DIRECTMAP_SIZE       MB(512)
-#define HYPOS_DIRECTMAP_END        (HYPOS_DIRECTMAP_START + HYPOS_DIRECTMAP_SIZE)
 #ifndef __ASSEMBLY__
 extern unsigned long directmap_va_start;
 #define HYPOS_HEAP_VIRT_START      directmap_va_start
