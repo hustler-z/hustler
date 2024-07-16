@@ -6,8 +6,8 @@
  * Usage:
  */
 
-#include <common/refcount.h>
-#include <common/type.h>
+#include <bsp/refcount.h>
+#include <bsp/type.h>
 #include <bsp/panic.h>
 
 // --------------------------------------------------------------

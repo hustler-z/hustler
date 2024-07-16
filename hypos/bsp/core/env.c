@@ -6,7 +6,7 @@
  * Usage:
  */
 
-#include <common/type.h>
+#include <bsp/type.h>
 // --------------------------------------------------------------
 struct env_entry {
     char *name;

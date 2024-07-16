@@ -15,7 +15,7 @@
 #define FUNCJMP(impl, rt, func, ...)       rt (*func)(__VA_ARGS__);
 
 struct funcjmp {
-#include <asm-generic/jmpglb.h>
+#include <org/jmpglb.h>
 };
 
 // ------------------------------------------------------------------------

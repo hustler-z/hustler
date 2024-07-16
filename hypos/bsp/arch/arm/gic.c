@@ -1,0 +1,3171 @@
+/**
+ * Hustler's Project
+ *
+ * File:  gic.c
+ * Date:  2024/07/09
+ * Usage: GIC Implementation (GICv2/v3)
+ */
+
+#include <asm/barrier.h>
+#include <asm/sysregs.h>
+#include <asm/at.h>
+#include <org/section.h>
+#include <org/membank.h>
+#include <org/cache.h>
+#include <org/smp.h>
+#include <bsp/compiler.h>
+#include <bsp/debug.h>
+#include <bsp/delay.h>
+#include <bsp/hypmem.h>
+#include <bsp/time.h>
+#include <bsp/panic.h>
+#include <bsp/config.h>
+#include <bsp/errno.h>
+#include <bsp/iomem.h>
+#include <bsp/core.h>
+#include <bsp/vmap.h>
+#include <lib/bitops.h>
+#include <lib/strops.h>
+#include <lib/list.h>
+
+// --------------------------------------------------------------
+#if IS_IMPLEMENTED(__GIC_IMPL)
+DEFINE_PERCPU(u64, lr_mask);
+
+const struct gic_hw_operations *gic_hw_ops;
+
+void register_gic_ops(const struct gic_hw_operations *ops)
+{
+    gic_hw_ops = ops;
+}
+
+static void clear_cpu_lr_mask(void)
+{
+    this_cpu(lr_mask) = 0ULL;
+}
+
+enum gic_version gic_hw_version(void)
+{
+   return gic_hw_ops->info->hw_version;
+}
+
+unsigned int gic_number_lines(void)
+{
+    return gic_hw_ops->info->nr_lines;
+}
+
+void gic_save_state(struct vcpu *v)
+{
+    ASSERT(!local_irq_is_enabled());
+    ASSERT(!is_idle_vcpu(v));
+
+    v->arch.lr_mask = this_cpu(lr_mask);
+    gic_hw_ops->save_state(v);
+    isb();
+}
+
+void gic_restore_state(struct vcpu *v)
+{
+    ASSERT(!local_irq_is_enabled());
+    ASSERT(!is_idle_vcpu(v));
+
+    this_cpu(lr_mask) = v->arch.lr_mask;
+    gic_hw_ops->restore_state(v);
+
+    isb();
+}
+
+/* desc->irq needs to be disabled before calling this function */
+void gic_set_irq_type(struct irq_desc *desc, unsigned int type)
+{
+    /*
+     * IRQ must be disabled before configuring it (see 4.3.13 in ARM IHI
+     * 0048B.b). We rely on the caller to do it.
+     */
+    ASSERT(test_bit(_IRQ_DISABLED, &desc->status));
+    ASSERT(spin_is_locked(&desc->lock));
+    ASSERT(type != IRQ_TYPE_INVALID);
+
+    gic_hw_ops->set_irq_type(desc, type);
+}
+
+static void gic_set_irq_priority(struct irq_desc *desc,
+                                 unsigned int priority)
+{
+    gic_hw_ops->set_irq_priority(desc, priority);
+}
+
+void gic_route_irq_to_hypos(struct irq_desc *desc,
+                            unsigned int priority)
+{
+    ASSERT(priority <= 0xff);
+    ASSERT(desc->irq < gic_number_lines());
+    ASSERT(test_bit(_IRQ_DISABLED, &desc->status));
+    ASSERT(spin_is_locked(&desc->lock));
+
+    desc->handler = gic_hw_ops->gic_host_irq_type;
+
+    gic_set_irq_type(desc, desc->arch.type);
+    gic_set_irq_priority(desc, priority);
+}
+
+void __bootfunc gic_init(void)
+{
+    if (gic_hw_ops->init())
+        exec_panic("Failed to initialize the GIC drivers\n");
+    clear_cpu_lr_mask();
+}
+
+void send_sgi_mask(const cpumask_t *cpumask, enum gic_sgi sgi)
+{
+    gic_hw_ops->send_sgi(sgi, SGI_TARGET_LIST, cpumask);
+}
+
+void send_sgi_one(unsigned int cpu, enum gic_sgi sgi)
+{
+    send_sgi_mask(cpumask_of(cpu), sgi);
+}
+
+void send_sgi_self(enum gic_sgi sgi)
+{
+    gic_hw_ops->send_sgi(sgi, SGI_TARGET_SELF, NULL);
+}
+
+void send_sgi_allbutself(enum gic_sgi sgi)
+{
+   gic_hw_ops->send_sgi(sgi, SGI_TARGET_OTHERS, NULL);
+}
+
+void smp_send_state_dump(unsigned int cpu)
+{
+    send_sgi_one(cpu, GIC_SGI_DUMP_STATE);
+}
+
+void gic_init_secondary_cpu(void)
+{
+    gic_hw_ops->secondary_init();
+
+    clear_cpu_lr_mask();
+}
+
+void gic_disable_cpu(void)
+{
+    ASSERT(!local_irq_is_enabled());
+
+    gic_hw_ops->disable_interface();
+}
+
+static void do_sgi(struct hcpu_regs *regs, enum gic_sgi sgi)
+{
+    struct irq_desc *desc = irq_to_desc(sgi);
+
+    gic_hw_ops->eoi_irq(desc);
+
+    smp_rmb();
+
+    switch (sgi) {
+    case GIC_SGI_EVENT_CHECK:
+        break;
+    case GIC_SGI_DUMP_STATE:
+        /* TODO */
+        break;
+    case GIC_SGI_CALL_FUNCTION:
+        smp_call_function_interrupt();
+        break;
+    default:
+        exec_panic("Unhandled SGI %d on CPU%d\n", sgi,
+                   smp_processor_id());
+        break;
+    }
+
+    /* Deactivate */
+    gic_hw_ops->deactivate_irq(desc);
+}
+
+/* Accept an interrupt from the GIC and dispatch its handler */
+void gic_interrupt(struct hcpu_regs *regs, int is_fiq)
+{
+    unsigned int irq;
+
+    do {
+        irq = gic_hw_ops->read_irq();
+
+        if (likely(irq >= 16 && irq < 1020)){
+            isb();
+            __do_irq(regs, irq, is_fiq);
+        } else if (is_lpi(irq)) {
+            isb();
+            gic_hw_ops->do_lpi(irq);
+        } else if (unlikely(irq < 16)) {
+            do_sgi(regs, irq);
+        } else {
+            local_irq_disable();
+            break;
+        }
+    } while (1);
+}
+
+void gic_dump_info(struct vcpu *v)
+{
+    MSGH("GICH_LRs (vcpu %d) mask=%016lx\n", v->vcpuid,
+         v->arch.lr_mask);
+    gic_hw_ops->dump_state(v);
+}
+
+static int cpu_gic_callback(struct notifier_block *nfb,
+                            unsigned long action,
+                            void *hcpu)
+{
+    switch (action) {
+    case CPU_DYING:
+        release_irq(gic_hw_ops->info->maintenance_irq, NULL);
+        break;
+    default:
+        break;
+    }
+
+    return NOTIFY_DONE;
+}
+
+static struct notifier_block cpu_gic_nfb = {
+    .notifier_call = cpu_gic_callback,
+};
+
+static int __bootfunc cpu_gic_notifier_init(void)
+{
+    register_cpu_notifier(&cpu_gic_nfb);
+
+    return 0;
+}
+__bootcall(cpu_gic_notifier_init);
+
+// --------------------------------------------------------------
+
+/* GICv3 Implementation from ARM
+ * (also LPI & ITS)
+ */
+static struct {
+    void __iomem *map_dbase;
+    struct rdist_region *rdist_regions;
+    u32  rdist_stride;
+    unsigned int rdist_count;
+    unsigned int nr_priorities;
+    spinlock_t lock;
+} gicv3;
+
+static struct gic_info gicv3_info;
+
+static DEFINE_PERCPU(void __iomem*, rbase);
+
+#define GICD                   (gicv3.map_dbase)
+#define GICD_RDIST_BASE        (this_cpu(rbase))
+#define GICD_RDIST_SGI_BASE    (GICD_RDIST_BASE + KB(64))
+
+/*
+ * Saves all 16(Max) LR registers. Though number of LRs implemented
+ * is implementation specific.
+ */
+static inline void gicv3_save_lrs(struct vcpu *v)
+{
+    /* Fall through for all the cases */
+    switch (gicv3_info.nr_lrs) {
+    case 16:
+        v->arch.gic.v3.lr[15] = READ_SYSREG_LR(15);
+        fallthrough;
+    case 15:
+        v->arch.gic.v3.lr[14] = READ_SYSREG_LR(14);
+        fallthrough;
+    case 14:
+        v->arch.gic.v3.lr[13] = READ_SYSREG_LR(13);
+        fallthrough;
+    case 13:
+        v->arch.gic.v3.lr[12] = READ_SYSREG_LR(12);
+        fallthrough;
+    case 12:
+        v->arch.gic.v3.lr[11] = READ_SYSREG_LR(11);
+        fallthrough;
+    case 11:
+        v->arch.gic.v3.lr[10] = READ_SYSREG_LR(10);
+        fallthrough;
+    case 10:
+        v->arch.gic.v3.lr[9] = READ_SYSREG_LR(9);
+        fallthrough;
+    case 9:
+        v->arch.gic.v3.lr[8] = READ_SYSREG_LR(8);
+        fallthrough;
+    case 8:
+        v->arch.gic.v3.lr[7] = READ_SYSREG_LR(7);
+        fallthrough;
+    case 7:
+        v->arch.gic.v3.lr[6] = READ_SYSREG_LR(6);
+        fallthrough;
+    case 6:
+        v->arch.gic.v3.lr[5] = READ_SYSREG_LR(5);
+        fallthrough;
+    case 5:
+        v->arch.gic.v3.lr[4] = READ_SYSREG_LR(4);
+        fallthrough;
+    case 4:
+        v->arch.gic.v3.lr[3] = READ_SYSREG_LR(3);
+        fallthrough;
+    case 3:
+        v->arch.gic.v3.lr[2] = READ_SYSREG_LR(2);
+        fallthrough;
+    case 2:
+        v->arch.gic.v3.lr[1] = READ_SYSREG_LR(1);
+        fallthrough;
+    case 1:
+         v->arch.gic.v3.lr[0] = READ_SYSREG_LR(0);
+         break;
+    default:
+         BUG();
+    }
+}
+
+static inline void gicv3_restore_lrs(const struct vcpu *v)
+{
+    /* Fall through for all the cases */
+    switch (gicv3_info.nr_lrs) {
+    case 16:
+        WRITE_SYSREG_LR(v->arch.gic.v3.lr[15], 15);
+        fallthrough;
+    case 15:
+        WRITE_SYSREG_LR(v->arch.gic.v3.lr[14], 14);
+        fallthrough;
+    case 14:
+        WRITE_SYSREG_LR(v->arch.gic.v3.lr[13], 13);
+        fallthrough;
+    case 13:
+        WRITE_SYSREG_LR(v->arch.gic.v3.lr[12], 12);
+        fallthrough;
+    case 12:
+        WRITE_SYSREG_LR(v->arch.gic.v3.lr[11], 11);
+        fallthrough;
+    case 11:
+        WRITE_SYSREG_LR(v->arch.gic.v3.lr[10], 10);
+        fallthrough;
+    case 10:
+        WRITE_SYSREG_LR(v->arch.gic.v3.lr[9], 9);
+        fallthrough;
+    case 9:
+        WRITE_SYSREG_LR(v->arch.gic.v3.lr[8], 8);
+        fallthrough;
+    case 8:
+        WRITE_SYSREG_LR(v->arch.gic.v3.lr[7], 7);
+        fallthrough;
+    case 7:
+        WRITE_SYSREG_LR(v->arch.gic.v3.lr[6], 6);
+        fallthrough;
+    case 6:
+        WRITE_SYSREG_LR(v->arch.gic.v3.lr[5], 5);
+        fallthrough;
+    case 5:
+        WRITE_SYSREG_LR(v->arch.gic.v3.lr[4], 4);
+        fallthrough;
+    case 4:
+        WRITE_SYSREG_LR(v->arch.gic.v3.lr[3], 3);
+        fallthrough;
+    case 3:
+        WRITE_SYSREG_LR(v->arch.gic.v3.lr[2], 2);
+        fallthrough;
+    case 2:
+        WRITE_SYSREG_LR(v->arch.gic.v3.lr[1], 1);
+        fallthrough;
+    case 1:
+        WRITE_SYSREG_LR(v->arch.gic.v3.lr[0], 0);
+        break;
+    default:
+         BUG();
+    }
+}
+
+static u64 gicv3_ich_read_lr(int lr)
+{
+    switch (lr) {
+    case 0:  return READ_SYSREG_LR(0);
+    case 1:  return READ_SYSREG_LR(1);
+    case 2:  return READ_SYSREG_LR(2);
+    case 3:  return READ_SYSREG_LR(3);
+    case 4:  return READ_SYSREG_LR(4);
+    case 5:  return READ_SYSREG_LR(5);
+    case 6:  return READ_SYSREG_LR(6);
+    case 7:  return READ_SYSREG_LR(7);
+    case 8:  return READ_SYSREG_LR(8);
+    case 9:  return READ_SYSREG_LR(9);
+    case 10: return READ_SYSREG_LR(10);
+    case 11: return READ_SYSREG_LR(11);
+    case 12: return READ_SYSREG_LR(12);
+    case 13: return READ_SYSREG_LR(13);
+    case 14: return READ_SYSREG_LR(14);
+    case 15: return READ_SYSREG_LR(15);
+    default:
+        BUG();
+    }
+}
+
+static void gicv3_ich_write_lr(int lr, u64 val)
+{
+    switch (lr) {
+    case 0:
+        WRITE_SYSREG_LR(val, 0);
+        break;
+    case 1:
+        WRITE_SYSREG_LR(val, 1);
+        break;
+    case 2:
+        WRITE_SYSREG_LR(val, 2);
+        break;
+    case 3:
+        WRITE_SYSREG_LR(val, 3);
+        break;
+    case 4:
+        WRITE_SYSREG_LR(val, 4);
+        break;
+    case 5:
+        WRITE_SYSREG_LR(val, 5);
+        break;
+    case 6:
+        WRITE_SYSREG_LR(val, 6);
+        break;
+    case 7:
+        WRITE_SYSREG_LR(val, 7);
+        break;
+    case 8:
+        WRITE_SYSREG_LR(val, 8);
+        break;
+    case 9:
+        WRITE_SYSREG_LR(val, 9);
+        break;
+    case 10:
+        WRITE_SYSREG_LR(val, 10);
+        break;
+    case 11:
+        WRITE_SYSREG_LR(val, 11);
+        break;
+    case 12:
+        WRITE_SYSREG_LR(val, 12);
+        break;
+    case 13:
+        WRITE_SYSREG_LR(val, 13);
+        break;
+    case 14:
+        WRITE_SYSREG_LR(val, 14);
+        break;
+    case 15:
+        WRITE_SYSREG_LR(val, 15);
+        break;
+    default:
+        return;
+    }
+    isb();
+}
+
+static void gicv3_enable_sre(void)
+{
+    register_t val;
+
+    val = READ_SYSREG(ICC_SRE_EL2);
+    val |= GICC_SRE_EL2_SRE;
+
+    WRITE_SYSREG(val, ICC_SRE_EL2);
+    isb();
+}
+
+static void gicv3_do_wait_for_rwp(void __iomem *base)
+{
+    u32 val;
+    bool timeout = false;
+    stime_t deadline = NOW() + MILLISECS(1000);
+
+    do {
+        val = readl_relaxed(base + GICD_CTLR);
+        if (!(val & GICD_CTLR_RWP))
+            break;
+        if (NOW() > deadline) {
+            timeout = true;
+            break;
+        }
+        cpu_relax();
+        udelay(1);
+    } while (1);
+
+    if (timeout)
+        MSGE("RWP timeout\n");
+}
+
+static void gicv3_dist_wait_for_rwp(void)
+{
+    gicv3_do_wait_for_rwp(GICD);
+}
+
+static void gicv3_redist_wait_for_rwp(void)
+{
+    gicv3_do_wait_for_rwp(GICD_RDIST_BASE);
+}
+
+static void gicv3_wait_for_rwp(int irq)
+{
+    if (irq < NR_LOCAL_IRQS)
+         gicv3_redist_wait_for_rwp();
+    else
+         gicv3_dist_wait_for_rwp();
+}
+
+static unsigned int gicv3_get_cpu_from_mask(const cpumask_t *cpumask)
+{
+    unsigned int cpu;
+    cpumask_t possible_mask;
+
+    cpumask_and(&possible_mask, cpumask, &cpu_possible_map);
+    cpu = cpumask_any(&possible_mask);
+
+    return cpu;
+}
+
+static void restore_aprn_regs(const union gic_state_data *d)
+{
+    switch (gicv3.nr_priorities) {
+    case 7:
+        WRITE_SYSREG(d->v3.apr0[2], ICH_AP0R2_EL2);
+        WRITE_SYSREG(d->v3.apr1[2], ICH_AP1R2_EL2);
+        /* Fall through */
+    case 6:
+        WRITE_SYSREG(d->v3.apr0[1], ICH_AP0R1_EL2);
+        WRITE_SYSREG(d->v3.apr1[1], ICH_AP1R1_EL2);
+        /* Fall through */
+    case 5:
+        WRITE_SYSREG(d->v3.apr0[0], ICH_AP0R0_EL2);
+        WRITE_SYSREG(d->v3.apr1[0], ICH_AP1R0_EL2);
+        break;
+    default:
+        BUG();
+    }
+}
+
+static void save_aprn_regs(union gic_state_data *d)
+{
+    switch (gicv3.nr_priorities) {
+    case 7:
+        d->v3.apr0[2] = READ_SYSREG(ICH_AP0R2_EL2);
+        d->v3.apr1[2] = READ_SYSREG(ICH_AP1R2_EL2);
+        /* Fall through */
+    case 6:
+        d->v3.apr0[1] = READ_SYSREG(ICH_AP0R1_EL2);
+        d->v3.apr1[1] = READ_SYSREG(ICH_AP1R1_EL2);
+        /* Fall through */
+    case 5:
+        d->v3.apr0[0] = READ_SYSREG(ICH_AP0R0_EL2);
+        d->v3.apr1[0] = READ_SYSREG(ICH_AP1R0_EL2);
+        break;
+    default:
+        BUG();
+    }
+}
+
+static void gicv3_save_state(struct vcpu *v)
+{
+    dsb(sy);
+    gicv3_save_lrs(v);
+    save_aprn_regs(&v->arch.gic);
+    v->arch.gic.v3.vmcr = READ_SYSREG(ICH_VMCR_EL2);
+    v->arch.gic.v3.sre_el1 = READ_SYSREG(ICC_SRE_EL1);
+}
+
+static void gicv3_restore_state(const struct vcpu *v)
+{
+    register_t val;
+
+    val = READ_SYSREG(ICC_SRE_EL2);
+
+    if (v->hypos->arch.vgic.version == GIC_V2)
+        val &= ~GICC_SRE_EL2_ENEL1;
+    else
+        val |= GICC_SRE_EL2_ENEL1;
+    WRITE_SYSREG(val, ICC_SRE_EL2);
+
+    WRITE_SYSREG(v->arch.gic.v3.sre_el1, ICC_SRE_EL1);
+    isb();
+    WRITE_SYSREG(v->arch.gic.v3.vmcr, ICH_VMCR_EL2);
+    restore_aprn_regs(&v->arch.gic);
+    gicv3_restore_lrs(v);
+
+    dsb(sy);
+}
+
+static void gicv3_dump_state(const struct vcpu *v)
+{
+    int i;
+
+    if (v == current) {
+        for (i = 0; i < gicv3_info.nr_lrs; i++)
+            MSGH("HW_LR[%d]=%016lx\n", i, gicv3_ich_read_lr(i));
+    } else {
+        for (i = 0; i < gicv3_info.nr_lrs; i++)
+            MSGH("VCPU_LR[%d]=%016lx\n", i, v->arch.gic.v3.lr[i]);
+    }
+}
+
+static void gicv3_poke_irq(struct irq_desc *irqd, u32 offset,
+                           bool wait_for_rwp)
+{
+    u32 mask = 1U << (irqd->irq % 32);
+    void __iomem *base;
+
+    if (irqd->irq < NR_GIC_LOCAL_IRQS)
+        base = GICD_RDIST_SGI_BASE;
+    else
+        base = GICD;
+
+    writel_relaxed(mask, base + offset + (irqd->irq / 32) * 4);
+
+    if (wait_for_rwp)
+        gicv3_wait_for_rwp(irqd->irq);
+}
+
+static bool gicv3_peek_irq(struct irq_desc *irqd, u32 offset)
+{
+    void __iomem *base;
+    unsigned int irq = irqd->irq;
+
+    if (irq >= NR_GIC_LOCAL_IRQS)
+        base = GICD + (irq / 32) * 4;
+    else
+        base = GICD_RDIST_SGI_BASE;
+
+    return !!(readl(base + offset) & (1U << (irq % 32)));
+}
+
+static void gicv3_unmask_irq(struct irq_desc *irqd)
+{
+    gicv3_poke_irq(irqd, GICD_ISENABLER, false);
+}
+
+static void gicv3_mask_irq(struct irq_desc *irqd)
+{
+    gicv3_poke_irq(irqd, GICD_ICENABLER, true);
+}
+
+static void gicv3_eoi_irq(struct irq_desc *irqd)
+{
+    /* Lower the priority */
+    WRITE_SYSREG(irqd->irq, ICC_EOIR1_EL1);
+    isb();
+}
+
+static void gicv3_dir_irq(struct irq_desc *irqd)
+{
+    /* Deactivate */
+    WRITE_SYSREG(irqd->irq, ICC_DIR_EL1);
+    isb();
+}
+
+static unsigned int gicv3_read_irq(void)
+{
+    register_t irq = READ_SYSREG(ICC_IAR1_EL1);
+
+    dsb(sy);
+
+    /* IRQs are encoded using 23bit. */
+    return (irq & GICC_IAR_INTID_MASK);
+}
+
+static void gicv3_set_active_state(struct irq_desc *irqd, bool active)
+{
+    ASSERT(spin_is_locked(&irqd->lock));
+
+    if (active) {
+        set_bit(_IRQ_INPROGRESS, &irqd->status);
+        gicv3_poke_irq(irqd, GICD_ISACTIVER, false);
+    } else {
+        clear_bit(_IRQ_INPROGRESS, &irqd->status);
+        gicv3_poke_irq(irqd, GICD_ICACTIVER, false);
+    }
+}
+
+static void gicv3_set_pending_state(struct irq_desc *irqd, bool pending)
+{
+    ASSERT(spin_is_locked(&irqd->lock));
+
+    if (pending)
+        /* The _IRQ_INPROGRESS bit will be set when the interrupt fires. */
+        gicv3_poke_irq(irqd, GICD_ISPENDR, false);
+    else
+        /* The _IRQ_INPROGRESS bit will remain unchanged. */
+        gicv3_poke_irq(irqd, GICD_ICPENDR, false);
+}
+
+static inline u64 gicv3_mpidr_to_affinity(int cpu)
+{
+     u64 mpidr = cpu_logical_map(cpu);
+     return (MPIDR_AFFINITY_LEVEL(mpidr, 3) << 32 |
+             MPIDR_AFFINITY_LEVEL(mpidr, 2) << 16 |
+             MPIDR_AFFINITY_LEVEL(mpidr, 1) << 8  |
+             MPIDR_AFFINITY_LEVEL(mpidr, 0));
+}
+
+static void gicv3_set_irq_type(struct irq_desc *desc, unsigned int type)
+{
+    u32 cfg, actual, edgebit;
+    void __iomem *base;
+    unsigned int irq = desc->irq;
+
+    /* SGI's are always edge-triggered not need to call GICD_ICFGR0 */
+    ASSERT(irq >= NR_GIC_SGI);
+
+    spin_lock(&gicv3.lock);
+
+    if (irq >= NR_GIC_LOCAL_IRQS)
+        base = GICD + GICD_ICFGR + (irq / 16) * 4;
+    else
+        base = GICD_RDIST_SGI_BASE + GICR_ICFGR1;
+
+    cfg = readl_relaxed(base);
+
+    edgebit = 2u << (2 * (irq % 16));
+    if (type & IRQ_TYPE_LEVEL_MASK)
+        cfg &= ~edgebit;
+    else if (type & IRQ_TYPE_EDGE_BOTH)
+        cfg |= edgebit;
+
+    writel_relaxed(cfg, base);
+
+    actual = readl_relaxed(base);
+    if ((cfg & edgebit) ^ (actual & edgebit)) {
+        MSGH("GICv3: WARNING: "
+             BLANK_ALIGN"CPU%d: Failed to configure IRQ%u as %s-triggered. "
+             BLANK_ALIGN"H/w forces to %s-triggered.\n",
+             smp_processor_id(), desc->irq,
+             cfg & edgebit ? "Edge" : "Level",
+             actual & edgebit ? "Edge" : "Level");
+             desc->arch.type = actual & edgebit ?
+             IRQ_TYPE_EDGE_RISING :
+             IRQ_TYPE_LEVEL_HIGH;
+    }
+    spin_unlock(&gicv3.lock);
+}
+
+static void gicv3_set_irq_priority(struct irq_desc *desc,
+                                   unsigned int priority)
+{
+    unsigned int irq = desc->irq;
+
+    spin_lock(&gicv3.lock);
+
+    /* Set priority */
+    if (irq < NR_GIC_LOCAL_IRQS)
+        writeb_relaxed(priority, GICD_RDIST_SGI_BASE + GICR_IPRIORITYR0 + irq);
+    else
+        writeb_relaxed(priority, GICD + GICD_IPRIORITYR + irq);
+
+    spin_unlock(&gicv3.lock);
+}
+
+static void __bootfunc gicv3_dist_init(void)
+{
+    u32 type;
+    u64 affinity;
+    unsigned int nr_lines;
+    int i;
+
+    /* Disable the distributor */
+    writel_relaxed(0, GICD + GICD_CTLR);
+
+    type = readl_relaxed(GICD + GICD_TYPER);
+    nr_lines = 32 * ((type & GICD_TYPE_LINES) + 1);
+
+    if ( type & GICD_TYPE_LPIS )
+        gicv3_lpi_init_host_lpis(GICD_TYPE_ID_BITS(type));
+
+    /* Only 1020 interrupts are supported */
+    nr_lines = min(1020U, nr_lines);
+    gicv3_info.nr_lines = nr_lines;
+
+    MSGH("GICv3: %d lines, (IID %8.8x).\n",
+           nr_lines, readl_relaxed(GICD + GICD_IIDR));
+
+    /* Default all global IRQs to level, active low */
+    for (i = NR_GIC_LOCAL_IRQS; i < nr_lines; i += 16)
+        writel_relaxed(0, GICD + GICD_ICFGR + (i / 16) * 4);
+
+    /* Default priority for global interrupts */
+    for (i = NR_GIC_LOCAL_IRQS; i < nr_lines; i += 4)
+        writel_relaxed(GIC_PRI_IRQ_ALL, GICD + GICD_IPRIORITYR + (i / 4) * 4);
+
+    /* Disable/deactivate all global interrupts */
+    for (i = NR_GIC_LOCAL_IRQS; i < nr_lines; i += 32) {
+        writel_relaxed(0xffffffffU, GICD + GICD_ICENABLER + (i / 32) * 4);
+        writel_relaxed(0xffffffffU, GICD + GICD_ICACTIVER + (i / 32) * 4);
+    }
+
+    for (i = NR_GIC_LOCAL_IRQS; i < nr_lines; i += 32)
+        writel_relaxed(GENMASK(31, 0), GICD + GICD_IGROUPR + (i / 32) * 4);
+
+    gicv3_dist_wait_for_rwp();
+
+    /* Turn on the distributor */
+    writel_relaxed(GICD_CTLR_ARE_NS | GICD_CTLR_ENABLE_G1A |
+                   GICD_CTLR_ENABLE_G1, GICD + GICD_CTLR);
+
+    /* Route all global IRQs to this CPU */
+    affinity = gicv3_mpidr_to_affinity(smp_processor_id());
+    /* Make sure we don't broadcast the interrupt */
+    affinity &= ~GICD_IROUTER_SPI_MODE_ANY;
+
+    for (i = NR_GIC_LOCAL_IRQS; i < nr_lines; i++)
+        writeq_relaxed_non_atomic(affinity, GICD + GICD_IROUTER + i * 8);
+}
+
+static int gicv3_enable_redist(void)
+{
+    u32 val;
+    bool timeout = false;
+    stime_t deadline = NOW() + MILLISECS(1000);
+
+    /* Wake up this CPU redistributor */
+    val = readl_relaxed(GICD_RDIST_BASE + GICR_WAKER);
+    val &= ~GICR_WAKER_ProcessorSleep;
+    writel_relaxed(val, GICD_RDIST_BASE + GICR_WAKER);
+
+    do {
+        val = readl_relaxed(GICD_RDIST_BASE + GICR_WAKER);
+        if (!(val & GICR_WAKER_ChildrenAsleep))
+            break;
+        if (NOW() > deadline) {
+            timeout = true;
+            break;
+        }
+        cpu_relax();
+        udelay(1);
+    } while (timeout);
+
+    if (timeout) {
+        MSGH("GICv3: Redist enable RWP timeout\n");
+        return 1;
+    }
+
+    return 0;
+}
+
+static bool gicv3_enable_lpis(void)
+{
+    u32 val;
+
+    val = readl_relaxed(GICD_RDIST_BASE + GICR_TYPER);
+    if (!(val & GICR_TYPER_PLPIS))
+        return false;
+
+    val = readl_relaxed(GICD_RDIST_BASE + GICR_CTLR);
+    writel_relaxed(val | GICR_CTLR_ENABLE_LPIS, GICD_RDIST_BASE + GICR_CTLR);
+
+    wmb();
+
+    return true;
+}
+
+static int __bootfunc gicv3_populate_rdist(void)
+{
+    int i;
+    u32 aff;
+    u32 reg;
+    u64 typer;
+    u64 mpidr = cpu_logical_map(smp_processor_id());
+
+    /*
+     * If we ever get a cluster of more than 16 CPUs, just scream.
+     */
+    if ((mpidr & 0xff) >= 16)
+          MSGH("GICv3:Cluster with more than 16's cpus\n");
+
+    /*
+     * Convert affinity to a 32bit value that can be matched to GICR_TYPER
+     * bits [63:32]
+     */
+    aff = (MPIDR_AFFINITY_LEVEL(mpidr, 3) << 24 |
+           MPIDR_AFFINITY_LEVEL(mpidr, 2) << 16 |
+           MPIDR_AFFINITY_LEVEL(mpidr, 1) << 8 |
+           MPIDR_AFFINITY_LEVEL(mpidr, 0));
+
+    for (i = 0; i < gicv3.rdist_count; i++) {
+        void __iomem *ptr = gicv3.rdist_regions[i].map_base;
+
+        reg = readl_relaxed(ptr + GICR_PIDR2) & GIC_PIDR2_ARCH_MASK;
+        if (reg != GIC_PIDR2_ARCH_GICv3 && reg != GIC_PIDR2_ARCH_GICv4) {
+            MSGH("GICv3: No redistributor present @%016lx\n",
+                 gicv3.rdist_regions[i].base);
+            break;
+        }
+
+        do {
+            typer = readq_relaxed_non_atomic(ptr + GICR_TYPER);
+
+            if ((typer >> 32) == aff) {
+                this_cpu(rbase) = ptr;
+
+                if (typer & GICR_TYPER_PLPIS) {
+                    paddr_t rdist_addr;
+                    unsigned int procnum;
+                    int ret;
+
+                    rdist_addr = gicv3.rdist_regions[i].base;
+                    rdist_addr += ptr - gicv3.rdist_regions[i].map_base;
+                    procnum = (typer & GICR_TYPER_PROC_NUM_MASK);
+                    procnum >>= GICR_TYPER_PROC_NUM_SHIFT;
+
+                    gicv3_set_redist_address(rdist_addr, procnum);
+
+                    ret = gicv3_lpi_init_rdist(ptr);
+                    if (ret && ret != -ENODEV) {
+                        MSGH("GICv3: CPU%d: Cannot initialize LPIs: %u\n",
+                               smp_processor_id(), ret);
+                        break;
+                    }
+                }
+
+                MSGH("GICv3: CPU%d: Found redistributor in region %d @%p\n",
+                        smp_processor_id(), i, ptr);
+                return 0;
+            }
+
+            if (gicv3.rdist_regions[i].single_rdist)
+                break;
+
+            if (gicv3.rdist_stride)
+                ptr += gicv3.rdist_stride;
+            else {
+                ptr += KB(64) * 2; /* Skip RD_base + SGI_base */
+                if ( typer & GICR_TYPER_VLPIS )
+                    ptr += KB(64) * 2; /* Skip VLPI_base + reserved page */
+            }
+
+        } while (!(typer & GICR_TYPER_LAST));
+    }
+
+    MSGH("GICv3: CPU%d: mpidr 0x%016lx has no re-distributor!\n",
+            smp_processor_id(), cpu_logical_map(smp_processor_id()));
+
+    return -ENODEV;
+}
+
+static int gicv3_cpu_init(void)
+{
+    int i, ret;
+
+    if (gicv3_populate_rdist())
+        return -ENODEV;
+
+    if (gicv3_enable_redist())
+        return -ENODEV;
+
+    if (gicv3_its_host_has_its()) {
+        if (!gicv3_enable_lpis())
+            return -EBUSY;
+        ret = gicv3_its_setup_collection(smp_processor_id());
+        if (ret)
+            return ret;
+    }
+
+    for (i = 0; i < NR_GIC_SGI; i += 4)
+        writel_relaxed(GIC_PRI_IPI_ALL,
+                GICD_RDIST_SGI_BASE + GICR_IPRIORITYR0 + (i / 4) * 4);
+
+    for (i = NR_GIC_SGI; i < NR_GIC_LOCAL_IRQS; i += 4)
+        writel_relaxed(GIC_PRI_IRQ_ALL,
+                GICD_RDIST_SGI_BASE + GICR_IPRIORITYR0 + (i / 4) * 4);
+
+    writel_relaxed(0xffffffffU, GICD_RDIST_SGI_BASE + GICR_ICACTIVER0);
+    writel_relaxed(0xffff0000U, GICD_RDIST_SGI_BASE + GICR_ICENABLER0);
+    writel_relaxed(0x0000ffffU, GICD_RDIST_SGI_BASE + GICR_ISENABLER0);
+    writel_relaxed(GENMASK(31, 0), GICD_RDIST_SGI_BASE + GICR_IGROUPR0);
+
+    gicv3_redist_wait_for_rwp();
+
+    gicv3_enable_sre();
+
+    WRITE_SYSREG(0, ICC_BPR1_EL1);
+
+    WRITE_SYSREG(DEFAULT_PMR_VALUE, ICC_PMR_EL1);
+
+    WRITE_SYSREG(GICC_CTLR_EL1_EOImode_drop, ICC_CTLR_EL1);
+
+    WRITE_SYSREG(1, ICC_IGRPEN1_EL1);
+
+    isb();
+
+    return 0;
+}
+
+static void gicv3_cpu_disable(void)
+{
+    WRITE_SYSREG(0, ICC_CTLR_EL1);
+    isb();
+}
+
+static void gicv3_hyp_init(void)
+{
+    register_t vtr;
+
+    vtr = READ_SYSREG(ICH_VTR_EL2);
+    gicv3_info.nr_lrs  = (vtr & ICH_VTR_NRLRGS) + 1;
+    gicv3.nr_priorities = ((vtr >> ICH_VTR_PRIBITS_SHIFT) &
+                          ICH_VTR_PRIBITS_MASK) + 1;
+
+    if (!((gicv3.nr_priorities > 4) && (gicv3.nr_priorities < 8)))
+        exec_panic("GICv3: Invalid number of priority bits\n");
+
+    WRITE_SYSREG(ICH_VMCR_EOI | ICH_VMCR_VENG1, ICH_VMCR_EL2);
+    WRITE_SYSREG(GICH_HCR_EN, ICH_HCR_EL2);
+}
+
+/* Set up the per-CPU parts of the GIC for a secondary CPU */
+static int gicv3_secondary_cpu_init(void)
+{
+    int res;
+
+    spin_lock(&gicv3.lock);
+
+    res = gicv3_cpu_init();
+    if (res)
+        goto out;
+
+    gicv3_hyp_init();
+
+out:
+    spin_unlock(&gicv3.lock);
+
+    return res;
+}
+
+static void gicv3_hyp_disable(void)
+{
+    register_t hcr;
+
+    hcr = READ_SYSREG(ICH_HCR_EL2);
+    hcr &= ~GICH_HCR_EN;
+    WRITE_SYSREG(hcr, ICH_HCR_EL2);
+    isb();
+}
+
+static u16 gicv3_compute_target_list(int *base_cpu, const struct cpumask *mask,
+                                     u64 cluster_id)
+{
+    int cpu = *base_cpu;
+    u64 mpidr = cpu_logical_map(cpu);
+    u16 tlist = 0;
+
+    while (cpu < nr_cpu_ids) {
+        tlist |= 1 << (mpidr & 0xf);
+
+        cpu = cpumask_next(cpu, mask);
+        if (cpu == nr_cpu_ids) {
+            cpu--;
+            goto out;
+        }
+
+        mpidr = cpu_logical_map(cpu);
+        if (cluster_id != (mpidr & ~MPIDR_AFF0_MASK)) {
+            cpu--;
+            goto out;
+        }
+    }
+out:
+    *base_cpu = cpu;
+
+    return tlist;
+}
+
+static void gicv3_send_sgi_list(enum gic_sgi sgi, const cpumask_t *cpumask)
+{
+    int cpu = 0;
+    u64 val;
+
+    for_each_cpu(cpu, cpumask) {
+        u64 cluster_id = cpu_logical_map(cpu) & ~MPIDR_AFF0_MASK;
+        u16 tlist;
+
+        tlist = gicv3_compute_target_list(&cpu, cpumask, cluster_id);
+
+        val = (MPIDR_AFFINITY_LEVEL(cluster_id, 3) << 48  |
+               MPIDR_AFFINITY_LEVEL(cluster_id, 2) << 32  |
+               sgi << 24                                  |
+               MPIDR_AFFINITY_LEVEL(cluster_id, 1) << 16  |
+               tlist);
+
+        WRITE_SYSREG64(val, ICC_SGI1R_EL1);
+    }
+    /* Force above writes to ICC_SGI1R_EL1 */
+    isb();
+}
+
+static void gicv3_send_sgi(enum gic_sgi sgi, enum gic_sgi_mode mode,
+                           const cpumask_t *cpumask)
+{
+    /*
+     * Ensure that stores to Normal memory are visible to the other CPUs
+     * before issuing the IPI.
+     */
+    dsb(st);
+
+    switch (mode) {
+    case SGI_TARGET_OTHERS:
+        WRITE_SYSREG64(ICH_SGI_TARGET_OTHERS << ICH_SGI_IRQMODE_SHIFT |
+                       (u64)sgi << ICH_SGI_IRQ_SHIFT,
+                       ICC_SGI1R_EL1);
+        isb();
+        break;
+    case SGI_TARGET_SELF:
+        gicv3_send_sgi_list(sgi, cpumask_of(smp_processor_id()));
+        break;
+    case SGI_TARGET_LIST:
+        gicv3_send_sgi_list(sgi, cpumask);
+        break;
+    default:
+        BUG();
+    }
+}
+
+/* Shut down the per-CPU GIC interface */
+static void gicv3_disable_interface(void)
+{
+    spin_lock(&gicv3.lock);
+
+    gicv3_cpu_disable();
+    gicv3_hyp_disable();
+
+    spin_unlock(&gicv3.lock);
+}
+
+static void gicv3_update_lr(int lr, unsigned int virq, u8 priority,
+                            unsigned int hw_irq, unsigned int state)
+{
+    u64 val = 0;
+
+    BUG_ON(lr >= gicv3_info.nr_lrs);
+    BUG_ON(lr < 0);
+
+    val = (((u64)state & 0x3) << ICH_LR_STATE_SHIFT);
+
+    /*
+     * When the guest is GICv3, all guest IRQs are Group 1, as Group0
+     * would result in a FIQ in the guest, which it wouldn't expect
+     */
+    if (current->hypos->arch.vgic.version == GIC_V3)
+        val |= ICH_LR_GRP1;
+
+    val |= (u64)priority << ICH_LR_PRIORITY_SHIFT;
+    val |= ((u64)virq & ICH_LR_VIRTUAL_MASK) << ICH_LR_VIRTUAL_SHIFT;
+
+   if (hw_irq != INVALID_IRQ)
+       val |= ICH_LR_HW | (((u64)hw_irq & ICH_LR_PHYSICAL_MASK)
+                           << ICH_LR_PHYSICAL_SHIFT);
+
+    gicv3_ich_write_lr(lr, val);
+}
+
+static void gicv3_clear_lr(int lr)
+{
+    gicv3_ich_write_lr(lr, 0);
+}
+
+static void gicv3_read_lr(int lr, struct gic_lr *lr_reg)
+{
+    u64 lrv;
+
+    lrv = gicv3_ich_read_lr(lr);
+
+    lr_reg->virq = (lrv >> ICH_LR_VIRTUAL_SHIFT) & ICH_LR_VIRTUAL_MASK;
+
+    lr_reg->priority  = (lrv >> ICH_LR_PRIORITY_SHIFT) & ICH_LR_PRIORITY_MASK;
+    lr_reg->pending   = lrv & ICH_LR_STATE_PENDING;
+    lr_reg->active    = lrv & ICH_LR_STATE_ACTIVE;
+    lr_reg->hw_status = lrv & ICH_LR_HW;
+
+    if (lr_reg->hw_status)
+        lr_reg->hw.pirq = (lrv >> ICH_LR_PHYSICAL_SHIFT) & ICH_LR_PHYSICAL_MASK;
+    else {
+        lr_reg->virt.eoi = (lrv & ICH_LR_MAINTENANCE_IRQ);
+        /* Source only exists in GICv2 compatible mode */
+        if (current->hypos->arch.vgic.version == GIC_V2) {
+            /*
+             * This is only valid for SGI, but it does not matter to always
+             * read it as it should be 0 by default.
+             */
+            lr_reg->virt.source = (lrv >> ICH_LR_CPUID_SHIFT)
+                & ICH_LR_CPUID_MASK;
+        }
+    }
+}
+
+static void gicv3_write_lr(int lr, const struct gic_lr *lr_reg)
+{
+    u64 lrv = 0;
+    const enum gic_version vgic_version = current->hypos->arch.vgic.version;
+
+
+    lrv = (((u64)(lr_reg->virq & ICH_LR_VIRTUAL_MASK)  << ICH_LR_VIRTUAL_SHIFT) |
+           ((u64)(lr_reg->priority & ICH_LR_PRIORITY_MASK) << ICH_LR_PRIORITY_SHIFT));
+
+    if (lr_reg->active)
+        lrv |= ICH_LR_STATE_ACTIVE;
+
+    if (lr_reg->pending)
+        lrv |= ICH_LR_STATE_PENDING;
+
+    if (lr_reg->hw_status) {
+        lrv |= ICH_LR_HW;
+        lrv |= (u64)lr_reg->hw.pirq << ICH_LR_PHYSICAL_SHIFT;
+    } else {
+        if (lr_reg->virt.eoi)
+            lrv |= ICH_LR_MAINTENANCE_IRQ;
+        /* Source is only set in GICv2 compatible mode */
+        if (vgic_version == GIC_V2) {
+            /*
+             * Source is only valid for SGIs, the caller should make
+             * sure the field virt.source is always 0 for non-SGI.
+             */
+            ASSERT(!lr_reg->virt.source || lr_reg->virq < NR_GIC_SGI);
+            lrv |= (u64)lr_reg->virt.source << ICH_LR_CPUID_SHIFT;
+        }
+    }
+
+    /*
+     * When the guest is using vGICv3, all the IRQs are Group 1. Group 0
+     * would result in a FIQ, which will not be expected by the guest OS.
+     */
+    if (vgic_version == GIC_V3)
+        lrv |= ICH_LR_GRP1;
+
+    gicv3_ich_write_lr(lr, lrv);
+}
+
+static void gicv3_hcr_status(u32 flag, bool status)
+{
+    register_t hcr;
+
+    hcr = READ_SYSREG(ICH_HCR_EL2);
+    if (status)
+        WRITE_SYSREG(hcr | flag, ICH_HCR_EL2);
+    else
+        WRITE_SYSREG(hcr & (~flag), ICH_HCR_EL2);
+    isb();
+}
+
+static unsigned int gicv3_read_vmcr_priority(void)
+{
+   return ((READ_SYSREG(ICH_VMCR_EL2) >> ICH_VMCR_PRIORITY_SHIFT) &
+            ICH_VMCR_PRIORITY_MASK);
+}
+
+/* Only support reading GRP1 APRn registers */
+static unsigned int gicv3_read_apr(int apr_reg)
+{
+    register_t apr;
+
+    switch (apr_reg) {
+    case 0:
+        ASSERT(gicv3.nr_priorities > 4 && gicv3.nr_priorities < 8);
+        apr = READ_SYSREG(ICH_AP1R0_EL2);
+        break;
+    case 1:
+        ASSERT(gicv3.nr_priorities > 5 && gicv3.nr_priorities < 8);
+        apr = READ_SYSREG(ICH_AP1R1_EL2);
+        break;
+    case 2:
+        ASSERT(gicv3.nr_priorities > 6 && gicv3.nr_priorities < 8);
+        apr = READ_SYSREG(ICH_AP1R2_EL2);
+        break;
+    default:
+        BUG();
+    }
+
+    /* Number of priority levels do not exceed 32bit. */
+    return apr;
+}
+
+static bool gicv3_read_pending_state(struct irq_desc *irqd)
+{
+    return gicv3_peek_irq(irqd, GICD_ISPENDR);
+}
+
+static void gicv3_irq_enable(struct irq_desc *desc)
+{
+    unsigned long flags;
+
+    ASSERT(spin_is_locked(&desc->lock));
+
+    spin_lock_irqsave(&gicv3.lock, flags);
+    clear_bit(_IRQ_DISABLED, &desc->status);
+    dsb(sy);
+    /* Enable routing */
+    gicv3_unmask_irq(desc);
+    spin_unlock_irqrestore(&gicv3.lock, flags);
+}
+
+static void gicv3_irq_disable(struct irq_desc *desc)
+{
+    unsigned long flags;
+
+    ASSERT(spin_is_locked(&desc->lock));
+
+    spin_lock_irqsave(&gicv3.lock, flags);
+    /* Disable routing */
+    gicv3_mask_irq(desc);
+    set_bit(_IRQ_DISABLED, &desc->status);
+    spin_unlock_irqrestore(&gicv3.lock, flags);
+}
+
+static unsigned int gicv3_irq_startup(struct irq_desc *desc)
+{
+    gicv3_irq_enable(desc);
+
+    return 0;
+}
+
+static void gicv3_irq_shutdown(struct irq_desc *desc)
+{
+    gicv3_irq_disable(desc);
+}
+
+static void gicv3_irq_ack(struct irq_desc *desc)
+{
+    /* No ACK -- reading IAR has done this for us */
+}
+
+static void gicv3_host_irq_end(struct irq_desc *desc)
+{
+    /* Lower the priority */
+    gicv3_eoi_irq(desc);
+    /* Deactivate */
+    gicv3_dir_irq(desc);
+}
+
+static void gicv3_guest_irq_end(struct irq_desc *desc)
+{
+    /* Lower the priority of the IRQ */
+    gicv3_eoi_irq(desc);
+    /* Deactivation happens in maintenance interrupt / via GICV */
+}
+
+static void gicv3_irq_set_affinity(struct irq_desc *desc, const cpumask_t *mask)
+{
+    unsigned int cpu;
+    u64 affinity;
+
+    ASSERT(!cpumask_empty(mask));
+
+    spin_lock(&gicv3.lock);
+
+    cpu = gicv3_get_cpu_from_mask(mask);
+    affinity = gicv3_mpidr_to_affinity(cpu);
+    /* Make sure we don't broadcast the interrupt */
+    affinity &= ~GICD_IROUTER_SPI_MODE_ANY;
+
+    if (desc->irq >= NR_GIC_LOCAL_IRQS)
+        writeq_relaxed_non_atomic(affinity, (GICD + GICD_IROUTER + desc->irq * 8));
+
+    spin_unlock(&gicv3.lock);
+}
+
+static const hw_irq_controller gicv3_host_irq_type = {
+    .typename     = "gic-v3",
+    .startup      = gicv3_irq_startup,
+    .shutdown     = gicv3_irq_shutdown,
+    .enable       = gicv3_irq_enable,
+    .disable      = gicv3_irq_disable,
+    .ack          = gicv3_irq_ack,
+    .end          = gicv3_host_irq_end,
+    .set_affinity = gicv3_irq_set_affinity,
+};
+
+static const hw_irq_controller gicv3_guest_irq_type = {
+    .typename     = "gic-v3",
+    .startup      = gicv3_irq_startup,
+    .shutdown     = gicv3_irq_shutdown,
+    .enable       = gicv3_irq_enable,
+    .disable      = gicv3_irq_disable,
+    .ack          = gicv3_irq_ack,
+    .end          = gicv3_guest_irq_end,
+    .set_affinity = gicv3_irq_set_affinity,
+};
+
+static paddr_t __initdata dbase = INVALID_PADDR;
+static paddr_t __initdata vbase = INVALID_PADDR, vsize = 0;
+static paddr_t __initdata cbase = INVALID_PADDR, csize = 0;
+static inline void gicv3_init_v2(void) { }
+
+static void __bootfunc gicv3_ioremap_distributor(paddr_t dist_paddr)
+{
+    if (dist_paddr & ~PAGE_MASK)
+        exec_panic("GICv3:  Found unaligned distributor address %016lx\n",
+              dbase);
+
+    gicv3.map_dbase = ioremap_nocache(dist_paddr, KB(64));
+    if (!gicv3.map_dbase)
+        exec_panic("GICv3: Failed to ioremap for GIC distributor\n");
+}
+
+static int gicv3_iomem_deny_access(struct hypos *d)
+{
+    int rc, i;
+    unsigned long pfn, nr;
+
+    pfn = dbase >> PAGE_SHIFT;
+    nr = PFN_UP(KB(64));
+
+    rc = iomem_deny_access(d, pfn, pfn + nr);
+    if (rc)
+        return rc;
+
+    rc = gicv3_its_deny_access(d);
+    if (rc)
+        return rc;
+
+    for (i = 0; i < gicv3.rdist_count; i++) {
+        pfn = gicv3.rdist_regions[i].base >> PAGE_SHIFT;
+        nr = PFN_UP(gicv3.rdist_regions[i].size);
+
+        rc = iomem_deny_access(d, pfn, pfn + nr);
+        if (rc)
+            return rc;
+    }
+
+    if (cbase != INVALID_PADDR) {
+        pfn = cbase >> PAGE_SHIFT;
+        nr = PFN_UP(csize);
+
+        rc = iomem_deny_access(d, pfn, pfn + nr);
+        if (rc)
+            return rc;
+    }
+
+    if (vbase != INVALID_PADDR) {
+        pfn = vbase >> PAGE_SHIFT;
+        nr = PFN_UP(csize);
+
+        return iomem_deny_access(d, pfn, pfn + nr);
+    }
+
+    return 0;
+}
+
+static bool gic_dist_supports_lpis(void)
+{
+    return (readl_relaxed(GICD + GICD_TYPER) & GICD_TYPE_LPIS);
+}
+
+static int __bootfunc gicv3_init(void)
+{
+    int res, i;
+    u32 reg;
+    unsigned int intid_bits;
+
+    if (!cpu_has_gicv3) {
+        MSGH("GICv3: driver requires system register support\n");
+        return -ENODEV;
+    }
+
+    reg = readl_relaxed(GICD + GICD_PIDR2) & GIC_PIDR2_ARCH_MASK;
+    if ( reg != GIC_PIDR2_ARCH_GICv3 && reg != GIC_PIDR2_ARCH_GICv4 )
+         exec_panic("GICv3: no distributor detected\n");
+
+    for (i = 0; i < gicv3.rdist_count; i++) {
+        /* map dbase & rdist regions */
+        gicv3.rdist_regions[i].map_base =
+                ioremap_nocache(gicv3.rdist_regions[i].base,
+                                gicv3.rdist_regions[i].size);
+
+        if (!gicv3.rdist_regions[i].map_base)
+            exec_panic("GICv3: Failed to ioremap rdist region for region %d\n", i);
+    }
+
+    MSGI("[hypos] GICv3 initialization:\n"
+           BLANK_ALIGN"gic_dist_addr=%016lx\n"
+           BLANK_ALIGN"gic_maintenance_irq=%u\n"
+           BLANK_ALIGN"gic_rdist_stride=%#x\n"
+           BLANK_ALIGN"gic_rdist_regions=%d\n",
+           dbase, gicv3_info.maintenance_irq,
+           gicv3.rdist_stride, gicv3.rdist_count);
+    MSGI(BLANK_ALIGN"redistributor regions:\n");
+    for (i = 0; i < gicv3.rdist_count; i++) {
+        const struct rdist_region *r = &gicv3.rdist_regions[i];
+
+        MSGI(BLANK_ALIGN"- region %u: %016lx - %016lx\n",
+               i, r->base, r->base + r->size);
+    }
+
+    reg = readl_relaxed(GICD + GICD_TYPER);
+    intid_bits = GICD_TYPE_ID_BITS(reg);
+
+    vgic_v3_setup_hw(dbase, gicv3.rdist_count, gicv3.rdist_regions,
+                     intid_bits);
+
+    gicv3_init_v2();
+
+    spin_lock_init(&gicv3.lock);
+
+    spin_lock(&gicv3.lock);
+
+    gicv3_dist_init();
+
+    if (gic_dist_supports_lpis()) {
+        res = gicv3_its_init();
+        if (res)
+            exec_panic("GICv3: ITS: initialization failed: %d\n", res);
+    }
+
+    res = gicv3_cpu_init();
+    if (res)
+        goto out;
+
+    gicv3_hyp_init();
+
+out:
+    spin_unlock(&gicv3.lock);
+
+    return res;
+}
+
+static const struct gic_hw_operations gicv3_ops = {
+    .info                = &gicv3_info,
+    .init                = gicv3_init,
+    .save_state          = gicv3_save_state,
+    .restore_state       = gicv3_restore_state,
+    .dump_state          = gicv3_dump_state,
+    .gic_host_irq_type   = &gicv3_host_irq_type,
+    .gic_guest_irq_type  = &gicv3_guest_irq_type,
+    .eoi_irq             = gicv3_eoi_irq,
+    .deactivate_irq      = gicv3_dir_irq,
+    .read_irq            = gicv3_read_irq,
+    .set_active_state    = gicv3_set_active_state,
+    .set_pending_state   = gicv3_set_pending_state,
+    .set_irq_type        = gicv3_set_irq_type,
+    .set_irq_priority    = gicv3_set_irq_priority,
+    .send_sgi            = gicv3_send_sgi,
+    .disable_interface   = gicv3_disable_interface,
+    .update_lr           = gicv3_update_lr,
+    .update_hcr_status   = gicv3_hcr_status,
+    .clear_lr            = gicv3_clear_lr,
+    .read_lr             = gicv3_read_lr,
+    .write_lr            = gicv3_write_lr,
+    .read_vmcr_priority  = gicv3_read_vmcr_priority,
+    .read_apr            = gicv3_read_apr,
+    .read_pending_state  = gicv3_read_pending_state,
+    .secondary_init      = gicv3_secondary_cpu_init,
+    .iomem_deny_access   = gicv3_iomem_deny_access,
+    .do_lpi              = gicv3_do_lpi,
+};
+
+/* Set up the GIC */
+static int __bootfunc gicv3_preinit(const void *data)
+{
+    gicv3_info.hw_version = GIC_V3;
+    register_gic_ops(&gicv3_ops);
+
+    return 0;
+}
+
+// --------------------------------------------------------------
+
+#define ITS_CMD_QUEUE_SZ                MB(1)
+
+LIST_HEAD(host_its_list);
+
+struct its_device {
+    struct rb_node rbnode;
+    struct host_its *hw_its;
+    void *itt_addr;
+    paddr_t guest_doorbell;             /* Identifies the virtual ITS */
+    u32 host_devid;
+    u32 guest_devid;
+    u32 eventids;                  /* Number of event IDs (MSIs) */
+    u32 *host_lpi_blocks;          /* Which LPIs are used on the host */
+    struct pending_irq *pend_irqs;      /* One struct per event */
+};
+
+bool gicv3_its_host_has_its(void)
+{
+    return !list_empty(&host_its_list);
+}
+
+#define BUFPTR_MASK                     GENMASK(19, 5)
+static int its_send_command(struct host_its *hw_its,
+                            const void *its_cmd)
+{
+    stime_t deadline = NOW() + MILLISECS(1);
+    u64 readp, writep;
+    int ret = -EBUSY;
+
+    /* No ITS commands from an interrupt handler (at the moment). */
+    ASSERT(!in_irq());
+
+    spin_lock(&hw_its->cmd_lock);
+
+    do {
+        readp  = readq_relaxed(hw_its->its_base + GITS_CREADR) &
+                 BUFPTR_MASK;
+        writep = readq_relaxed(hw_its->its_base + GITS_CWRITER) &
+                 BUFPTR_MASK;
+
+        if (((writep + ITS_CMD_SIZE) % ITS_CMD_QUEUE_SZ) != readp) {
+            ret = 0;
+            break;
+        }
+
+        /*
+         * If the command queue is full, wait for a bit in the hope it drains
+         * before giving up.
+         */
+        spin_unlock(&hw_its->cmd_lock);
+        cpu_relax();
+        udelay(1);
+        spin_lock(&hw_its->cmd_lock);
+    } while (NOW() <= deadline);
+
+    if (ret) {
+        spin_unlock(&hw_its->cmd_lock);
+        return ret;
+    }
+
+    memcpy(hw_its->cmd_buf + writep, its_cmd, ITS_CMD_SIZE);
+    if (hw_its->flags & HOST_ITS_FLUSH_CMD_QUEUE)
+        clean_and_invalidate_dcache_va_range(hw_its->cmd_buf + writep,
+                                             ITS_CMD_SIZE);
+    else
+        dsb(ishst);
+
+    writep = (writep + ITS_CMD_SIZE) % ITS_CMD_QUEUE_SZ;
+    writeq_relaxed(writep & BUFPTR_MASK,
+                   hw_its->its_base + GITS_CWRITER);
+
+    spin_unlock(&hw_its->cmd_lock);
+
+    return 0;
+}
+
+/* Wait for an ITS to finish processing all commands. */
+static int gicv3_its_wait_commands(struct host_its *hw_its)
+{
+    stime_t deadline = NOW() + MILLISECS(100);
+    u64 readp, writep;
+
+    do {
+        spin_lock(&hw_its->cmd_lock);
+        readp = readq_relaxed(hw_its->its_base + GITS_CREADR) &
+                BUFPTR_MASK;
+        writep = readq_relaxed(hw_its->its_base + GITS_CWRITER) &
+                 BUFPTR_MASK;
+        spin_unlock(&hw_its->cmd_lock);
+
+        if (readp == writep)
+            return 0;
+
+        cpu_relax();
+        udelay(1);
+    } while (NOW() <= deadline);
+
+    return -ETIMEDOUT;
+}
+
+static u64 encode_rdbase(struct host_its *hw_its, unsigned int cpu,
+                              u64 reg)
+{
+    reg &= ~GENMASK(51, 16);
+
+    reg |= gicv3_get_redist_address(cpu, hw_its->flags &
+                                    HOST_ITS_USES_PTA);
+
+    return reg;
+}
+
+static int its_send_cmd_sync(struct host_its *its, unsigned int cpu)
+{
+    u64 cmd[4];
+
+    cmd[0] = GITS_CMD_SYNC;
+    cmd[1] = 0x00;
+    cmd[2] = encode_rdbase(its, cpu, 0x0);
+    cmd[3] = 0x00;
+
+    return its_send_command(its, cmd);
+}
+
+static int its_send_cmd_mapti(struct host_its *its,
+                              u32 deviceid, u32 eventid,
+                              u32 pintid, u16 icid)
+{
+    u64 cmd[4];
+
+    cmd[0] = GITS_CMD_MAPTI | ((u64)deviceid << 32);
+    cmd[1] = eventid | ((u64)pintid << 32);
+    cmd[2] = icid;
+    cmd[3] = 0x00;
+
+    return its_send_command(its, cmd);
+}
+
+static int its_send_cmd_mapc(struct host_its *its, u32 collection_id,
+                             unsigned int cpu)
+{
+    u64 cmd[4];
+
+    cmd[0] = GITS_CMD_MAPC;
+    cmd[1] = 0x00;
+    cmd[2] = encode_rdbase(its, cpu, collection_id);
+    cmd[2] |= GITS_VALID_BIT;
+    cmd[3] = 0x00;
+
+    return its_send_command(its, cmd);
+}
+
+static int its_send_cmd_mapd(struct host_its *its, u32 deviceid,
+                             u8 size_bits, paddr_t itt_addr, bool valid)
+{
+    u64 cmd[4];
+
+    if (valid) {
+        ASSERT(size_bits <= its->evid_bits);
+        ASSERT(size_bits > 0);
+        ASSERT(!(itt_addr & ~GENMASK(51, 8)));
+
+        /* The number of events is encoded as "number of bits minus one". */
+        size_bits--;
+    }
+    cmd[0] = GITS_CMD_MAPD | ((u64)deviceid << 32);
+    cmd[1] = size_bits;
+    cmd[2] = itt_addr;
+    if (valid)
+        cmd[2] |= GITS_VALID_BIT;
+    cmd[3] = 0x00;
+
+    return its_send_command(its, cmd);
+}
+
+static int its_send_cmd_inv(struct host_its *its,
+                            u32 deviceid, u32 eventid)
+{
+    u64 cmd[4];
+
+    cmd[0] = GITS_CMD_INV | ((u64)deviceid << 32);
+    cmd[1] = eventid;
+    cmd[2] = 0x00;
+    cmd[3] = 0x00;
+
+    return its_send_command(its, cmd);
+}
+
+/* Set up the (1:1) collection mapping for the given host CPU. */
+int gicv3_its_setup_collection(unsigned int cpu)
+{
+    struct host_its *its;
+    int ret;
+
+    list_for_each_entry(its, &host_its_list, entry) {
+        ret = its_send_cmd_mapc(its, cpu, cpu);
+        if (ret)
+            return ret;
+
+        ret = its_send_cmd_sync(its, cpu);
+        if (ret)
+            return ret;
+
+        ret = gicv3_its_wait_commands(its);
+        if (ret)
+            return ret;
+    }
+
+    return 0;
+}
+
+#define BASER_ATTR_MASK                                           \
+        ((0x3UL << GITS_BASER_SHAREABILITY_SHIFT)               | \
+         (0x7UL << GITS_BASER_OUTER_CACHEABILITY_SHIFT)         | \
+         (0x7UL << GITS_BASER_INNER_CACHEABILITY_SHIFT))
+#define BASER_RO_MASK   (GENMASK(58, 56) | GENMASK(52, 48))
+
+/* Check that the physical address can be encoded in the PROPBASER register. */
+static bool check_baser_phys_addr(void *vaddr, unsigned int page_bits)
+{
+    paddr_t paddr = va_to_pa(vaddr);
+
+    return (!(paddr & ~GENMASK(page_bits < 16 ? 47 : 51, page_bits)));
+}
+
+static u64 encode_baser_phys_addr(paddr_t addr, unsigned int page_bits)
+{
+    u64 ret = addr & GENMASK(47, page_bits);
+
+    if (page_bits < 16)
+        return ret;
+
+    /* For 64K pages address bits 51-48 are encoded in bits 15-12. */
+    return ret | ((addr & GENMASK(51, 48)) >> (48 - 12));
+}
+
+static void *its_map_cbaser(struct host_its *its)
+{
+    void __iomem *cbasereg = its->its_base + GITS_CBASER;
+    u64 reg;
+    void *buffer;
+
+    reg  = GIC_BASER_InnerShareable << GITS_BASER_SHAREABILITY_SHIFT;
+    reg |= GIC_BASER_CACHE_SameAsInner << GITS_BASER_OUTER_CACHEABILITY_SHIFT;
+    reg |= GIC_BASER_CACHE_RaWaWb << GITS_BASER_INNER_CACHEABILITY_SHIFT;
+
+    buffer = zalloc(ITS_CMD_QUEUE_SZ, KB(64));
+    if (!buffer)
+        return NULL;
+
+    if (va_to_pa(buffer) & ~GENMASK(51, 12)) {
+        free(buffer);
+        return NULL;
+    }
+
+    reg |= GITS_VALID_BIT | va_to_pa(buffer);
+    reg |= ((ITS_CMD_QUEUE_SZ / KB(4)) - 1) & GITS_CBASER_SIZE_MASK;
+    writeq_relaxed(reg, cbasereg);
+    reg = readq_relaxed(cbasereg);
+
+    /* If the ITS dropped shareability, drop cacheability as well. */
+    if ((reg & GITS_BASER_SHAREABILITY_MASK) == 0) {
+        reg &= ~GITS_BASER_INNER_CACHEABILITY_MASK;
+        writeq_relaxed(reg, cbasereg);
+    }
+
+    /*
+     * If the command queue memory is mapped as uncached, we need to flush
+     * it on every access.
+     */
+    if (!(reg & GITS_BASER_INNER_CACHEABILITY_MASK)) {
+        its->flags |= HOST_ITS_FLUSH_CMD_QUEUE;
+        MSGH("using non-cacheable ITS command queue\n");
+    }
+
+    return buffer;
+}
+
+/* The ITS BASE registers work with page sizes of 4K, 16K or 64K. */
+#define BASER_PAGE_BITS(sz) ((sz) * 2 + 12)
+
+static int its_map_baser(void __iomem *basereg, u64 regc,
+                         unsigned int nr_items)
+{
+    u64 attr, reg;
+    unsigned int entry_size = GITS_BASER_ENTRY_SIZE(regc);
+    unsigned int pagesz = 2;    /* try 64K pages first, then go down. */
+    unsigned int table_size;
+    void *buffer;
+
+    attr  = GIC_BASER_InnerShareable << GITS_BASER_SHAREABILITY_SHIFT;
+    attr |= GIC_BASER_CACHE_SameAsInner << GITS_BASER_OUTER_CACHEABILITY_SHIFT;
+    attr |= GIC_BASER_CACHE_RaWaWb << GITS_BASER_INNER_CACHEABILITY_SHIFT;
+
+    /*
+     * Setup the BASE register with the attributes that we like. Then read
+     * it back and see what sticks (page size, cacheability and shareability
+     * attributes), retrying if necessary.
+     */
+retry:
+    table_size = ROUNDUP(nr_items * entry_size,
+                         BIT(BASER_PAGE_BITS(pagesz), UL));
+    /* The BASE registers support at most 256 pages. */
+    table_size = min(table_size, 256U << BASER_PAGE_BITS(pagesz));
+
+    buffer = zalloc(table_size, BIT(BASER_PAGE_BITS(pagesz), UL));
+    if (!buffer)
+        return -ENOMEM;
+
+    if (!check_baser_phys_addr(buffer, BASER_PAGE_BITS(pagesz))) {
+        free(buffer);
+        return -ERANGE;
+    }
+
+    reg  = attr;
+    reg |= (pagesz << GITS_BASER_PAGE_SIZE_SHIFT);
+    reg |= (table_size >> BASER_PAGE_BITS(pagesz)) - 1;
+    reg |= regc & BASER_RO_MASK;
+    reg |= GITS_VALID_BIT;
+    reg |= encode_baser_phys_addr(va_to_pa(buffer),
+                                  BASER_PAGE_BITS(pagesz));
+
+    writeq_relaxed(reg, basereg);
+    regc = readq_relaxed(basereg);
+
+    if ((regc & BASER_ATTR_MASK) != attr) {
+        if ((regc & GITS_BASER_SHAREABILITY_MASK) == GIC_BASER_NonShareable) {
+            regc &= ~GITS_BASER_INNER_CACHEABILITY_MASK;
+            writeq_relaxed(regc, basereg);
+        }
+        attr = regc & BASER_ATTR_MASK;
+    }
+    if ((regc & GITS_BASER_INNER_CACHEABILITY_MASK) <= GIC_BASER_CACHE_nC)
+        clean_and_invalidate_dcache_va_range(buffer, table_size);
+
+    if (((regc >> GITS_BASER_PAGE_SIZE_SHIFT) & 0x3UL) == pagesz)
+        return 0;
+
+    free(buffer);
+
+    if (pagesz-- > 0)
+        goto retry;
+
+    return -EINVAL;
+}
+
+static int gicv3_disable_its(struct host_its *hw_its)
+{
+    u32 reg;
+    stime_t deadline = NOW() + MILLISECS(100);
+
+    reg = readl_relaxed(hw_its->its_base + GITS_CTLR);
+    if (!(reg & GITS_CTLR_ENABLE) && (reg & GITS_CTLR_QUIESCENT))
+        return 0;
+
+    writel_relaxed(reg & ~GITS_CTLR_ENABLE, hw_its->its_base + GITS_CTLR);
+
+    do {
+        reg = readl_relaxed(hw_its->its_base + GITS_CTLR);
+        if (reg & GITS_CTLR_QUIESCENT)
+            return 0;
+
+        cpu_relax();
+        udelay(1);
+    } while (NOW() <= deadline);
+
+    MSGH("ITS@%lx not quiescent.\n", hw_its->addr);
+
+    return -ETIMEDOUT;
+}
+
+static int gicv3_its_init_single_its(struct host_its *hw_its)
+{
+    u64 reg;
+    int i, ret;
+
+    hw_its->its_base = ioremap_nocache(hw_its->addr,
+                                       hw_its->size);
+    if (!hw_its->its_base)
+        return -ENOMEM;
+
+    ret = gicv3_disable_its(hw_its);
+    if (ret)
+        return ret;
+
+    reg = readq_relaxed(hw_its->its_base + GITS_TYPER);
+    hw_its->devid_bits = GITS_TYPER_DEVICE_ID_BITS(reg);
+    hw_its->evid_bits = GITS_TYPER_EVENT_ID_BITS(reg);
+    hw_its->itte_size = GITS_TYPER_ITT_SIZE(reg);
+    if (reg & GITS_TYPER_PTA)
+        hw_its->flags |= HOST_ITS_USES_PTA;
+    spin_lock_init(&hw_its->cmd_lock);
+
+    for (i = 0; i < GITS_BASER_NR_REGS; i++) {
+        void __iomem *basereg = hw_its->its_base
+                                + GITS_BASER0 + i * 8;
+        unsigned int type;
+
+        reg = readq_relaxed(basereg);
+        type = (reg & GITS_BASER_TYPE_MASK) >> GITS_BASER_TYPE_SHIFT;
+        switch (type) {
+        case GITS_BASER_TYPE_NONE:
+            continue;
+        case GITS_BASER_TYPE_DEVICE:
+            ret = its_map_baser(basereg, reg,
+                                BIT(hw_its->devid_bits, UL));
+            if (ret)
+                return ret;
+            break;
+        case GITS_BASER_TYPE_COLLECTION:
+            ret = its_map_baser(basereg, reg,
+                                num_possible_cpus());
+            if (ret)
+                return ret;
+            break;
+        case GITS_BASER_TYPE_VCPU:
+            ret = its_map_baser(basereg, reg, 1);
+            if (ret)
+                return ret;
+            break;
+        default:
+            continue;
+        }
+    }
+
+    hw_its->cmd_buf = its_map_cbaser(hw_its);
+    if (!hw_its->cmd_buf)
+        return -ENOMEM;
+    writeq_relaxed(0, hw_its->its_base + GITS_CWRITER);
+
+    reg = readl_relaxed(hw_its->its_base + GITS_CTLR);
+    writel_relaxed(reg | GITS_CTLR_ENABLE, hw_its->its_base + GITS_CTLR);
+
+    return 0;
+}
+
+static int remove_mapped_guest_device(struct its_device *dev)
+{
+    int ret = 0;
+    unsigned int i;
+
+    if (dev->hw_its)
+        ret = its_send_cmd_mapd(dev->hw_its,
+                                dev->host_devid, 0, 0, false);
+
+    for (i = 0; i < dev->eventids / LPI_BLOCK; i++)
+        gicv3_free_host_lpi_block(dev->host_lpi_blocks[i]);
+
+    if (!ret)
+        ret = gicv3_its_wait_commands(dev->hw_its);
+
+    free(dev->itt_addr);
+    free(dev->pend_irqs);
+    free(dev->host_lpi_blocks);
+    free(dev);
+
+    return 0;
+}
+
+static struct host_its *
+gicv3_its_find_by_doorbell(paddr_t doorbell_address)
+{
+    struct host_its *hw_its;
+
+    list_for_each_entry(hw_its, &host_its_list, entry) {
+        if (hw_its->addr + ITS_DOORBELL_OFFSET == doorbell_address)
+            return hw_its;
+    }
+
+    return NULL;
+}
+
+static int compare_its_guest_devices(struct its_device *dev,
+                                     paddr_t vdoorbell, u32 vdevid)
+{
+    if (dev->guest_doorbell < vdoorbell)
+        return -1;
+
+    if (dev->guest_doorbell > vdoorbell)
+        return 1;
+
+    if (dev->guest_devid < vdevid)
+        return -1;
+
+    if (dev->guest_devid > vdevid)
+        return 1;
+
+    return 0;
+}
+
+static int gicv3_its_map_host_events(struct host_its *its,
+                                     u32 devid, u32 eventid,
+                                     u32 lpi, u32 nr_events)
+{
+    u32 i;
+    int ret;
+
+    for (i = 0; i < nr_events; i++) {
+        ret = its_send_cmd_mapti(its, devid,
+                eventid + i, lpi + i, 0);
+        if (ret)
+            return ret;
+
+        ret = its_send_cmd_inv(its, devid, eventid + i);
+        if (ret)
+            return ret;
+    }
+
+    ret = its_send_cmd_sync(its, 0);
+    if (ret)
+        return ret;
+
+    return gicv3_its_wait_commands(its);
+}
+
+int gicv3_its_map_guest_device(struct hypos *d,
+                               paddr_t host_doorbell,
+                               u32 host_devid,
+                               paddr_t guest_doorbell,
+                               u32 guest_devid,
+                               u64 nr_events, bool valid)
+{
+    void *itt_addr = NULL;
+    struct host_its *hw_its;
+    struct its_device *dev = NULL;
+    struct rb_node **new = &d->arch.vgic.its_devices.rb_node,
+                   *parent = NULL;
+    int i, ret = -ENOENT;
+
+    hw_its = gicv3_its_find_by_doorbell(host_doorbell);
+    if (!hw_its)
+        return ret;
+
+    if (host_devid >= BIT(hw_its->devid_bits, UL))
+        return -EINVAL;
+
+    nr_events = BIT(fls(nr_events - 1), UL);
+    if (nr_events < LPI_BLOCK)
+        nr_events = LPI_BLOCK;
+    if (nr_events >= BIT(hw_its->evid_bits, UL))
+        return -EINVAL;
+
+    spin_lock(&d->arch.vgic.its_devices_lock);
+    while (*new) {
+        struct its_device *temp;
+        int cmp;
+
+        temp = rb_entry(*new, struct its_device, rbnode);
+
+        parent = *new;
+        cmp = compare_its_guest_devices(temp, guest_doorbell, guest_devid);
+        if (!cmp) {
+            if (!valid)
+                rb_erase(&temp->rbnode, &d->arch.vgic.its_devices);
+
+            spin_unlock(&d->arch.vgic.its_devices_lock);
+
+            if (valid) {
+                MSGH("d%d tried to remap guest ITS device 0x%x to host device 0x%x\n",
+                        d->hypos_id, guest_devid, host_devid);
+                return -EBUSY;
+            }
+
+            return remove_mapped_guest_device(temp);
+        }
+
+        if (cmp > 0)
+            new = &((*new)->rb_left);
+        else
+            new = &((*new)->rb_right);
+    }
+
+    if (!valid)
+        goto out_unlock;
+
+    ret = -ENOMEM;
+
+    itt_addr = zalloc(nr_events * hw_its->itte_size, 256);
+    if (!itt_addr)
+        goto out_unlock;
+
+    clean_and_invalidate_dcache_va_range(itt_addr,
+                                         nr_events * hw_its->itte_size);
+
+    dev = _zalloc(struct its_device);
+    if (!dev)
+        goto out_unlock;
+
+    dev->pend_irqs = _zalloc_array(struct pending_irq, nr_events);
+    if (!dev->pend_irqs)
+        goto out_unlock;
+
+    dev->host_lpi_blocks = _zalloc_array(u32, nr_events);
+    if (!dev->host_lpi_blocks)
+        goto out_unlock;
+
+    ret = its_send_cmd_mapd(hw_its, host_devid, fls(nr_events - 1),
+                            va_to_pa(itt_addr), true);
+    if (ret)
+        goto out_unlock;
+
+    dev->itt_addr = itt_addr;
+    dev->hw_its = hw_its;
+    dev->guest_doorbell = guest_doorbell;
+    dev->guest_devid = guest_devid;
+    dev->host_devid = host_devid;
+    dev->eventids = nr_events;
+
+    rb_link_node(&dev->rbnode, parent, new);
+    rb_insert_color(&dev->rbnode, &d->arch.vgic.its_devices);
+
+    spin_unlock(&d->arch.vgic.its_devices_lock);
+
+    for (i = 0; i < nr_events / LPI_BLOCK; i++) {
+        ret = gicv3_ate_host_lpi_block(d, &dev->host_lpi_blocks[i]);
+        if (ret < 0)
+            break;
+
+        ret = gicv3_its_map_host_events(hw_its, host_devid,
+                                        i * LPI_BLOCK,
+                                        dev->host_lpi_blocks[i],
+                                        LPI_BLOCK);
+        if (ret < 0)
+            break;
+    }
+
+    if (ret) {
+        /* Clean up all ated host LPI blocks. */
+        for ( ; i >= 0; i--) {
+            if (dev->host_lpi_blocks[i])
+                gicv3_free_host_lpi_block(dev->host_lpi_blocks[i]);
+        }
+
+        its_send_cmd_mapd(hw_its, host_devid, 0, 0, false);
+
+        goto out;
+    }
+
+    return 0;
+
+out_unlock:
+    spin_unlock(&d->arch.vgic.its_devices_lock);
+
+out:
+    if (dev) {
+        free(dev->pend_irqs);
+        free(dev->host_lpi_blocks);
+    }
+    free(itt_addr);
+    free(dev);
+
+    return ret;
+}
+
+static struct its_device *get_its_device(struct hypos *d,
+                                         paddr_t vdoorbell,
+                                         u32 vdevid)
+{
+    struct rb_node *node = d->arch.vgic.its_devices.rb_node;
+    struct its_device *dev;
+
+    ASSERT(spin_is_locked(&d->arch.vgic.its_devices_lock));
+
+    while (node) {
+        int cmp;
+
+        dev = rb_entry(node, struct its_device, rbnode);
+        cmp = compare_its_guest_devices(dev, vdoorbell, vdevid);
+
+        if (!cmp)
+            return dev;
+
+        if (cmp > 0)
+            node = node->rb_left;
+        else
+            node = node->rb_right;
+    }
+
+    return NULL;
+}
+
+static struct pending_irq *
+get_event_pending_irq(struct hypos *d,
+                      paddr_t vdoorbell_address,
+                      u32 vdevid,
+                      u32 eventid,
+                      u32 *host_lpi)
+{
+    struct its_device *dev;
+    struct pending_irq *pirq = NULL;
+
+    spin_lock(&d->arch.vgic.its_devices_lock);
+    dev = get_its_device(d, vdoorbell_address, vdevid);
+    if (dev && eventid < dev->eventids) {
+        pirq = &dev->pend_irqs[eventid];
+        if (host_lpi)
+            *host_lpi = dev->host_lpi_blocks[eventid / LPI_BLOCK] +
+                        (eventid % LPI_BLOCK);
+    }
+    spin_unlock(&d->arch.vgic.its_devices_lock);
+
+    return pirq;
+}
+
+struct pending_irq *
+gicv3_its_get_event_pending_irq(struct hypos *d,
+                                paddr_t vdoorbell_address,
+                                u32 vdevid,
+                                u32 eventid)
+{
+    return get_event_pending_irq(d, vdoorbell_address, vdevid,
+                                 eventid, NULL);
+}
+
+int gicv3_remove_guest_event(struct hypos *d,
+                             paddr_t vdoorbell_address,
+                             u32 vdevid, u32 eventid)
+{
+    u32 host_lpi = INVALID_LPI;
+
+    if (!get_event_pending_irq(d, vdoorbell_address,
+                               vdevid, eventid, &host_lpi))
+        return -EINVAL;
+
+    if (host_lpi == INVALID_LPI)
+        return -EINVAL;
+
+    gicv3_lpi_update_host_entry(host_lpi, d->hypos_id, INVALID_LPI);
+
+    return 0;
+}
+
+struct pending_irq *gicv3_assign_guest_event(struct hypos *d,
+                                             paddr_t vdoorbell_address,
+                                             u32 vdevid, u32 eventid,
+                                             u32 virt_lpi)
+{
+    struct pending_irq *pirq;
+    u32 host_lpi = INVALID_LPI;
+
+    pirq = get_event_pending_irq(d, vdoorbell_address,
+                                 vdevid, eventid,
+                                 &host_lpi);
+
+    if (!pirq)
+        return NULL;
+
+    gicv3_lpi_update_host_entry(host_lpi, d->hypos_id, virt_lpi);
+
+    return pirq;
+}
+
+int gicv3_its_deny_access(struct hypos *d)
+{
+    int rc = 0;
+    unsigned long pfn, nr;
+    const struct host_its *its_data;
+
+    list_for_each_entry(its_data, &host_its_list, entry) {
+        pfn = __pa_to_pfn(its_data->addr);
+        nr = PFN_UP(its_data->size);
+
+        rc = iomem_deny_access(d, pfn, pfn + nr);
+        if (rc) {
+            MSGH("iomem_deny_access failed for %lx:%lx \r\n",
+                    pfn, nr);
+            break;
+        }
+    }
+
+    return rc;
+}
+
+int gicv3_its_init(void)
+{
+    struct host_its *hw_its;
+    int ret;
+
+    list_for_each_entry(hw_its, &host_its_list, entry) {
+        ret = gicv3_its_init_single_its(hw_its);
+        if (ret)
+            return ret;
+    }
+
+    return 0;
+}
+
+// --------------------------------------------------------------
+
+union host_lpi {
+    u64 data;
+    struct {
+        u32 virt_lpi;
+        u16 hypos_id;
+        u16 pad;
+    };
+};
+
+#define LPI_PROPTABLE_NEEDS_FLUSHING    (1U << 0)
+
+static struct {
+    u8 *lpi_property;
+
+    union host_lpi **host_lpis;
+
+    unsigned long int max_host_lpi_ids;
+
+    spinlock_t host_lpis_lock;
+    u32 next_free_lpi;
+    unsigned int flags;
+} lpi_data;
+
+struct lpi_redist_data {
+    paddr_t             redist_addr;
+    unsigned int        redist_id;
+    void                *pending_table;
+};
+
+static DEFINE_PERCPU(struct lpi_redist_data, lpi_redist);
+
+#define MAX_NR_HOST_LPIS   (lpi_data.max_host_lpi_ids - LPI_OFFSET)
+#define HOST_LPIS_PER_PAGE (PAGE_SIZE / sizeof(union host_lpi))
+
+static union host_lpi *gic_get_host_lpi(u32 plpi)
+{
+    union host_lpi *block;
+
+    if ( !is_lpi(plpi) || plpi >= MAX_NR_HOST_LPIS + LPI_OFFSET )
+        return NULL;
+
+    ASSERT(plpi >= LPI_OFFSET);
+
+    plpi -= LPI_OFFSET;
+
+    block = lpi_data.host_lpis[plpi / HOST_LPIS_PER_PAGE];
+    if ( !block )
+        return NULL;
+
+    /* Matches the write barrier in ation code. */
+    smp_rmb();
+
+    return &block[plpi % HOST_LPIS_PER_PAGE];
+}
+
+void gicv3_set_redist_address(paddr_t address,
+                              unsigned int redist_id)
+{
+    this_cpu(lpi_redist).redist_addr = address;
+    this_cpu(lpi_redist).redist_id = redist_id;
+}
+
+u64 gicv3_get_redist_address(unsigned int cpu, bool use_pta)
+{
+    if (use_pta)
+        return percpu(lpi_redist, cpu).redist_addr & GENMASK(51, 16);
+    else
+        return percpu(lpi_redist, cpu).redist_id << 16;
+}
+
+void vgic_vcpu_inject_lpi(struct hypos *d, unsigned int virq)
+{
+    struct pending_irq *p = irq_to_pending(d->vcpu[0], virq);
+    unsigned int vcpu_id;
+
+    if (!p)
+        return;
+
+    vcpu_id = ACCESS_ONCE(p->lpi_vcpu_id);
+    if (vcpu_id >= d->max_vcpus)
+          return;
+#if IS_IMPLEMENTED(__VGIC_IMPL)
+    vgic_inject_irq(d, d->vcpu[vcpu_id], virq, true);
+#endif
+}
+
+void gicv3_do_lpi(unsigned int lpi)
+{
+    struct hypos *d;
+    union host_lpi *hlpip, hlpi;
+
+    irq_enter();
+
+    WRITE_SYSREG(lpi, ICC_EOIR1_EL1);
+
+    hlpip = gic_get_host_lpi(lpi);
+    if (!hlpip)
+        goto out;
+
+    hlpi.data = read_u64_atomic(&hlpip->data);
+
+    if (hlpi.virt_lpi == INVALID_LPI)
+        goto out;
+
+#if IS_IMPLEMENTED(__VGIC_IMPL)
+    d = rcu_lock_hypos_by_id(hlpi.hypos_id);
+    if (!d)
+        goto out;
+
+    vgic_vcpu_inject_lpi(d, hlpi.virt_lpi);
+
+    rcu_unlock_hypos(d);
+#endif
+
+out:
+    irq_exit();
+}
+
+void gicv3_lpi_update_host_entry(u32 host_lpi, int hypos_id,
+                                 u32 virt_lpi)
+{
+    union host_lpi *hlpip, hlpi;
+
+    ASSERT(host_lpi >= LPI_OFFSET);
+
+    host_lpi -= LPI_OFFSET;
+
+    hlpip = &lpi_data.host_lpis[host_lpi /
+            HOST_LPIS_PER_PAGE][host_lpi % HOST_LPIS_PER_PAGE];
+
+    hlpi.virt_lpi = virt_lpi;
+    hlpi.hypos_id = hypos_id;
+
+    write_u64_atomic(&hlpip->data, hlpi.data);
+}
+
+static int gicv3_lpi_ate_pendtable(unsigned int cpu)
+{
+    void *pendtable;
+
+    if (percpu(lpi_redist, cpu).pending_table)
+        return -EBUSY;
+
+    pendtable = zalloc(lpi_data.max_host_lpi_ids / 8, KB(64));
+    if (!pendtable)
+        return -ENOMEM;
+
+    if (va_to_pa(pendtable) & ~GENMASK(51, 16)) {
+        free(pendtable);
+        return -ERANGE;
+    }
+    clean_and_invalidate_dcache_va_range(pendtable,
+                                         lpi_data.max_host_lpi_ids / 8);
+
+    percpu(lpi_redist, cpu).pending_table = pendtable;
+
+    return 0;
+}
+
+static int gicv3_lpi_set_pendtable(void __iomem *rdist_base)
+{
+    const void *pendtable = this_cpu(lpi_redist).pending_table;
+    u64 val;
+
+    if (!pendtable) {
+        ASSERT_UNREACHABLE();
+        return -ENOMEM;
+    }
+
+    ASSERT(!(va_to_pa(pendtable) & ~GENMASK(51, 16)));
+
+    val  = GIC_BASER_CACHE_RaWaWb << GICR_PENDBASER_INNER_CACHEABILITY_SHIFT;
+    val |= GIC_BASER_CACHE_SameAsInner << GICR_PENDBASER_OUTER_CACHEABILITY_SHIFT;
+    val |= GIC_BASER_InnerShareable << GICR_PENDBASER_SHAREABILITY_SHIFT;
+    val |= GICR_PENDBASER_PTZ;
+    val |= va_to_pa(pendtable);
+
+    writeq_relaxed(val, rdist_base + GICR_PENDBASER);
+    val = readq_relaxed(rdist_base + GICR_PENDBASER);
+
+    if (!(val & GICR_PENDBASER_SHAREABILITY_MASK)) {
+        val &= ~GICR_PENDBASER_INNER_CACHEABILITY_MASK;
+        val |= GIC_BASER_CACHE_nC << GICR_PENDBASER_INNER_CACHEABILITY_SHIFT;
+
+        writeq_relaxed(val, rdist_base + GICR_PENDBASER);
+    }
+
+    return 0;
+}
+
+static int gicv3_lpi_set_proptable(void __iomem * rdist_base)
+{
+    u64 reg;
+
+    reg  = GIC_BASER_CACHE_RaWaWb << GICR_PROPBASER_INNER_CACHEABILITY_SHIFT;
+    reg |= GIC_BASER_CACHE_SameAsInner << GICR_PROPBASER_OUTER_CACHEABILITY_SHIFT;
+    reg |= GIC_BASER_InnerShareable << GICR_PROPBASER_SHAREABILITY_SHIFT;
+
+    if (!lpi_data.lpi_property) {
+        void *table = _malloc(lpi_data.max_host_lpi_ids, KB(4));
+
+        if (!table)
+            return -ENOMEM;
+
+        if ((va_to_pa(table) & ~GENMASK(51, 12))) {
+            free(table);
+            return -ERANGE;
+        }
+        memset(table, GIC_PRI_IRQ | LPI_PROP_RES1, MAX_NR_HOST_LPIS);
+        clean_and_invalidate_dcache_va_range(table, MAX_NR_HOST_LPIS);
+        lpi_data.lpi_property = table;
+    }
+
+    reg |= fls(lpi_data.max_host_lpi_ids - 1) - 1;
+
+    reg |= va_to_pa(lpi_data.lpi_property);
+
+    writeq_relaxed(reg, rdist_base + GICR_PROPBASER);
+    reg = readq_relaxed(rdist_base + GICR_PROPBASER);
+
+    if (!(reg & GICR_PROPBASER_SHAREABILITY_MASK)) {
+        reg &= ~GICR_PROPBASER_INNER_CACHEABILITY_MASK;
+        reg |= GIC_BASER_CACHE_nC << GICR_PROPBASER_INNER_CACHEABILITY_SHIFT;
+    }
+
+    if ((reg & GICR_PROPBASER_INNER_CACHEABILITY_MASK)
+                <= GIC_BASER_CACHE_nC) {
+        lpi_data.flags |= LPI_PROPTABLE_NEEDS_FLUSHING;
+        writeq_relaxed(reg, rdist_base + GICR_PROPBASER);
+    }
+
+    return 0;
+}
+
+int gicv3_lpi_init_rdist(void __iomem * rdist_base)
+{
+    u32 reg;
+    int ret;
+
+    if (!gicv3_its_host_has_its())
+        return -ENODEV;
+
+    reg = readl_relaxed(rdist_base + GICR_CTLR);
+    if (reg & GICR_CTLR_ENABLE_LPIS)
+        return -EBUSY;
+
+    ret = gicv3_lpi_set_pendtable(rdist_base);
+    if (ret)
+        return ret;
+
+    return gicv3_lpi_set_proptable(rdist_base);
+}
+
+static int cpu_callback(struct notifier_block *nfb, unsigned long action,
+                        void *hcpu)
+{
+    unsigned long cpu = (unsigned long)hcpu;
+    int rc = 0;
+
+    switch (action) {
+    case CPU_UP_PREPARE:
+        rc = gicv3_lpi_ate_pendtable(cpu);
+        if ( rc )
+            MSGH("Unable to ate the pendtable for CPU%lu\n",
+                   cpu);
+        break;
+    }
+
+    return notifier_from_errno(rc);
+}
+
+static struct notifier_block cpu_nfb = {
+    .notifier_call = cpu_callback,
+};
+
+static unsigned int max_lpi_bits = 20;
+
+int gicv3_lpi_init_host_lpis(unsigned int host_lpi_bits)
+{
+    unsigned int nr_lpi_ptrs;
+    int rc;
+
+    BUILD_BUG_ON(sizeof(union host_lpi) > sizeof(unsigned long));
+
+    if (max_lpi_bits < 14 || max_lpi_bits > 32)
+        MSGH("max_lpi_bits must be between 14 and 32, adjusting.\n");
+
+    max_lpi_bits = max(max_lpi_bits, 14U);
+    lpi_data.max_host_lpi_ids = BIT(min(host_lpi_bits, max_lpi_bits), UL);
+
+    WARN_ON(lpi_data.max_host_lpi_ids > BIT(24, UL));
+
+    spin_lock_init(&lpi_data.host_lpis_lock);
+    lpi_data.next_free_lpi = 0;
+
+    nr_lpi_ptrs = MAX_NR_HOST_LPIS / (PAGE_SIZE / sizeof(union host_lpi));
+    lpi_data.host_lpis =
+            _zalloc_array(union host_lpi *, nr_lpi_ptrs);
+    if (!lpi_data.host_lpis)
+        return -ENOMEM;
+
+    MSGH("GICv3: using at most %lu LPIs on the host.\n",
+            MAX_NR_HOST_LPIS);
+
+    register_cpu_notifier(&cpu_nfb);
+    rc = gicv3_lpi_ate_pendtable(smp_processor_id());
+    if (rc)
+        MSGH("Unable to ate the pendtable for CPU%u\n",
+               smp_processor_id());
+
+    return rc;
+}
+
+static int find_unused_host_lpi(u32 start, u32 *index)
+{
+    unsigned int chunk;
+    u32 i = *index;
+
+    ASSERT(spin_is_locked(&lpi_data.host_lpis_lock));
+
+    for (chunk = start;
+         chunk < MAX_NR_HOST_LPIS / HOST_LPIS_PER_PAGE;
+         chunk++) {
+        if (!lpi_data.host_lpis[chunk]) {
+            *index = 0;
+            return chunk;
+        }
+
+        for ( ; i < HOST_LPIS_PER_PAGE; i += LPI_BLOCK) {
+            if (lpi_data.host_lpis[chunk][i].hypos_id == HYPOS_INVALID) {
+                *index = i;
+                return chunk;
+            }
+        }
+        i = 0;
+    }
+
+    return -1;
+}
+
+int gicv3_ate_host_lpi_block(struct hypos *d, u32 *first_lpi)
+{
+    u32 lpi, lpi_idx;
+    int chunk;
+    int i;
+
+    spin_lock(&lpi_data.host_lpis_lock);
+    lpi_idx = lpi_data.next_free_lpi % HOST_LPIS_PER_PAGE;
+    chunk = find_unused_host_lpi(lpi_data.next_free_lpi / HOST_LPIS_PER_PAGE,
+                                 &lpi_idx);
+
+    if (chunk == - 1) {
+        lpi_idx = 0;
+        chunk = find_unused_host_lpi(0, &lpi_idx);
+        if (chunk == -1) {
+            spin_unlock(&lpi_data.host_lpis_lock);
+            return -ENOSPC;
+        }
+    }
+
+    if (!lpi_data.host_lpis[chunk]) {
+        union host_lpi *new_chunk;
+
+        /* TODO: NUMA locality for quicker IRQ path? */
+        new_chunk = alloc_page(0);
+        if (!new_chunk) {
+            spin_unlock(&lpi_data.host_lpis_lock);
+            return -ENOMEM;
+        }
+
+        for (i = 0; i < HOST_LPIS_PER_PAGE; i += LPI_BLOCK)
+            new_chunk[i].hypos_id = HYPOS_INVALID;
+
+        smp_wmb();
+
+        lpi_data.host_lpis[chunk] = new_chunk;
+        lpi_idx = 0;
+    }
+
+    lpi = chunk * HOST_LPIS_PER_PAGE + lpi_idx;
+
+    for (i = 0; i < LPI_BLOCK; i++) {
+        union host_lpi hlpi;
+
+        hlpi.virt_lpi = INVALID_LPI;
+        hlpi.hypos_id = d->hypos_id;
+        write_u64_atomic(&lpi_data.host_lpis[chunk][lpi_idx + i].data,
+                         hlpi.data);
+
+        lpi_data.lpi_property[lpi + i] |= LPI_PROP_ENABLED;
+    }
+
+    lpi_data.next_free_lpi = lpi + LPI_BLOCK;
+
+    spin_unlock(&lpi_data.host_lpis_lock);
+
+    if (lpi_data.flags & LPI_PROPTABLE_NEEDS_FLUSHING)
+        clean_and_invalidate_dcache_va_range(&lpi_data.lpi_property[lpi],
+                                             LPI_BLOCK);
+
+    *first_lpi = lpi + LPI_OFFSET;
+
+    return 0;
+}
+
+void gicv3_free_host_lpi_block(u32 first_lpi)
+{
+    union host_lpi *hlpi, empty_lpi = { .hypos_id = HYPOS_INVALID };
+    int i;
+
+    ASSERT((first_lpi % LPI_BLOCK) == 0);
+
+    hlpi = gic_get_host_lpi(first_lpi);
+    if (!hlpi)
+        return;
+
+    spin_lock(&lpi_data.host_lpis_lock);
+
+    for (i = 0; i < LPI_BLOCK; i++)
+        write_u64_atomic(&hlpi[i].data, empty_lpi.data);
+
+    if (lpi_data.next_free_lpi > first_lpi)
+        lpi_data.next_free_lpi = first_lpi;
+
+    spin_unlock(&lpi_data.host_lpis_lock);
+
+    return;
+}
+
+// --------------------------------------------------------------
+
+#define lr_all_full() \
+    (this_cpu(lr_mask) == ((1 << gic_get_nr_lrs()) - 1))
+
+static void gic_update_one_lr(struct vcpu *v, int i);
+
+static inline void gic_set_lr(int lr, struct pending_irq *p,
+                              unsigned int state)
+{
+    ASSERT(!local_irq_is_enabled());
+
+    clear_bit(GIC_IRQ_GUEST_PRISTINE_LPI, &p->status);
+
+    gic_hw_ops->update_lr(lr, p->irq, p->priority,
+                          p->desc ? p->desc->irq : INVALID_IRQ, state);
+
+    set_bit(GIC_IRQ_GUEST_VISIBLE, &p->status);
+    clear_bit(GIC_IRQ_GUEST_QUEUED, &p->status);
+    p->lr = lr;
+}
+
+static inline void gic_add_to_lr_pending(struct vcpu *v,
+                                         struct pending_irq *n)
+{
+    struct pending_irq *iter;
+
+    ASSERT(spin_is_locked(&v->arch.vgic.lock));
+
+    if (!list_empty(&n->lr_queue))
+        return;
+
+    list_for_each_entry(iter, &v->arch.vgic.lr_pending, lr_queue) {
+        if (iter->priority > n->priority) {
+            list_add_tail(&n->lr_queue, &iter->lr_queue);
+            return;
+        }
+    }
+    list_add_tail(&n->lr_queue, &v->arch.vgic.lr_pending);
+}
+
+void gic_remove_from_lr_pending(struct vcpu *v, struct pending_irq *p)
+{
+    ASSERT(spin_is_locked(&v->arch.vgic.lock));
+
+    list_del_init(&p->lr_queue);
+}
+
+void gic_raise_inflight_irq(struct vcpu *v, unsigned int virtual_irq)
+{
+    struct pending_irq *n = irq_to_pending(v, virtual_irq);
+
+    if (unlikely(!n))
+        return;
+
+    ASSERT(spin_is_locked(&v->arch.vgic.lock));
+
+    if (!test_bit(GIC_IRQ_GUEST_ENABLED, &n->status))
+        return;
+
+    if (list_empty(&n->lr_queue)) {
+        if (v == current)
+            gic_update_one_lr(v, n->lr);
+    }
+#if IS_ENABLED(CFG_GIC_DEBUG)
+    else
+        MSGH("trying to inject irq=%u into %pv, "
+             "when it is still lr_pending\n", virtual_irq, v);
+#endif
+}
+
+static unsigned int gic_find_unused_lr(struct vcpu *v,
+                                       struct pending_irq *p,
+                                       unsigned int lr)
+{
+    unsigned int nr_lrs = gic_get_nr_lrs();
+    unsigned long *lr_mask = (unsigned long *) &this_cpu(lr_mask);
+    struct gic_lr lr_val;
+
+    ASSERT(spin_is_locked(&v->arch.vgic.lock));
+
+    if (unlikely(test_bit(GIC_IRQ_GUEST_PRISTINE_LPI, &p->status))) {
+        unsigned int used_lr;
+
+        for_each_set_bit(used_lr, lr_mask, nr_lrs) {
+            gic_hw_ops->read_lr(used_lr, &lr_val);
+            if (lr_val.virq == p->irq)
+                return used_lr;
+        }
+    }
+
+    lr = find_next_zero_bit(lr_mask, nr_lrs, lr);
+
+    return lr;
+}
+
+void gic_raise_guest_irq(struct vcpu *v, unsigned int virtual_irq,
+        unsigned int priority)
+{
+    int i;
+    unsigned int nr_lrs = gic_get_nr_lrs();
+    struct pending_irq *p = irq_to_pending(v, virtual_irq);
+
+    ASSERT(spin_is_locked(&v->arch.vgic.lock));
+
+    if (unlikely(!p))
+        /* An unmapped LPI does not need to be raised. */
+        return;
+
+    if (v == current && list_empty(&v->arch.vgic.lr_pending)) {
+        i = gic_find_unused_lr(v, p, 0);
+
+        if (i < nr_lrs) {
+            set_bit(i, &this_cpu(lr_mask));
+            gic_set_lr(i, p, GICH_LR_PENDING);
+            return;
+        }
+    }
+
+    gic_add_to_lr_pending(v, p);
+}
+
+static void gic_update_one_lr(struct vcpu *v, int i)
+{
+    struct pending_irq *p;
+    int irq;
+    struct gic_lr lr_val;
+
+    ASSERT(spin_is_locked(&v->arch.vgic.lock));
+    ASSERT(!local_irq_is_enabled());
+
+    gic_hw_ops->read_lr(i, &lr_val);
+    irq = lr_val.virq;
+    p = irq_to_pending(v, irq);
+
+    if (unlikely(!p ||
+        test_and_clear_bit(GIC_IRQ_GUEST_PRISTINE_LPI, &p->status))) {
+        ASSERT(is_lpi(irq));
+
+        gic_hw_ops->clear_lr(i);
+        clear_bit(i, &this_cpu(lr_mask));
+
+        return;
+    }
+
+    if (lr_val.active) {
+        set_bit(GIC_IRQ_GUEST_ACTIVE, &p->status);
+        if (test_bit(GIC_IRQ_GUEST_ENABLED, &p->status) &&
+            test_and_clear_bit(GIC_IRQ_GUEST_QUEUED, &p->status)) {
+            if (p->desc == NULL) {
+                lr_val.pending = true;
+                gic_hw_ops->write_lr(i, &lr_val);
+            } else
+                MSGH("Unable to inject hw irq=%d into %pv: "
+                     "already active in LR%d\n", irq, v, i);
+        }
+    } else if (lr_val.pending) {
+        int q __attribute__ ((unused)) =
+                test_and_clear_bit(GIC_IRQ_GUEST_QUEUED, &p->status);
+#if IS_ENABLED(CFG_GIC_DEBUG)
+        if (q)
+            MSGH("Trying to inject irq=%d into %pv, "
+                 "when it is already pending in LR%d\n",
+                    irq, v, i);
+#endif
+    } else {
+        gic_hw_ops->clear_lr(i);
+        clear_bit(i, &this_cpu(lr_mask));
+
+        if (p->desc != NULL)
+            clear_bit(_IRQ_INPROGRESS, &p->desc->status);
+
+        clear_bit(GIC_IRQ_GUEST_VISIBLE, &p->status);
+        clear_bit(GIC_IRQ_GUEST_ACTIVE, &p->status);
+        p->lr = GIC_INVALID_LR;
+
+        if (test_bit(GIC_IRQ_GUEST_ENABLED, &p->status) &&
+            test_bit(GIC_IRQ_GUEST_QUEUED, &p->status) &&
+            !test_bit(GIC_IRQ_GUEST_MIGRATING, &p->status))
+            gic_raise_guest_irq(v, irq, p->priority);
+        else {
+            list_del_init(&p->inflight);
+
+            smp_wmb();
+            if (test_bit(GIC_IRQ_GUEST_MIGRATING, &p->status)) {
+                struct vcpu *v_target = vgic_get_target_vcpu(v, irq);
+                irq_set_affinity(p->desc, cpumask_of(v_target->hcpuid));
+                clear_bit(GIC_IRQ_GUEST_MIGRATING, &p->status);
+            }
+        }
+    }
+}
+
+void vgic_sync_from_lrs(struct vcpu *v)
+{
+    int i = 0;
+    unsigned long flags;
+    unsigned int nr_lrs = gic_get_nr_lrs();
+
+    if (is_idle_vcpu(v))
+        return;
+
+    gic_hw_ops->update_hcr_status(GICH_HCR_UIE, false);
+
+    spin_lock_irqsave(&v->arch.vgic.lock, flags);
+
+    while ((i = find_next_bit((const unsigned long *) &this_cpu(lr_mask),
+            nr_lrs, i)) < nr_lrs) {
+        gic_update_one_lr(v, i);
+        i++;
+    }
+
+    spin_unlock_irqrestore(&v->arch.vgic.lock, flags);
+}
+
+static void gic_restore_pending_irqs(struct vcpu *v)
+{
+    int lr = 0;
+    struct pending_irq *p, *t, *p_r;
+    struct list_head *inflight_r;
+    unsigned int nr_lrs = gic_get_nr_lrs();
+    int lrs = nr_lrs;
+
+    ASSERT(!local_irq_is_enabled());
+
+    spin_lock(&v->arch.vgic.lock);
+
+    if (list_empty(&v->arch.vgic.lr_pending))
+        goto out;
+
+    inflight_r = &v->arch.vgic.inflight_irqs;
+    list_for_each_entry_safe (p, t, &v->arch.vgic.lr_pending, lr_queue) {
+        lr = gic_find_unused_lr(v, p, lr);
+        if (lr >= nr_lrs) {
+            list_for_each_entry_reverse(p_r, inflight_r, inflight) {
+                if (p_r->priority == p->priority)
+                    goto out;
+                if (test_bit(GIC_IRQ_GUEST_VISIBLE, &p_r->status) &&
+                    !test_bit(GIC_IRQ_GUEST_ACTIVE, &p_r->status))
+                    goto found;
+            }
+
+            goto out;
+
+found:
+            lr = p_r->lr;
+            p_r->lr = GIC_INVALID_LR;
+            set_bit(GIC_IRQ_GUEST_QUEUED, &p_r->status);
+            clear_bit(GIC_IRQ_GUEST_VISIBLE, &p_r->status);
+            gic_add_to_lr_pending(v, p_r);
+            inflight_r = &p_r->inflight;
+        }
+
+        gic_set_lr(lr, p, GICH_LR_PENDING);
+        list_del_init(&p->lr_queue);
+        set_bit(lr, &this_cpu(lr_mask));
+
+        lrs--;
+        if (lrs == 0)
+            break;
+    }
+
+out:
+    spin_unlock(&v->arch.vgic.lock);
+}
+
+void gic_clear_pending_irqs(struct vcpu *v)
+{
+    struct pending_irq *p, *t;
+
+    ASSERT(spin_is_locked(&v->arch.vgic.lock));
+
+    v->arch.lr_mask = 0;
+    list_for_each_entry_safe(p, t, &v->arch.vgic.lr_pending, lr_queue)
+        gic_remove_from_lr_pending(v, p);
+}
+
+int vgic_vcpu_pending_irq(struct vcpu *v)
+{
+    struct pending_irq *p;
+    unsigned long flags;
+    const unsigned long apr = gic_hw_ops->read_apr(0);
+    int mask_priority;
+    int active_priority;
+    int rc = 0;
+
+    ASSERT(v == current);
+
+    mask_priority = gic_hw_ops->read_vmcr_priority();
+    active_priority = find_first_bit(&apr, 32);
+
+    spin_lock_irqsave(&v->arch.vgic.lock, flags);
+
+    list_for_each_entry(p, &v->arch.vgic.inflight_irqs, inflight) {
+        if (GIC_PRI_TO_GUEST(p->priority) >= mask_priority)
+            goto out;
+        if (GIC_PRI_TO_GUEST(p->priority) >= active_priority)
+            goto out;
+        if (test_bit(GIC_IRQ_GUEST_ENABLED, &p->status)) {
+            rc = 1;
+            goto out;
+        }
+    }
+
+out:
+    spin_unlock_irqrestore(&v->arch.vgic.lock, flags);
+    return rc;
+}
+
+void vgic_sync_to_lrs(void)
+{
+    ASSERT(!local_irq_is_enabled());
+
+    gic_restore_pending_irqs(current);
+
+    if (!list_empty(&current->arch.vgic.lr_pending) && lr_all_full())
+        gic_hw_ops->update_hcr_status(GICH_HCR_UIE, true);
+}
+
+void gic_dump_vgic_info(struct vcpu *v)
+{
+    struct pending_irq *p;
+
+    list_for_each_entry(p, &v->arch.vgic.inflight_irqs, inflight)
+        MSGH("Inflight irq=%u lr=%u\n", p->irq, p->lr);
+
+    list_for_each_entry(p, &v->arch.vgic.lr_pending, lr_queue)
+        MSGH("Pending irq=%d\n", p->irq);
+}
+
+struct irq_desc *vgic_get_hw_irq_desc(struct hypos *d, struct vcpu *v,
+                                      unsigned int virq)
+{
+    struct pending_irq *p;
+
+    ASSERT(!v && virq >= 32);
+
+    if (!v)
+        v = d->vcpu[0];
+
+    p = irq_to_pending(v, virq);
+    if (!p)
+        return NULL;
+
+    return p->desc;
+}
+
+int vgic_connect_hw_irq(struct hypos *d, struct vcpu *v, unsigned int virq,
+                        struct irq_desc *desc, bool connect)
+{
+    unsigned long flags;
+
+    struct vcpu *v_target = vgic_get_target_vcpu(d->vcpu[0], virq);
+    struct vgic_irq_rank *rank = vgic_rank_irq(v_target, virq);
+    struct pending_irq *p = irq_to_pending(v_target, virq);
+    int ret = 0;
+
+    ASSERT(!connect || desc);
+
+    vgic_lock_rank(v_target, rank, flags);
+
+    if (connect) {
+        if (!p->desc &&
+            !test_bit(GIC_IRQ_GUEST_ENABLED, &p->status))
+            p->desc = desc;
+        else
+            ret = -EBUSY;
+    } else {
+        if (desc && p->desc != desc)
+            ret = -EINVAL;
+        else
+            p->desc = NULL;
+    }
+
+    vgic_unlock_rank(v_target, rank, flags);
+
+    return ret;
+}
+#endif
+// --------------------------------------------------------------
+int __bootfunc gic_setup(void)
+{
+
+
+    return 0;
+}
+// --------------------------------------------------------------

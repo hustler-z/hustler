@@ -25,7 +25,6 @@
 #include <asm/define.h>
 #include <asm/debug.h>
 #include <asm/sysregs.h>
-#include <asm/gicv3.h>
 #include <asm/offset.h>
 
 // --------------------------------------------------------------
@@ -114,7 +113,7 @@ runtime_switched:
  * TCR_EL2
  * --------------------------------------------------------------
  */
-FUNC_LOCAL(el2_entry)
+FUNC(el2_entry)
     mrs  x7, CurrentEL
 #if ASM_DBG
     DBG("- (ELx) ")
@@ -199,7 +198,7 @@ END(zero_bss)
 
 /* Note Set up exception router
  */
-FUNC_LOCAL(traps_setup)
+FUNC(traps_setup)
     /* Set up Vector Base Address Register (EL2)
      * (self-explanatory)
      */

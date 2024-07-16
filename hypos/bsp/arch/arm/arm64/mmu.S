@@ -154,6 +154,20 @@ FUNC(bootcpu_mmu_setup)
     b    remove_idmap
 END(bootcpu_mmu_setup)
 
+/* Note MMU setup for secondary CPU
+ */
+FUNC(smpcpu_mmu_setup)
+    mov  x17, lr
+    load_paddr x0, ttbr_base
+    ldr  x0, [x0]
+
+    mov  x1, #SCTLR_Axx_ELx_WXN
+    bl   mmu_enable
+    mov  lr, x17
+
+    ret
+END(smpcpu_mmu_setup)
+
 /* Note Page Table Setup
  * DB  -  Block Descriptors
  * DT  -  Table Descriptors

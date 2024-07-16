@@ -6,10 +6,10 @@
  * Usage: common macros for assembly codes
  */
 
-#ifndef _ARCH_DEFINE_H
-#define _ARCH_DEFINE_H
+#ifndef _ASM_DEFINE_H
+#define _ASM_DEFINE_H
 
-#include <asm-generic/bitops.h>
+#include <org/bitops.h>
 
 // --------------------------------------------------------------
 
@@ -26,6 +26,9 @@
 #define DAIF_ERROR_MASK       0x4
 #define DAIF_IRQ_MASK         0x2
 #define DAIF_FIQ_MASK         0x1
+
+#define __OP32 "w"
+#define ASM_REG(index)        asm("x" # index)
 // --------------------------------------------------------------
 
 #ifdef __ASSEMBLY__
@@ -142,4 +145,4 @@
 
 #endif /* __ASSEMBLY__ */
 
-#endif /* _ARCH_DEFINE_H */
+#endif /* _ASM_DEFINE_H */

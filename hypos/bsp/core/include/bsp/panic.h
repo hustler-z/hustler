@@ -10,8 +10,8 @@
 #define _BSP_PANIC_H
 // --------------------------------------------------------------
 
-#include <common/compiler.h>
-#include <common/type.h>
+#include <bsp/compiler.h>
+#include <bsp/type.h>
 
 void panic(bool in_exception, const char *fmt, ...);
 

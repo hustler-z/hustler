@@ -6,7 +6,7 @@
  * Usage:
  */
 
-#include <common/timer.h>
+#include <bsp/time.h>
 #include <bsp/input.h>
 #include <bsp/sdev.h>
 #include <bsp/debug.h>
@@ -451,7 +451,7 @@ static int _input_send_keycodes(struct input_config *config, int keycode[],
     config->modifiers = 0;
     if (!input_check_keycodes(config, keycode, num_keycodes, &same)) {
         is_repeat = config->allow_repeats || (config->repeat_rate_ms &&
-            (int)get_timer(config->next_repeat_ms) >= 0);
+            (int)get_msec_bias(config->next_repeat_ms) >= 0);
         if (!is_repeat)
             return 0;
     }
@@ -466,7 +466,7 @@ static int _input_send_keycodes(struct input_config *config, int keycode[],
             config->repeat_rate_ms :
             config->repeat_delay_ms;
 
-    config->next_repeat_ms = get_timer(0) + delay_ms;
+    config->next_repeat_ms = get_msec_bias(0) + delay_ms;
 
     return count;
 }

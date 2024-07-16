@@ -8,7 +8,7 @@
 
 #include <bsp/keyboard.h>
 #include <bsp/hypmem.h>
-#include <common/errno.h>
+#include <bsp/errno.h>
 #include <lib/strops.h>
 // --------------------------------------------------------------
 static int keyboard_start(struct stdio_dev *sdev)

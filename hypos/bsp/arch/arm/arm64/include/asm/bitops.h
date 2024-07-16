@@ -6,10 +6,10 @@
  * Usage:
  */
 
-#ifndef _ARCH_BITOPS_H
-#define _ARCH_BITOPS_H
+#ifndef _ASM_BITOPS_H
+#define _ASM_BITOPS_H
 // --------------------------------------------------------------
-#include <common/type.h>
+#include <bsp/type.h>
 
 #define BITOP_BITS_PER_WORD     32
 #define BITOP_MASK(nr)          (1UL << ((nr) % BITOP_BITS_PER_WORD))
@@ -79,4 +79,4 @@ static inline int test_bit(int nr, const volatile void *addr)
                 (nr & (BITOP_BITS_PER_WORD-1)));
 }
 // --------------------------------------------------------------
-#endif /* _ARCH_BITOPS_H */
+#endif /* _ASM_BITOPS_H */

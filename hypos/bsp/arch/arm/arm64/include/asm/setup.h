@@ -6,8 +6,8 @@
  * Usage:
  */
 
-#ifndef _ARCH_SETUP_H
-#define _ARCH_SETUP_H
+#ifndef _ASM_SETUP_H
+#define _ASM_SETUP_H
 // --------------------------------------------------------------
 
 struct boot_setup {
@@ -16,4 +16,4 @@ struct boot_setup {
 };
 
 // --------------------------------------------------------------
-#endif /* _ARCH_SETUP_H */
+#endif /* _ASM_SETUP_H */

@@ -6,10 +6,10 @@
  * Usage: ARMv8-A system register related defines
  */
 
-#ifndef _ARCH_SYSREG_H
-#define _ARCH_SYSREG_H
+#ifndef _ASM_SYSREG_H
+#define _ASM_SYSREG_H
 // --------------------------------------------------------------
-#include <asm-generic/bitops.h>
+#include <org/bitops.h>
 
 /* MPIDR_EL1 - Multiprocessor Affinity Register
  *
@@ -107,7 +107,8 @@
 #define MDCR_TDE        (_AC(1,U) << 8)    /* Route Soft Debug exceptions from EL1/EL1 to EL2 */
 #define MDCR_TPM        (_AC(1,U) << 6)    /* Trap Performance Monitors accesses */
 #define MDCR_TPMCR      (_AC(1,U) << 5)    /* Trap PMCR accesses */
-#define MDCR_EL2_SET    (MDCR_TDRA | MDCR_TDOSA | MDCR_TDA | MDCR_TPM | MDCR_TPMCR)
+#define MDCR_EL2_SET    (MDCR_TDRA | MDCR_TDOSA | MDCR_TDA |\
+                         MDCR_TPM | MDCR_TPMCR)
 
 #define CPTR_TAM       ((_AC(1,U) << 30))
 #define CPTR_TTA       ((_AC(1,U) << 20))  /* Trap trace registers */
@@ -380,7 +381,41 @@
 #define PAR_NS          (_AC(1, U) << 9)         /* Non-Secure */
 #define PAR_SH_SHIFT    7                        /* Shareability */
 #define PAR_SH_MASK     (_AC(3, U) << PAR_SH_SHIFT)
+// --------------------------------------------------------------
+#define ZCR_ELx_LEN_SHIFT            0
+#define ZCR_ELx_LEN_SIZE             9
+#define ZCR_ELx_LEN_MASK             0x1FF
+// --------------------------------------------------------------
+#define VTCR_T0SZ(x)    ((x) << 0)
 
+#define VTCR_SL0(x)     ((x) << 6)
+
+#define VTCR_IRGN0_NC   (_AC(0x0, UL) << 8)
+#define VTCR_IRGN0_WBWA (_AC(0x1, UL) << 8)
+#define VTCR_IRGN0_WT   (_AC(0x2, UL) << 8)
+#define VTCR_IRGN0_WB   (_AC(0x3, UL) << 8)
+
+#define VTCR_ORGN0_NC   (_AC(0x0, UL) << 10)
+#define VTCR_ORGN0_WBWA (_AC(0x1, UL) << 10)
+#define VTCR_ORGN0_WT   (_AC(0x2, UL) << 10)
+#define VTCR_ORGN0_WB   (_AC(0x3, UL) << 10)
+
+#define VTCR_SH0_NS     (_AC(0x0, UL) << 12)
+#define VTCR_SH0_OS     (_AC(0x2, UL) << 12)
+#define VTCR_SH0_IS     (_AC(0x3, UL) << 12)
+
+#define VTCR_TG0_4K     (_AC(0x0, UL) << 14)
+#define VTCR_TG0_64K    (_AC(0x1, UL) << 14)
+#define VTCR_TG0_16K    (_AC(0x2, UL) << 14)
+
+#define VTCR_PS(x)      ((x) << 16)
+#define VTCR_RES1       (_AC(1, UL) << 31)
+#define VTCR_VS    	    (_AC(0x1, UL) << 19)
+
+#define HCPTR_TAM       ((_AC(1, U) << 30))
+#define HCPTR_TTA       ((_AC(1, U) << 20))        /* Trap trace registers */
+#define HCPTR_CP(x)     ((_AC(1, U) << (x)))       /* Trap Coprocessor x */
+#define HCPTR_CP_MASK   ((_AC(1, U) << 14) - 1)
 // --------------------------------------------------------------
 #define DAIF_F_SHIFT    6
 #define DAIF_F          BIT(6, UL)
@@ -395,12 +430,67 @@
 #define IMPL_REGS(op1, cn, cm, op2) \
     S3_ ## op1 ## _ ## cn ## _ ## cm ## _ ## op2
 
+/*
+ * GIC System register assembly aliases picked from kernel
+ */
+#define ICC_PMR_EL1               S3_0_C4_C6_0
+#define ICC_DIR_EL1               S3_0_C12_C11_1
+#define ICC_SGI1R_EL1             S3_0_C12_C11_5
+#define ICC_EOIR1_EL1             S3_0_C12_C12_1
+#define ICC_IAR1_EL1              S3_0_C12_C12_0
+#define ICC_BPR1_EL1              S3_0_C12_C12_3
+#define ICC_CTLR_EL1              S3_0_C12_C12_4
+#define ICC_SRE_EL1               S3_0_C12_C12_5
+#define ICC_IGRPEN1_EL1           S3_0_C12_C12_7
+
+#define ICH_VSEIR_EL2             S3_4_C12_C9_4
+#define ICC_SRE_EL2               S3_4_C12_C9_5
+#define ICH_HCR_EL2               S3_4_C12_C11_0
+#define ICH_VTR_EL2               S3_4_C12_C11_1
+#define ICH_MISR_EL2              S3_4_C12_C11_2
+#define ICH_EISR_EL2              S3_4_C12_C11_3
+#define ICH_ELSR_EL2              S3_4_C12_C11_5
+#define ICH_VMCR_EL2              S3_4_C12_C11_7
+#define ZCR_EL2                   S3_4_C1_C2_0
+
+#define __LR0_EL2(x)              S3_4_C12_C12_ ## x
+#define __LR8_EL2(x)              S3_4_C12_C13_ ## x
+
+#define ICH_LR0_EL2               __LR0_EL2(0)
+#define ICH_LR1_EL2               __LR0_EL2(1)
+#define ICH_LR2_EL2               __LR0_EL2(2)
+#define ICH_LR3_EL2               __LR0_EL2(3)
+#define ICH_LR4_EL2               __LR0_EL2(4)
+#define ICH_LR5_EL2               __LR0_EL2(5)
+#define ICH_LR6_EL2               __LR0_EL2(6)
+#define ICH_LR7_EL2               __LR0_EL2(7)
+#define ICH_LR8_EL2               __LR8_EL2(0)
+#define ICH_LR9_EL2               __LR8_EL2(1)
+#define ICH_LR10_EL2              __LR8_EL2(2)
+#define ICH_LR11_EL2              __LR8_EL2(3)
+#define ICH_LR12_EL2              __LR8_EL2(4)
+#define ICH_LR13_EL2              __LR8_EL2(5)
+#define ICH_LR14_EL2              __LR8_EL2(6)
+#define ICH_LR15_EL2              __LR8_EL2(7)
+
+#define __AP0Rx_EL2(x)            S3_4_C12_C8_ ## x
+#define ICH_AP0R0_EL2             __AP0Rx_EL2(0)
+#define ICH_AP0R1_EL2             __AP0Rx_EL2(1)
+#define ICH_AP0R2_EL2             __AP0Rx_EL2(2)
+#define ICH_AP0R3_EL2             __AP0Rx_EL2(3)
+
+#define __AP1Rx_EL2(x)            S3_4_C12_C9_ ## x
+#define ICH_AP1R0_EL2             __AP1Rx_EL2(0)
+#define ICH_AP1R1_EL2             __AP1Rx_EL2(1)
+#define ICH_AP1R2_EL2             __AP1Rx_EL2(2)
+#define ICH_AP1R3_EL2             __AP1Rx_EL2(3)
+
 // --------------------------------------------------------------
 #ifndef __ASSEMBLY__
 
 #include <asm/alternative.h>
-#include <common/stringify.h>
-#include <common/type.h>
+#include <bsp/stringify.h>
+#include <bsp/type.h>
 
 #define WRITE_SYSREG64(v, name) do {                          \
     unsigned long _r = (v);                                   \
@@ -419,8 +509,12 @@
 
 #define READ_SYSREG(name)          READ_SYSREG64(name)
 #define WRITE_SYSREG(v, name)      WRITE_SYSREG64(v, name)
+
+#define ICH_LR_REG(index)          ICH_LR ## index ## _EL2
+#define WRITE_SYSREG_LR(v, index)  WRITE_SYSREG(v, ICH_LR_REG(index))
+#define READ_SYSREG_LR(index)      READ_SYSREG(ICH_LR_REG(index))
 // --------------------------------------------------------------
-#define ARM64_WORKAROUND_1508412   (17)
+#include <org/cpu.h>
 
 static inline u64 read_sysreg_par(void)
 {
@@ -436,5 +530,5 @@ static inline u64 read_sysreg_par(void)
 
 #endif /* !__ASSEMBLY__ */
 
-#endif /* _ARCH_SYSREG_H */
+#endif /* _ASM_SYSREG_H */
 // --------------------------------------------------------------

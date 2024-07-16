@@ -9,7 +9,7 @@
 #ifndef _BSP_SERIAL_H
 #define _BSP_SERIAL_H
 // --------------------------------------------------------------
-#include <common/type.h>
+#include <bsp/type.h>
 
 enum serial_par {
     SERIAL_PAR_NONE,

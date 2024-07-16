@@ -6,17 +6,17 @@
  * Usage: system execution checker
  */
 
-#include <asm-generic/spinlock.h>
 #include <asm/barrier.h>
 #include <asm/sysregs.h>
 #include <asm/hcpu.h>
 #include <asm/page.h>
 #include <asm/exit.h>
 #include <asm/define.h>
-#include <common/exit.h>
+#include <bsp/exit.h>
 #include <bsp/debug.h>
 #include <bsp/percpu.h>
 #include <bsp/panic.h>
+#include <bsp/spinlock.h>
 #include <lib/args.h>
 
 // --------------------------------------------------------------
@@ -97,14 +97,14 @@ void panic(bool in_exception, const char *fmt, ...)
     if (!in_exception)
         hack_stack();
 
-    spinlock(&panic_lock);
+    spin_lock(&panic_lock);
 
     va_list args;
     va_start(args, fmt);
     vpr_common(fmt, args);
     va_end(args);
 
-    spinunlock(&panic_lock);
+    spin_unlock(&panic_lock);
 
     panic_end();
 }
@@ -113,7 +113,7 @@ void warn(const char *fmt, ...)
 {
     va_list args;
 
-    spinlock(&panic_lock);
+    spin_lock(&panic_lock);
 
     hack_stack();
 
@@ -121,14 +121,14 @@ void warn(const char *fmt, ...)
     vpr_common(fmt, args);
     va_end(args);
 
-    spinunlock(&panic_lock);
+    spin_unlock(&panic_lock);
 }
 
 void __warn_crap(const char *assertion, const char *file,
         unsigned int line, const char *function)
 {
     warn("[warns] %s %u - %s()\n"
-         "        \"%s\" Bombed ^_^",
+         BLANK_ALIGN"[%s] bombed >_@",
          file, line,
          function, assertion);
 }
@@ -137,7 +137,7 @@ void __bug_crap(const char *assertion, const char *file,
         unsigned int line, const char *function)
 {
     panic(false, "[panic] %s %u - %s()\n"
-                 "        \"%s\" -> True  F*cked Up ^_^",
+                 BLANK_ALIGN"[%s] -> true  bombed >_@",
                  file, line,
                  function, assertion);
 }
@@ -146,7 +146,7 @@ void __assert_crap(const char *assertion, const char *file,
         unsigned int line, const char *function)
 {
     panic(false, "[assrt] %s %u - %s()\n"
-                 "        \"%s\" -> False Bombed ^_^",
+                 BLANK_ALIGN"[%s] -> false bombed >_@",
                  file, line,
                  function, assertion);
 }

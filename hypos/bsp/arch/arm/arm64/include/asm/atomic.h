@@ -6,8 +6,8 @@
  * Usage:
  */
 
-#ifndef _ARCH_ATOMIC_H
-#define _ARCH_ATOMIC_H
+#ifndef _ASM_ATOMIC_H
+#define _ASM_ATOMIC_H
 // --------------------------------------------------------------
 #include <asm/io.h>
 #include <asm/barrier.h>
@@ -30,11 +30,21 @@ static inline void name(volatile type *addr, type val) \
     : "r" (val));                                      \
 }
 
+#define build_add_sized(name, size, width, type)                    \
+static inline void name(volatile type *addr, type val)              \
+{                                                                   \
+    type t;                                                         \
+    asm volatile("ldr" size " %" width(1) ",%0\n"                   \
+                 "add %" width(1) ",%" width(1) ",%" width(2) "\n"  \
+                 "str" size " %" width(1) ",%0"                     \
+                 : "+m" (*addr), "=&r" (t)                          \
+                 : "ri" (val));                                     \
+}
+
 #define BYTE(n)  "w" #n
 #define WORD(n)  "w" #n
 #define DWORD(n) "" #n
 #define PAIR     ""
-
 
 declare_atomic_read(read_u8_atomic, "b", BYTE, u8)
 declare_atomic_read(read_u16_atomic, "h", WORD, u16)
@@ -45,6 +55,10 @@ declare_atomic_write(write_u8_atomic, "b", BYTE, u8)
 declare_atomic_write(write_u16_atomic, "h", WORD, u16)
 declare_atomic_write(write_u32_atomic, "", WORD, u32)
 declare_atomic_write(write_u64_atomic, "", DWORD, u64)
+
+build_add_sized(add_u8_sized, "b", BYTE, u8)
+build_add_sized(add_u16_sized, "h", WORD, u16)
+build_add_sized(add_u32_sized, "", WORD, u32)
 
 void bad_atomic_size(void);
 void bad_atomic_read(const volatile void *p, void *res);
@@ -105,7 +119,19 @@ static __always_inline void write_atomic_size(volatile void *p,
         write_atomic_size(p, &x_, sizeof(*(p)));            \
     } while (false)
 
+#define add_sized(p, x) ({                                  \
+    typeof(*(p)) __x = (x);                                 \
+    switch (sizeof(*(p))) {                                 \
+    case 1: add_u8_sized((u8 *)(p), __x); break;            \
+    case 2: add_u16_sized((u16 *)(p), __x); break;          \
+    case 4: add_u32_sized((u32 *)(p), __x); break;          \
+    default: bad_atomic_size(); break;                      \
+    }                                                       \
+})
 // --------------------------------------------------------------
+
+#define ATOMIC_INIT(i)  { (i) }
+
 typedef struct { int counter; } atomic_t;
 
 static inline int atomic_read(const atomic_t *v)
@@ -228,12 +254,14 @@ static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
     return oldval;
 }
 
-static inline int __atomic_add_unless(atomic_t *v, int a, int u)
+static inline int __atomic_add_unless(atomic_t *v,
+                                      int a, int u)
 {
     int c, old;
 
     c = atomic_read(v);
-    while (c != u && (old = atomic_cmpxchg((v), c, c + a)) != c)
+    while (c != u && (old =
+                      atomic_cmpxchg((v), c, c + a)) != c)
         c = old;
     return c;
 }
@@ -284,4 +312,4 @@ static inline int atomic_add_unless(atomic_t *v, int a, int u)
 }
 
 // --------------------------------------------------------------
-#endif /* _ARCH_ATOMIC_H */
+#endif /* _ASM_ATOMIC_H */

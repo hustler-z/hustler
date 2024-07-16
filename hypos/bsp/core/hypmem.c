@@ -7,8 +7,8 @@
  *        (Initialization, Allocation, Deallocation)
  */
 
-#include <asm-generic/section.h>
-#include <asm-generic/membank.h>
+#include <org/section.h>
+#include <org/membank.h>
 #include <asm/ttbl.h>
 #include <bsp/hypmem.h>
 #include <bsp/panic.h>
@@ -1317,6 +1317,7 @@ void *alloc(size_t len)
     return vaddr;
 }
 
+
 void *calloc(size_t nrmb, size_t size)
 {
     size_t total = nrmb * size;
@@ -1352,6 +1353,12 @@ void *_malloc(unsigned long size, unsigned long align)
     return p;
 }
 
+void *zalloc(unsigned long size, unsigned long align)
+{
+    void *p = _malloc(size, align);
+
+    return p ? memset(p, 0, size) : p;
+}
 
 void mfree(void *p)
 {

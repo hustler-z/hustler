@@ -6,8 +6,8 @@
  * Usage:
  */
 
-#include <common/symtbl.h>
-#include <common/type.h>
+#include <bsp/symtbl.h>
+#include <bsp/type.h>
 #include <asm/ttbl.h>
 
 #ifdef SYMBOLS_ORIGIN

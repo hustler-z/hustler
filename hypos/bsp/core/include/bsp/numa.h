@@ -6,10 +6,10 @@
  * Usage:
  */
 
-#ifndef _COMMON_NUMA_H
-#define _COMMON_NUMA_H
+#ifndef _BSP_NUMA_H
+#define _BSP_NUMA_H
 // --------------------------------------------------------------
-#include <common/type.h>
+#include <bsp/type.h>
 
 typedef u8              nid_t;
 
@@ -22,4 +22,4 @@ struct node_data {
 #define cpu_to_node(cpu)      (0)
 
 // --------------------------------------------------------------
-#endif /* _COMMON_NUMA_H */
+#endif /* _BSP_NUMA_H */

@@ -6,9 +6,9 @@
  * Usage:
  */
 
-#ifndef _ARCH_EXIT_H
-#define _ARCH_EXIT_H
+#ifndef _ASM_EXIT_H
+#define _ASM_EXIT_H
 // --------------------------------------------------------------
 void arch_cpu_reboot(void);
 // --------------------------------------------------------------
-#endif /* _ARCH_EXIT_H */
+#endif /* _ASM_EXIT_H */

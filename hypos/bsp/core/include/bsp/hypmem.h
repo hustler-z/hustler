@@ -9,7 +9,7 @@
 #ifndef _BSP_HACKMEM_H
 #define _BSP_HACKMEM_H
 // --------------------------------------------------------------
-#include <common/type.h>
+#include <bsp/type.h>
 #include <bsp/panic.h>
 #include <bsp/numa.h>
 #include <asm/at.h>
@@ -68,17 +68,32 @@ static inline nid_t pfn_to_nid(pfn_t pfn)
 int hypmem_setup(void);
 // --------------------------------------------------------------
 void *_malloc(unsigned long size, unsigned long align);
+void *zalloc(unsigned long size, unsigned long align);
+
+#define malloc(_type) ((_type *)_malloc(sizeof(_type), __alignof__(_type)))
+#define _zalloc(_type) ((_type *)zalloc(sizeof(_type), __alignof__(_type)))
 static inline void *_malloc_array(unsigned long size,
-                                   unsigned long align,
-                                   unsigned long num)
+                                  unsigned long align,
+                                  unsigned long num)
 {
     if (size && num > UINT_MAX / size)
         return NULL;
     return _malloc(size * num, align);
 }
 
+static inline void *zalloc_array(unsigned long size,
+                                 unsigned long align,
+                                 unsigned long num)
+{
+    if (size && num > UINT_MAX / size)
+        return NULL;
+    return zalloc(size * num, align);
+}
+
 #define malloc_array(_type, _num) \
     ((_type *)_malloc_array(sizeof(_type), __alignof__(_type), _num))
+#define _zalloc_array(_type, _num) \
+    ((_type *)zalloc_array(sizeof(_type), __alignof__(_type), _num))
 
 void mfree(void *p);
 // --------------------------------------------------------------

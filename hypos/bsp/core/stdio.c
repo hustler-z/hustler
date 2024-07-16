@@ -6,12 +6,12 @@
  * Usage:
  */
 
+#include <org/globl.h>
 #include <bsp/sdev.h>
 #include <bsp/hypmem.h>
 #include <bsp/serial.h>
 #include <bsp/keyboard.h>
-#include <asm-generic/globl.h>
-#include <common/errno.h>
+#include <bsp/errno.h>
 #include <lib/strops.h>
 
 // --------------------------------------------------------------

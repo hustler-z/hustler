@@ -7,8 +7,8 @@
  */
 
 
-#include <asm-generic/globl.h>
-#include <asm-generic/section.h>
+#include <org/globl.h>
+#include <org/section.h>
 #include <lib/list.h>
 #include <bsp/panic.h>
 
@@ -16,7 +16,7 @@
 
 /* The one and only hypos global data tracker: globl
  */
-struct hypos_globl __initdata boot_globl = {
+static struct hypos_globl __initdata boot_globl = {
     .console_enable = true,
     .keyboard_enable = true,
 #ifdef __RK3568__
@@ -24,16 +24,14 @@ struct hypos_globl __initdata boot_globl = {
 #endif
     .smode = GLB_EARLY_SERIAL,
     .flags = GLB_INITIALIZED,
-    .boot_status = EARLY_BOOT_STAGE,
+    .hypos_status = HYPOS_EARLY_BOOT_STAGE,
 };
 
 struct hypos_globl *get_globl(void)
 {
     struct hypos_globl *globl = &boot_globl;
 
-    ASSERT(globl->boot_status == EARLY_BOOT_STAGE ||
-           globl->boot_status == SMP_BOOT_STAGE);
-
     return globl;
 }
+
 // --------------------------------------------------------------

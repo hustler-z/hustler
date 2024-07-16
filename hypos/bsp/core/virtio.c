@@ -6,7 +6,7 @@
  * Usage:
  */
 
-#include <core/virtio.h>
+#include <bsp/virtio.h>
 
 // --------------------------------------------------------------
 

@@ -6,14 +6,14 @@
  * Usage:
  */
 
+#include <org/esr.h>
 #include <asm/page.h>
 #include <asm/hcpu.h>
 #include <asm/sysregs.h>
 #include <asm/barrier.h>
 #include <asm/define.h>
-#include <asm-generic/esr.h>
-#include <common/compiler.h>
-#include <common/traps.h>
+#include <bsp/compiler.h>
+#include <bsp/traps.h>
 #include <bsp/debug.h>
 #include <bsp/panic.h>
 #include <bsp/percpu.h>
@@ -481,7 +481,7 @@ void panic_par(paddr_t par)
 // --------------------------------------------------------------
 void do_bad_sync(struct hcpu_regs *regs)
 {
-    local_irq_enable();
+    local_daif_disable();
     dump_execution_status(regs, bad_tags[SYNC_CODE]);
     trap_panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      "
                "                 >_@",
@@ -493,7 +493,7 @@ void do_bad_sync(struct hcpu_regs *regs)
  */
 void do_bad_irq(struct hcpu_regs *regs)
 {
-    local_irq_enable();
+    local_daif_disable();
     dump_execution_status(regs, bad_tags[IRQ_CODE]);
     trap_panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      "
                "                 >_@",
@@ -505,7 +505,7 @@ void do_bad_irq(struct hcpu_regs *regs)
  */
 void do_bad_fiq(struct hcpu_regs *regs)
 {
-    local_irq_enable();
+    local_daif_disable();
     dump_execution_status(regs, bad_tags[FIQ_CODE]);
     trap_panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      "
                "                 >_@",
@@ -517,7 +517,7 @@ void do_bad_fiq(struct hcpu_regs *regs)
  */
 void do_bad_error(struct hcpu_regs *regs)
 {
-    local_irq_enable();
+    local_daif_disable();
     dump_execution_status(regs, bad_tags[ERROR_CODE]);
     trap_panic("<BUG>   Bad <%s> Got Busted, MothaF*cka      "
                "                 >_@",

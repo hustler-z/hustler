@@ -7,22 +7,20 @@
  */
 
 #include <asm/barrier.h>
-#include <asm-generic/spinlock.h>
+#include <bsp/spinlock.h>
 #include <bsp/stdio.h>
 #include <bsp/hypmem.h>
 #include <bsp/panic.h>
 #include <lib/ctype.h>
 #include <lib/math.h>
 #include <lib/strops.h>
-#include <common/errno.h>
-#include <common/symtbl.h>
-#include <common/compiler.h>
+#include <bsp/errno.h>
+#include <bsp/symtbl.h>
+#include <bsp/compiler.h>
 #include <lib/args.h>
 #include <lib/bitops.h>
 
 // --------------------------------------------------------------
-static DEFINE_SPINLOCK(vpr_lock);
-
 #define is_digit(c)	((c) >= '0' && (c) <= '9')
 
 static int skip_atoi(const char **s)
@@ -627,6 +625,8 @@ int snpr(char *buf, size_t size, const char *fmt, ...)
     return i;
 }
 
+static DEFINE_SPINLOCK(vpr_lock);
+
 void vpr_common(const char *fmt, va_list args)
 {
     static char   buf[1024];
@@ -634,7 +634,7 @@ void vpr_common(const char *fmt, va_list args)
     int ret;
 
     local_irq_save(flags);
-    spinlock(&vpr_lock);
+    spin_lock(&vpr_lock);
 
     ret = vsnpr(buf, sizeof(buf), fmt, args);
 
@@ -643,7 +643,7 @@ void vpr_common(const char *fmt, va_list args)
 
     puts(buf);
 
-    spinunlock(&vpr_lock);
+    spin_unlock(&vpr_lock);
     local_irq_restore(flags);
 }
 

@@ -10,7 +10,7 @@
 #define _LIB_SORT_H
 // ------------------------------------------------------------------------
 
-#include <common/type.h>
+#include <bsp/type.h>
 #include <lib/list.h>
 
 void qsort(void  *base,
@@ -21,5 +21,6 @@ void qsort(void  *base,
 void list_sort(void *priv, struct list_head *head,
         int (*cmp)(void *priv, struct list_head *a,
         struct list_head *b));
+
 // ------------------------------------------------------------------------
 #endif /* _LIB_SORT_H */

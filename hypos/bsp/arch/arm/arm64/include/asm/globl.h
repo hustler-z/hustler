@@ -6,11 +6,11 @@
  * Usage:
  */
 
-#ifndef _ARCH_GLOBAL_H
-#define _ARCH_GLOBAL_H
+#ifndef _ASM_GLOBAL_H
+#define _ASM_GLOBAL_H
 // --------------------------------------------------------------
 #ifndef __ASSEMBLY__
-#include <common/type.h>
+#include <bsp/type.h>
 
 struct arch_globl {
     paddr_t boot_ttbr;
@@ -22,4 +22,4 @@ struct arch_globl {
 
 #endif /* !__ASSEMBLY__ */
 // --------------------------------------------------------------
-#endif /* _ARCH_GLOBAL_H */
+#endif /* _ASM_GLOBAL_H */

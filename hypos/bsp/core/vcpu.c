@@ -6,12 +6,12 @@
  * Usage:
  */
 
-#include <core/vcpu.h>
-#include <core/sched.h>
-#include <asm-generic/section.h>
+#include <org/vcpu.h>
+#include <bsp/sched.h>
+#include <org/section.h>
 
 // --------------------------------------------------------------
-
+DEFINE_PERCPU(struct vcpu *, current_vcpu);
 
 /* --------------------------------------------------------------
  *
@@ -36,7 +36,6 @@
  * --------------------------------------------------------------
  */
 
-struct vcpu *hypos_vcpus[NR_CPUS] __read_mostly;
 
 
 

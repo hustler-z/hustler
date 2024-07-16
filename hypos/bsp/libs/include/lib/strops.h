@@ -9,7 +9,7 @@
 #ifndef _LIB_STROPS_H
 #define _LIB_STROPS_H
 // ------------------------------------------------------------------------
-#include <common/type.h>
+#include <bsp/type.h>
 
 char *strcpy(char *dest, const char *src);
 char *strncpy(char *dest, const char *src, size_t count);

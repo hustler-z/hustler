@@ -15,9 +15,9 @@
 #include <asm/atomic.h>
 #include <asm/sysregs.h>
 #include <asm/barrier.h>
-#include <common/compiler.h>
-#include <common/type.h>
-#include <common/traps.h>
+#include <bsp/compiler.h>
+#include <bsp/type.h>
+#include <bsp/traps.h>
 #include <lib/math.h>
 #include <bsp/panic.h>
 
@@ -156,7 +156,7 @@ ttbl_t __aligned(PAGE_SIZE) name[PGTBL_TTBL_ENTRIES * (nr)]
 
 int mmu_enabled(void);
 int ttbl_setup(void);
-void zero_page(ttbl_t *pte);
+extern void zero_page(ttbl_t *pte);
 
 static inline void write_pte(ttbl_t *p, ttbl_t pte)
 {
@@ -357,6 +357,7 @@ static inline u64 __gva_to_ipa(vaddr_t va, unsigned int flags)
 
 // --------------------------------------------------------------
 /* Page Implementation */
+
 struct pglist {
     unsigned long next, prev;
 };

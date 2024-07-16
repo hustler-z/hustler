@@ -2,21 +2,22 @@
  * Hustler's Project
  *
  * File:  core.c
- * Date:  2024/06/27
+ * Date:  2024/07/12
  * Usage:
  */
 
-#include <asm-generic/section.h>
-#include <core/core.h>
+#include <org/section.h>
 
 // --------------------------------------------------------------
 
+extern const bootcall_t __bootcalls_start[], __bootcalls_end[];
 
-int __bootfunc core_setup(void)
+void __bootfunc bootcalls(void)
 {
-    return 0;
+    const bootcall_t *call;
+
+    for (call = __bootcalls_start; call < __bootcalls_end; call++)
+        (*call)();
 }
-
-
 
 // --------------------------------------------------------------

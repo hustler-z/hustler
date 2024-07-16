@@ -7,7 +7,7 @@
  * (uart, i2c, spi, etc.)
  */
 
-#include <common/mmap.h>
+#include <bsp/mmap.h>
 
 void *map_devmem(paddr_t paddr)
 {

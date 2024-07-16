@@ -10,8 +10,8 @@
 #define _LIB_RBTREE_H
 // ------------------------------------------------------------------------
 
-#include <common/compiler.h>
-#include <common/type.h>
+#include <bsp/compiler.h>
+#include <bsp/type.h>
 
 struct rb_node {
 	unsigned long  __rb_parent_color;

@@ -6,10 +6,10 @@
  * Usage:
  */
 
-#include <core/vm.h>
-#include <core/vcpu.h>
-#include <core/vgic.h>
-#include <core/vtimer.h>
+#include <org/vtimer.h>
+#include <org/vcpu.h>
+#include <org/vgic.h>
+#include <bsp/vm.h>
 
 // --------------------------------------------------------------
 static int kick_guests_up(void)

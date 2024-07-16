@@ -6,13 +6,13 @@
  * Usage: board debug serial initialization
  */
 
-#include <asm-generic/globl.h>
+#include <org/globl.h>
 #include <asm/io.h>
 #include <bsp/ns16550.h>
 #include <bsp/serial.h>
 #include <bsp/period.h>
-#include <common/type.h>
-#include <common/errno.h>
+#include <bsp/type.h>
+#include <bsp/errno.h>
 #include <lib/math.h>
 
 // --------------------------------------------------------------

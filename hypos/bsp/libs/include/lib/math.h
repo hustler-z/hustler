@@ -9,7 +9,7 @@
 #ifndef _LIB_MATH_H
 #define _LIB_MATH_H
 // ------------------------------------------------------------------------
-#include <common/type.h>
+#include <bsp/type.h>
 
 #define do_div(n,base) ({           \
     u32 __base = (base);            \
@@ -128,5 +128,6 @@
 
 unsigned int rand(void);
 void srand(unsigned int seed);
+u64 muldiv64(u64 a, u32 b, u32 c);
 // ------------------------------------------------------------------------
 #endif /* _LIB_MATH_H */

@@ -11,10 +11,10 @@
 #include <bsp/hypmem.h>
 #include <bsp/debug.h>
 #include <bsp/board.h>
-#include <asm-generic/membank.h>
-#include <asm-generic/section.h>
-#include <asm-generic/bitops.h>
-#include <asm-generic/globl.h>
+#include <org/membank.h>
+#include <org/section.h>
+#include <org/bitops.h>
+#include <org/globl.h>
 #include <lib/strops.h>
 #include <lib/convert.h>
 

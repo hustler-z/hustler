@@ -15,7 +15,7 @@ PLATFORM    ?= rockchip
 BOARD       ?= rk3568
 BASE        ?= arm
 ARCH        ?= arm64
-BIN         := $(OUTPUT)/hypos.bin
+BIN         := $(OUTPUT)/hypos
 ELF         := $(OUTPUT)/hypos.elf
 SYM         := $(OUTPUT)/hypos-sym.elf
 MAP         := $(OUTPUT)/hypos.map
@@ -54,7 +54,7 @@ CFLAGS      += -std=gnu11 -fno-builtin -fno-common
 CFLAGS      += -Wno-unused-variable -Wno-pointer-arith
 CFLAGS      += -mno-outline-atomics -Wno-unused-function
 LDFLAGS     += -nostdlib -g -Wall
-# LDFLAGS     += -Wl,--no-warn-rwx-segments
+LDFLAGS     += -Wl,--no-warn-rwx-segments
 AFLAGS      += -nostdlib -g -Wall
 AFLAGS      += -D__ASSEMBLY__
 
@@ -148,7 +148,7 @@ cc_readelf = $(Q)mkdir -p `dirname $(1)`; \
              $(OBJDUMP) -h $(1) > $(patsubst %.elf,%.hdr,$(1))
 # ---------------------------------------------------------------
 cc_objcopy = $(Q)mkdir -p `dirname $(1)`; \
-             echo "OBJCOPY  $(subst $(OUTPUT)/,,$(1))"; \
+             echo "BINARYS  $(subst $(OUTPUT)/,,$(1))"; \
              $(OBJCOPY) -O binary $(2) $(1)
 # ---------------------------------------------------------------
 # Link all *.o Files into an Executable.
@@ -169,7 +169,7 @@ cc_nm      = $(Q)mkdir -p `dirname $(1)`; \
              $(call SYSTEM_MAP,$(2)) > $(1)
 # ---------------------------------------------------------------
 cc_lds     = $(Q)mkdir -p `dirname $(1)`; \
-             echo "LDS      $(subst $(OUTPUT)/,,$(1))"; \
+             echo "LDS      $(patsubst %.lds,%.ld,$(subst $(OUTPUT)/,,$(1)))"; \
              $(CX) -P $(AFLAGS) -DLINKER_SCRIPT -o $(1) $(2)
 # ---------------------------------------------------------------
 define all_sources

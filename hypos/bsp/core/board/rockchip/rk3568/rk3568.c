@@ -7,9 +7,9 @@
  */
 
 #include <asm/ttbl.h>
-#include <asm-generic/bitops.h>
-#include <asm-generic/section.h>
-#include <asm-generic/globl.h>
+#include <org/bitops.h>
+#include <org/section.h>
+#include <org/globl.h>
 #include <rk3568/rk3568.h>
 #include <rk3568/grf.h>
 #include <rockchip/hardware.h>

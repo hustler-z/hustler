@@ -10,8 +10,10 @@
 #define _BSP_VMAP_H
 // --------------------------------------------------------------
 #include <asm/ttbl.h>
-#include <common/type.h>
-#include <common/compiler.h>
+#include <bsp/type.h>
+#include <bsp/compiler.h>
+#include <asm/page.h>
+#include <asm/at.h>
 
 enum vmap_region {
     VMAP_DEFAULT,
@@ -42,6 +44,25 @@ static inline void iounmap(void __iomem *va)
     unsigned long addr = (unsigned long)(void __force *)va;
 
     vunmap((void *)(addr & PAGE_MASK));
+}
+
+void *ioremap(paddr_t pa, size_t len);
+
+void __iomem *ioremap_attr(paddr_t start, size_t len, unsigned int attributes);
+
+static inline void __iomem *ioremap_nocache(paddr_t start, size_t len)
+{
+    return ioremap_attr(start, len, PAGE_HYPOS_NOCACHE);
+}
+
+static inline void __iomem *ioremap_cache(paddr_t start, size_t len)
+{
+    return ioremap_attr(start, len, PAGE_HYPOS);
+}
+
+static inline void __iomem *ioremap_wc(paddr_t start, size_t len)
+{
+    return ioremap_attr(start, len, PAGE_HYPOS_WC);
 }
 
 int vmap_setup(void);

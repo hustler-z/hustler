@@ -6,10 +6,11 @@
  * Usage:
  */
 
-#ifndef _ARCH_TTBL_H
-#define _ARCH_TTBL_H
+#ifndef _ASM_TTBL_H
+#define _ASM_TTBL_H
 // --------------------------------------------------------------
 #include <asm/page.h>
+#include <bsp/size.h>
 
 /*
  * Granularity | PAGE_SHIFT | TTBL_SHIFT
@@ -43,15 +44,12 @@
 #define PGTBL_LEVEL_SIZE(lvl)  LEVEL_SIZE(PAGE_SHIFT, lvl)
 #define PGTBL_LEVEL_MASK(lvl)  (~(PGTBL_LEVEL_SIZE(lvl) - 1))
 
-/* --------------------------------------------------------------------
+/* --------------------------------------------------------------
  * Translation Table (stage 1 and stage 2)
  *
  *
- * --------------------------------------------------------------------
+ * --------------------------------------------------------------
  */
-#define KB(_kb)                    (_AC(_kb, UL) << 10)
-#define MB(_mb)                    (_AC(_mb, UL) << 20)
-#define GB(_gb)                    (_AC(_gb, UL) << 30)
 
 /* Memory slot of 8G */
 #define MEM_SLOT0(slot)             (_AT(vaddr_t, slot) << 39)
@@ -60,17 +58,18 @@
  *
  * For embedded device of maximum 32G of RAM
  * [0000000800000000 - 0000001000000000)
- * --------------------------------------------------------------------
+ * --------------------------------------------------------------
  * 8M                  DATA
  *                     FIXMAP
  *                     VMAP
  *                     PAGEFRAME
  *                     DIRECTMAP
- * --------------------------------------------------------------------
+ * --------------------------------------------------------------
  */
-#define HYPOS_DATA_VIRT_START      MEM_SLOT0(1)
+#define HYPOS_DATA_VIRT_START      MEM_SLOT0(20)
 #define HYPOS_DATA_VIRT_SIZE       MB(8)
-#define HYPOS_DATA_NR_ENTRIES(lvl) (HYPOS_DATA_VIRT_SIZE / PGTBL_LEVEL_SIZE(lvl))
+#define HYPOS_DATA_NR_ENTRIES(lvl) \
+    (HYPOS_DATA_VIRT_SIZE / PGTBL_LEVEL_SIZE(lvl))
 // --------------------------------------------------------------
 
 /* HYPOS FIXMAP
@@ -124,4 +123,4 @@ extern unsigned long directmap_va_start;
 #define TTBL_ENTRY_MEM  0xF7F /* nG=1 AF=1 SH=11 AP=01 NS=1 AI=111 T=1 V=1 */
 #define TTBL_ENTRY_DEV  0xE73 /* nG=1 AF=1 SH=10 AP=01 NS=1 AI=100 T=1 V=1 */
 // --------------------------------------------------------------
-#endif /* _ARCH_TTBL_H */
+#endif /* _ASM_TTBL_H */

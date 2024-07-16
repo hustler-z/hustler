@@ -8,7 +8,7 @@
 
 #include <asm/sysregs.h>
 #include <asm/debug.h>
-#include <common/traps.h>
+#include <bsp/traps.h>
 
 // --------------------------------------------------------------
 void hyp_syn_el2t_handler(struct hcpu_regs *regs)

@@ -280,7 +280,7 @@ static void write_src(void)
     }
     printf("#include <asm/define.h>\n");
     printf("#include <asm/ttbl.h>\n");
-    printf("#include <asm-generic/bitops.h>\n");
+    printf("#include <org/bitops.h>\n");
     printf("#if BITS_PER_LONG == 64 && !defined(SYMBOLS_ORIGIN)\n");
     printf("#define PTR .quad\n");
     printf("#define ALGN .align 8\n");

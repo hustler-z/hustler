@@ -9,7 +9,7 @@
 #ifndef _BSP_BOARD_H
 #define _BSP_BOARD_H
 // --------------------------------------------------------------
-#include <common/type.h>
+#include <bsp/type.h>
 
 enum board_option {
     RADXA_ZERO3 = 0,

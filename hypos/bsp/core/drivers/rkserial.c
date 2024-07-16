@@ -9,9 +9,9 @@
 #include <asm/debug.h>
 #include <rockchip/hardware.h>
 #include <rk3568/grf.h>
-#include <asm-generic/bitops.h>
+#include <org/bitops.h>
 #include <bsp/ns16550.h>
-#include <common/mmap.h>
+#include <bsp/mmap.h>
 // --------------------------------------------------------------
 
 struct rockchip_uart_plat {

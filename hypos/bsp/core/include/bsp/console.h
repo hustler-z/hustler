@@ -10,10 +10,9 @@
 #define _BSP_CONSOLE_H
 // --------------------------------------------------------------
 
-#include <common/type.h>
-#include <common/timer.h>
+#include <bsp/type.h>
+#include <bsp/timer.h>
 
-#define endtick(seconds) (get_ticks() + (u64)(seconds) * get_tbclk())
 #define TERM_CH(c)       ((c) - 'a' + 1)
 
 int serial_pr(const char *fmt, ...);

@@ -9,10 +9,11 @@
 #include <asm/ttbl.h>
 #include <asm/hcpu.h>
 #include <asm/debug.h>
-#include <asm-generic/globl.h>
-#include <asm-generic/section.h>
-#include <asm-generic/membank.h>
-#include <asm-generic/smp.h>
+#include <org/globl.h>
+#include <org/section.h>
+#include <org/membank.h>
+#include <org/time.h>
+#include <org/vcpu.h>
 #include <asm/at.h>
 #include <bsp/hypmem.h>
 #include <bsp/percpu.h>
@@ -23,12 +24,10 @@
 #include <bsp/period.h>
 #include <bsp/vmap.h>
 #include <bsp/board.h>
-#include <common/exit.h>
-#include <common/board.h>
-#include <common/gicv3.h>
-#include <common/memory.h>
-#include <common/symtbl.h>
-#include <core/core.h>
+#include <bsp/exit.h>
+#include <bsp/board.h>
+#include <bsp/symtbl.h>
+#include <bsp/tasklet.h>
 
 // --------------------------------------------------------------
 static void hypos_tag(void)
@@ -47,6 +46,7 @@ static int __bootfunc __bootchain(const bootfunc_t *boot_sequence)
     const bootfunc_t *boot_one;
     int ret, boot_count = 0;
     unsigned long base;
+    unsigned int boot_status = hypos_get(hypos_status);
 
     hypos_tag();
 
@@ -56,12 +56,16 @@ static int __bootfunc __bootchain(const bootfunc_t *boot_sequence)
         boot_count++;
 
         if (ret) {
-            MSGH("Boot squence %p failed at call %p (err=%d)\n",
-                    boot_sequence, (char *)(*boot_one), ret);
+            MSGH("Boot squence %p failed at call %ps() [err=%d] on %s\n",
+                    boot_sequence, __void__(*boot_one), ret,
+                    boot_status == HYPOS_SMP_BOOT_STAGE ?
+                    "smp cpu" : "boot cpu");
             return -1;
         } else
-            MSGH("Boot phase <%02d> done executing %ps() @_<\n",
-                    boot_count, __void__(*boot_one));
+            MSGH("Boot phase <%02d> done executing %ps() on %s @_<\n",
+                    boot_count, __void__(*boot_one),
+                    boot_status == HYPOS_SMP_BOOT_STAGE ?
+                    "smp cpu" : "boot cpu");
     }
 
     return 0;
@@ -101,9 +105,17 @@ static bootfunc_t hypos_boot_sequence[] = {
      */
     hypmem_setup,
 
+    /* Time pre-set
+     */
+    time_preset,
+
     /* Interrupt Controller Setup
      */
-    gicv3_setup,
+    gic_setup,
+
+    /* Tasklet Implementation
+     */
+    tasklet_setup,
 
     /* Generic Timer Setup
      */
@@ -111,7 +123,7 @@ static bootfunc_t hypos_boot_sequence[] = {
 
     /* Bring up SMP CPUs
      */
-    smp_setup,
+    pre_secondary_cpu_setup,
 
     /* Periodic Work List Setup
      */
@@ -121,22 +133,20 @@ static bootfunc_t hypos_boot_sequence[] = {
      */
     device_setup,
 
-    /* Virtualization Setup
-     */
-    core_setup,
-
     /* Hypos Console Setup
      */
     console_setup,
 };
 
-void __bootfunc __setup(unsigned long phys_offset,
+void asmlinkage __bootfunc __setup(unsigned long phys_offset,
         unsigned long boot_args)
 {
     early_debug("[hypos] Welcome to C world\n");
 
-    get_globl()->phys_offset = phys_offset;
-    get_globl()->boot_param = boot_args;
+    hypos_get(phys_offset) = phys_offset;
+    hypos_get(boot_param) = boot_args;
+
+    early_debug("[hypos] Boot CPU start kicking\n");
 
     /* Normal booting process, initiate hypos services. my
      * goal here is to implement basic console and be able
@@ -144,6 +154,18 @@ void __bootfunc __setup(unsigned long phys_offset,
      * simple command.
      */
     if (__bootchain(hypos_boot_sequence))
+        hang();
+}
+
+static bootfunc_t hypos_smpboot_sequence[] = {
+    post_secondary_cpu_setup,
+};
+
+void asmlinkage __bootfunc __smp_setup(void)
+{
+    get_globl()->hypos_status = HYPOS_SMP_BOOT_STAGE;
+
+    if (__bootchain(hypos_smpboot_sequence))
         hang();
 }
 // --------------------------------------------------------------

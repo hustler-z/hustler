@@ -9,7 +9,7 @@
 #ifndef _BSP_BITMAP_H
 #define _BSP_BITMAP_H
 // --------------------------------------------------------------
-#include <asm-generic/bitops.h>
+#include <org/bitops.h>
 #include <asm/bitops.h>
 #include <lib/strops.h>
 #include <lib/math.h>

@@ -9,10 +9,10 @@
 #ifndef _BSP_DEBUG_H
 #define _BSP_DEBUG_H
 // --------------------------------------------------------------
-#include <asm-generic/section.h>
+#include <org/section.h>
 #include <bsp/stdio.h>
-#include <common/compiler.h>
-#include <common/type.h>
+#include <bsp/compiler.h>
+#include <bsp/type.h>
 
 #define HYPOS_VMM_DEBUG_ON     (1)
 
@@ -43,6 +43,11 @@
             pr("[first] "fmt, ##__VA_ARGS__); \
         }                                     \
     } while (0)
+
+#define __ACCESS_ONCE(x) ({                             \
+            (void)(typeof(x))0; /* Scalar typecheck. */ \
+            (volatile typeof(x) *)&(x); })
+#define ACCESS_ONCE(x) (*__ACCESS_ONCE(x))
 
 int sscanf(const char *buf, const char *fmt, ...);
 // --------------------------------------------------------------

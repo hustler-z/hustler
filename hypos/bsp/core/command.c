@@ -6,10 +6,11 @@
  * Usage: general commands interact with console
  */
 
+#include <org/time.h>
 #include <asm/linker.h>
-#include <common/type.h>
-#include <common/errno.h>
-#include <common/timer.h>
+#include <bsp/type.h>
+#include <bsp/time.h>
+#include <bsp/errno.h>
 #include <bsp/command.h>
 #include <bsp/console.h>
 #include <bsp/period.h>
@@ -17,6 +18,8 @@
 #include <lib/strops.h>
 
 // --------------------------------------------------------------
+#define endtick(seconds) (get_cycles() + (u64)(seconds) * cpu_khz * 1000)
+
 static u64 endtime;
 static int retrytime;
 
@@ -33,7 +36,7 @@ void __reset_cmd_timeout(void)
 int __tstc_timeout(void)
 {
     while (!tstc()) {	/* while no incoming data */
-        if (retrytime >= 0 && get_ticks() > endtime)
+        if (retrytime >= 0 && get_cycles() > endtime)
             return -ETIMEDOUT;
         schedule();
     }
@@ -137,10 +140,10 @@ enum command_ret_t cmd_process(int flag, int argc, char *const argv[],
         int newrep;
 
         if (ticks)
-            *ticks = get_timer(0);
+            *ticks = get_msec_bias(0);
         rc = cmd_call(cmdtp, flag, argc, argv, &newrep);
         if (ticks)
-            *ticks = get_timer(*ticks);
+            *ticks = get_msec_bias(*ticks);
         *repeatable &= newrep;
     }
     if (rc == CMD_RET_USAGE)

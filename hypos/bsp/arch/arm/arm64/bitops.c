@@ -8,8 +8,8 @@
 
 #include <asm/bitops.h>
 #include <asm/barrier.h>
-#include <common/stringify.h>
-#include <common/compiler.h>
+#include <bsp/stringify.h>
+#include <bsp/compiler.h>
 #include <bsp/panic.h>
 
 // --------------------------------------------------------------

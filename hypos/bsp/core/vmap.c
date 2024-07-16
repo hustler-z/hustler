@@ -6,10 +6,9 @@
  * Usage:
  */
 
-#include <asm-generic/spinlock.h>
-#include <asm-generic/section.h>
-#include <asm-generic/membank.h>
-#include <asm-generic/globl.h>
+#include <org/section.h>
+#include <org/membank.h>
+#include <org/globl.h>
 #include <asm/at.h>
 #include <asm/bitops.h>
 #include <asm/map.h>
@@ -19,6 +18,7 @@
 #include <bsp/board.h>
 #include <bsp/panic.h>
 #include <bsp/vmap.h>
+#include <bsp/spinlock.h>
 
 static DEFINE_SPINLOCK(vm_lock);
 
@@ -55,7 +55,7 @@ void __bootfunc vm_init_type(enum vmap_region type, void *start,
         pfn_t pfn;
         int rc;
 
-        if (get_globl()->boot_status == EARLY_BOOT_STAGE)
+        if (get_globl()->hypos_status == HYPOS_EARLY_BOOT_STAGE)
             pfn = get_memchunks(1, 1);
         else {
             struct page *pg = alloc_page(0);
@@ -63,6 +63,7 @@ void __bootfunc vm_init_type(enum vmap_region type, void *start,
             BUG_ON(!pg);
             pfn = page_to_pfn(pg);
         }
+
         rc = map_pages(va, pfn, 1, PAGE_HYPOS);
         BUG_ON(rc);
 
@@ -80,10 +81,11 @@ int __bootfunc vmap_setup(void)
                                 = hypos_mem_get(VMAP_REGION);
 
     vm_init_type(VMAP_DEFAULT, (void *)vmap->va_start,
-                        (void *)(vmap->va_start + vmap->size));
+                (void *)(vmap->va_start + vmap->size));
 
     return 0;
 }
+
 // --------------------------------------------------------------
 
 static void *vm_alloc(unsigned int nr, unsigned int align,
@@ -100,7 +102,7 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
     if (!vm_base[t])
         return NULL;
 
-    spinlock(&vm_lock);
+    spin_lock(&vm_lock);
     for (; ;) {
         pfn_t pfn;
 
@@ -108,7 +110,8 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
                 || !test_bit(vm_low[t], vm_bitmap(t)));
 
         for (start = vm_low[t]; start < vm_top[t]; ) {
-            bit = find_next_bit(vm_bitmap(t), vm_top[t], start + 1);
+            bit = find_next_bit(vm_bitmap(t),
+                                vm_top[t], start + 1);
             if (bit > vm_top[t])
                 bit = vm_top[t];
 
@@ -116,8 +119,8 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
             if (bit < vm_top[t]) {
                 if (start + nr < bit)
                     break;
-                start = find_next_zero_bit(vm_bitmap(t), vm_top[t],
-                                           bit + 1);
+                start = find_next_zero_bit(vm_bitmap(t),
+                                           vm_top[t], bit + 1);
             } else {
                 if (start + nr <= bit)
                     break;
@@ -128,12 +131,12 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
         if (start < vm_top[t])
             break;
 
-        spinunlock(&vm_lock);
+        spin_unlock(&vm_lock);
 
         if (vm_top[t] >= vm_end[t])
             return NULL;
 
-        if (get_globl()->boot_status == EARLY_BOOT_STAGE)
+        if (get_globl()->hypos_status == HYPOS_EARLY_BOOT_STAGE)
             pfn = get_memchunks(1, 1);
         else {
             struct page *pg = alloc_page(0);
@@ -143,10 +146,11 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
             pfn = page_to_pfn(pg);
         }
 
-        spinlock(&vm_lock);
+        spin_lock(&vm_lock);
 
         if (start >= vm_top[t]) {
-            unsigned long va = (unsigned long)vm_bitmap(t) + vm_top[t] / 8;
+            unsigned long va = (unsigned long)vm_bitmap(t)
+                                + vm_top[t] / 8;
 
             if (!map_pages(va, pfn, 1, PAGE_HYPOS)) {
                 zero_page((void *)va);
@@ -157,13 +161,14 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
             }
         }
 
-        if (get_globl()->boot_status == EARLY_BOOT_STAGE)
-            memchunks_setup(pfn_to_pa(pfn), pfn_to_pa(pfn) + PAGE_SIZE);
+        if (get_globl()->hypos_status == HYPOS_EARLY_BOOT_STAGE)
+            memchunks_setup(pfn_to_pa(pfn),
+                            pfn_to_pa(pfn) + PAGE_SIZE);
         else
             free_page(pfn_to_page(pfn));
 
         if (start >= vm_top[t]) {
-            spinunlock(&vm_lock);
+            spin_unlock(&vm_lock);
             return NULL;
         }
     }
@@ -176,12 +181,13 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
         ASSERT(bit == vm_top[t]);
     if (start <= vm_low[t] + 2)
         vm_low[t] = bit;
-    spinunlock(&vm_lock);
+    spin_unlock(&vm_lock);
 
     return vm_base[t] + start * PAGE_SIZE;
 }
 
-static unsigned int vm_index(const void *va, enum vmap_region type)
+static unsigned int vm_index(const void *va,
+                             enum vmap_region type)
 {
     unsigned long addr = (unsigned long)va & ~(PAGE_SIZE - 1);
     unsigned int idx;
@@ -199,14 +205,16 @@ static unsigned int vm_index(const void *va, enum vmap_region type)
            test_bit(idx, vm_bitmap(type)) ? idx : 0;
 }
 
-static unsigned int vm_size(const void *va, enum vmap_region type)
+static unsigned int vm_size(const void *va,
+                            enum vmap_region type)
 {
     unsigned int start = vm_index(va, type), end;
 
     if (!start)
         return 0;
 
-    end = find_next_zero_bit(vm_bitmap(type), vm_top[type], start + 1);
+    end = find_next_zero_bit(vm_bitmap(type),
+                             vm_top[type], start + 1);
 
     return min(end, vm_top[type]) - start;
 }
@@ -226,7 +234,7 @@ static void vm_free(const void *va)
         return;
     }
 
-    spinlock(&vm_lock);
+    spin_lock(&vm_lock);
     if (bit < vm_low[type]) {
         vm_low[type] = bit - 1;
         while (!test_bit(vm_low[type] - 1, vm_bitmap(type)))
@@ -235,11 +243,14 @@ static void vm_free(const void *va)
     while (__test_and_clear_bit(bit, vm_bitmap(type)))
         if (++bit == vm_top[type])
             break;
-    spinunlock(&vm_lock);
+    spin_unlock(&vm_lock);
 }
 
-void *__vmap(const pfn_t *pfn, unsigned int granularity,
-             unsigned int nr, unsigned int align, unsigned int flags,
+void *__vmap(const pfn_t *pfn,
+             unsigned int granularity,
+             unsigned int nr,
+             unsigned int align,
+             unsigned int flags,
              enum vmap_region type)
 {
     void *va = vm_alloc(nr * granularity, align, type);
@@ -257,12 +268,14 @@ void *__vmap(const pfn_t *pfn, unsigned int granularity,
 
 void *vmap(const pfn_t *pfn, unsigned int nr)
 {
-    return __vmap(pfn, 1, nr, 1, PAGE_HYPOS, VMAP_DEFAULT);
+    return __vmap(pfn, 1, nr, 1, PAGE_HYPOS,
+                  VMAP_DEFAULT);
 }
 
 void *vmap_contig(pfn_t pfn, unsigned int nr)
 {
-    return __vmap(&pfn, nr, 1, 1, PAGE_HYPOS, VMAP_DEFAULT);
+    return __vmap(&pfn, nr, 1, 1, PAGE_HYPOS,
+                  VMAP_DEFAULT);
 }
 
 unsigned int vmap_size(const void *va)
@@ -288,7 +301,8 @@ void vunmap(const void *va)
     vm_free(va);
 }
 
-static void *vmalloc_type(size_t size, enum vmap_region type)
+static void *vmalloc_type(size_t size,
+                          enum vmap_region type)
 {
     pfn_t *pfn;
     unsigned int i, pages = PFN_UP(size);

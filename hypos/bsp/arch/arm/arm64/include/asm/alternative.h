@@ -6,12 +6,12 @@
  * Usage:
  */
 
-#ifndef _ARCH_ALTERNATIVE_H
-#define _ARCH_ALTERNATIVE_H
+#ifndef _ASM_ALTERNATIVE_H
+#define _ASM_ALTERNATIVE_H
 
 // ------------------------------------------------------------------------
 #ifndef __ASSEMBLY__
-#include <common/stringify.h>
+#include <bsp/stringify.h>
 
 #define ALTINSTR_ENTRY(feature, cb)                               \
     " .word 661b - .\n"             /* label */                   \
@@ -86,4 +86,4 @@
     _ALTERNATIVE_CFG(oldinstr, newinstr, __VA_ARGS__, 1)
 
 // ------------------------------------------------------------------------
-#endif /* _ARCH_ALTERNATIVE_H */
+#endif /* _ASM_ALTERNATIVE_H */

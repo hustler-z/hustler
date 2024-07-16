@@ -6,12 +6,29 @@
  * Usage:
  */
 
-#ifndef _ARCH_VCPU_H
-#define _ARCH_VCPU_H
+#ifndef _ASM_VCPU_H
+#define _ASM_VCPU_H
 // --------------------------------------------------------------
-#include <asm/hcpu.h>
-#include <common/type.h>
+#include <org/gic.h>
+#include <org/vgic.h>
+#include <bsp/compiler.h>
 
+/* Architecture Virtual CPU Struct for AArch64
+ * --------------------------------------------------------------
+ * (a) Basic Context
+ * (b) Stack Address
+ * (c) hypos CPU Information
+ * (d) Basic Architectural Registers
+ * (e) GIC Data
+ * (f) VGIC Data
+ * --------------------------------------------------------------
+ *  org/vgic.h  ◀---+   XXX: error: field '*' has incomplete type
+ *     |            |   One possible way to avoid this error is
+ *  asm/vcpu.h      :   to take the header file which contains all
+ *     \            |   necessary data structures.
+ *   org/vcpu.h ---▶+
+ * --------------------------------------------------------------
+ */
 struct arch_vcpu {
     struct {
         register_t x19;
@@ -60,7 +77,15 @@ struct arch_vcpu {
     register_t hcr_el2;
     register_t mdcr_el2;
 
-    /* Unfinished */
-};
+    /* XXX: Physical GIC Data */
+    union gic_state_data gic;
+    u64        lr_mask;
+
+    /* XXX: Virtual GIC Data */
+    struct vgic_cpu vgic;
+    register_t cntkctl;
+
+} __cacheline_aligned;
+
 // --------------------------------------------------------------
-#endif /* _ARCH_VCPU_H */
+#endif /* _ASM_VCPU_H */

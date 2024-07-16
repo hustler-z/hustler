@@ -6,11 +6,11 @@
  * Usage: architectural debug implementation header
  */
 
-#ifndef _ARCH_DEBUG_H
-#define _ARCH_DEBUG_H
+#ifndef _ASM_DEBUG_H
+#define _ASM_DEBUG_H
 // --------------------------------------------------------------
 #include <asm/ttbl.h>
-#include <asm-generic/bitops.h>
+#include <org/bitops.h>
 
 #ifdef __RK3568__
 #include <rk3568/rk3568.h>
@@ -72,4 +72,4 @@ void early_debug(const char *s);
 #endif /* !__ASSEMBLY__ */
 
 // --------------------------------------------------------------
-#endif /* _ARCH_DEBUG_H */
+#endif /* _ASM_DEBUG_H */

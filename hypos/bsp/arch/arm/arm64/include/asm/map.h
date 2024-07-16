@@ -6,8 +6,8 @@
  * Usage:
  */
 
-#ifndef _ARCH_MAP_H
-#define _ARCH_MAP_H
+#ifndef _ASM_MAP_H
+#define _ASM_MAP_H
 // --------------------------------------------------------------
 #include <asm/at.h>
 #include <asm/tlb.h>
@@ -20,6 +20,7 @@ int map_pages(unsigned long va,
               unsigned int flags);
 int remove_maps(unsigned long start,
                 unsigned long end);
+void update_idmap(unsigned int ok);
 ttbl_t *map_table(pfn_t pfn);
 void unmap_table(const ttbl_t *table);
 
@@ -69,4 +70,4 @@ static inline unsigned int va_to_fix(vaddr_t va)
     return ((va - FIXADDR_START) >> PAGE_SHIFT);
 }
 // --------------------------------------------------------------
-#endif /* _ARCH_MAP_H */
+#endif /* _ASM_MAP_H */

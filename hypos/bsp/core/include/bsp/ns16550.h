@@ -12,7 +12,7 @@
 
 #ifndef __ASSEMBLY__
 // --------------------------------------------------------------
-#include <common/type.h>
+#include <bsp/type.h>
 #include <bsp/device.h>
 
 #define UART_REG(x)	unsigned char x

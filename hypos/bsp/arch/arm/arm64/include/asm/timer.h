@@ -6,8 +6,8 @@
  * Usage:
  */
 
-#ifndef _ARCH_TIMER_H
-#define _ARCH_TIMER_H
+#ifndef _ASM_TIMER_H
+#define _ASM_TIMER_H
 // --------------------------------------------------------------
 #define CNTKCTL_PCTEN                 (1 << 0)
 #define CNTKCTL_VCTEN                 (1 << 1)
@@ -37,4 +37,4 @@
 #define CNTHP_CTL_MASK                (1 << 1)
 #define CNTHP_CTL_STATUS              (1 << 2)
 // --------------------------------------------------------------
-#endif /* _ARCH_TIMER_H */
+#endif /* _ASM_TIMER_H */

@@ -6,8 +6,8 @@
  * Usage: linker list
  */
 
-#ifndef _ARCH_LINKER_H
-#define _ARCH_LINKER_H
+#ifndef _ASM_LINKER_H
+#define _ASM_LINKER_H
 // --------------------------------------------------------------
 #define entry_sym(_type, _name, _list)                       \
     ((_type *)&_hypos_list_2_##_list##_2_##_name)
@@ -72,4 +72,4 @@
 #define _entry_reference(_type, _name, _list)                \
     ((_type *)&_hypos_list_2_##_list##_2_##_name)
 // --------------------------------------------------------------
-#endif /* _ARCH_LINKER_H */
+#endif /* _ASM_LINKER_H */

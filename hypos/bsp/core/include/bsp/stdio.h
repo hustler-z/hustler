@@ -9,8 +9,8 @@
 #ifndef _BSP_STDIO_H
 #define _BSP_STDIO_H
 // --------------------------------------------------------------
-#include <common/type.h>
-#include <common/compiler.h>
+#include <bsp/type.h>
+#include <bsp/compiler.h>
 #include <lib/args.h>
 
 /* stdin */

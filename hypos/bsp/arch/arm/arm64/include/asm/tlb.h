@@ -6,16 +6,15 @@
  * Usage:
  */
 
-#ifndef _ARCH_SPINLOCK_H
-#define _ARCH_SPINLOCK_H
+#ifndef _ASM_SPINLOCK_H
+#define _ASM_SPINLOCK_H
 // --------------------------------------------------------------
 
 #ifndef __ASSEMBLY__
-#include <common/type.h>
+#include <org/cpu.h>
 #include <asm/alternative.h>
 #include <asm/page.h>
-
-#define ARM64_WORKAROUND_REPEAT_TLBI             (11)
+#include <bsp/type.h>
 
 #define TLB_HELPER(name, tlbop, sh)              \
 static inline void name(void)                    \
@@ -77,4 +76,4 @@ void flush_tlb_range_va(vaddr_t va, unsigned long size);
 #endif /* !__ASSEMBLY__ */
 
 // --------------------------------------------------------------
-#endif /* _ARCH_SPINLOCK_H */
+#endif /* _ASM_SPINLOCK_H */

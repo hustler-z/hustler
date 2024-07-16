@@ -11,7 +11,7 @@
 // --------------------------------------------------------------
 
 #include <lib/list.h>
-#include <common/compiler.h>
+#include <bsp/compiler.h>
 #include <asm/linker.h>
 
 struct hypos_device;

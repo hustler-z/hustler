@@ -6,10 +6,9 @@
  * Usage:
  */
 
-#include <asm-generic/globl.h>
-#include <asm-generic/section.h>
-#include <common/time.h>
-#include <common/timer.h>
+#include <org/globl.h>
+#include <org/section.h>
+#include <bsp/time.h>
 #include <bsp/period.h>
 #include <bsp/hypmem.h>
 #include <bsp/debug.h>
@@ -46,7 +45,7 @@ struct periodic_work *periodic_work_register(
     work->context = context;
     work->name = strdup(name);
     work->delay_us = delay_us;
-    work->start_us = timer_get_us();
+    work->start_us = get_usec();
 	hlist_add_head(&work->list, &get_globl()->pw_list);
 
     return work;
@@ -76,13 +75,13 @@ void periodic_work_run(void)
          * Check if this work function needs to get called, e.g.
          * do not call the work func too often
          */
-        now = timer_get_us();
+        now = get_usec();
         if (time_after_eq64(now, work->next_call)) {
             /* Call work function and account it's cpu-time */
             work->next_call = now + work->delay_us;
             work->func(work->context);
             work->run_cnt++;
-            cpu_time = timer_get_us() - now;
+            cpu_time = get_usec() - now;
             work->cpu_us += cpu_time;
 
             if ((cpu_time > PERIODIC_MAX_CPU_US) &&

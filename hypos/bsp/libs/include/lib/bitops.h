@@ -9,7 +9,7 @@
 #ifndef _LIB_BITOPS_H
 #define _LIB_BITOPS_H
 // ------------------------------------------------------------------------
-#include <asm-generic/bitops.h>
+#include <org/bitops.h>
 
 #define BIT_WORD(nr)           ((nr) / BITS_PER_LONG)
 
@@ -79,5 +79,10 @@ static inline unsigned int hweight_long(unsigned long w)
 {
     return sizeof(w) == 4 ? generic_hweight32(w) : generic_hweight64(w);
 }
+
+#define for_each_set_bit(bit, addr, size)              \
+    for ((bit) = find_first_bit(addr, size);           \
+         (bit) < (size);                               \
+         (bit) = find_next_bit(addr, size, (bit) + 1))
 // ------------------------------------------------------------------------
 #endif /* _LIB_BITOPS_H */

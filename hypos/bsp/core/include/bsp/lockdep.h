@@ -10,7 +10,7 @@
 #define _BSP_LOCKDEP_H
 // --------------------------------------------------------------
 #include <lib/queue.h>
-#include <common/type.h>
+#include <bsp/type.h>
 #include <bsp/debug.h>
 
 struct lockdep_node;
@@ -58,7 +58,7 @@ static inline void lockdep_lock_acquire(struct lockdep_node_head *graph,
     int res = __lockdep_lock_acquire(graph, owned, id);
 
     if (res) {
-        MSGH("lockdep: error %d\n", res);
+        MSGE("lockdep: error %d\n", res);
         BUG();
     }
 }
@@ -70,7 +70,7 @@ static inline void lockdep_lock_tryacquire(struct lockdep_node_head *graph,
 	int res = __lockdep_lock_tryacquire(graph, owned, id);
 
 	if (res) {
-		MSGH("lockdep: error %d\n", res);
+		MSGE("lockdep: error %d\n", res);
 		BUG();
 	}
 }
@@ -81,7 +81,7 @@ static inline void lockdep_lock_release(struct lockdep_lock_head *owned,
 	int res = __lockdep_lock_release(owned, id);
 
 	if (res) {
-		MSGH("lockdep: error %d\n", res);
+		MSGE("lockdep: error %d\n", res);
 		BUG();
 	}
 }

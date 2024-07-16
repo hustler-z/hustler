@@ -6,8 +6,8 @@
  * Usage:
  */
 
-#ifndef _ARCH_BARRIER_H
-#define _ARCH_BARRIER_H
+#ifndef _ASM_BARRIER_H
+#define _ASM_BARRIER_H
 // --------------------------------------------------------------
 
 /* Instruction Synchronization Barrier flushes the pipeline in the
@@ -61,6 +61,8 @@
 
 #define barrier()       asm volatile("" : : : "memory")
 
+#define cpu_relax()     barrier()
+
 #define mb()            dsb(sy)
 #define rmb()           dsb(ld)
 #define wmb()           dsb(st)
@@ -73,13 +75,25 @@
 #define dma_rmb()	    dmb(oshld)
 #define dma_wmb()	    dmb(oshst)
 
-#define local_fiq_disable()   asm volatile ("msr DAIFSet, #1\n" ::: "memory")
-#define local_irq_disable()   asm volatile ("msr DAIFSet, #2\n" ::: "memory")
-#define local_abort_disable() asm volatile ("msr DAIFSet, #4\n" ::: "memory")
+#define smp_mb__before_atomic()  smp_mb()
+#define smp_mb__after_atomic()   smp_mb()
 
-#define local_fiq_enable()    asm volatile ("msr DAIFClr, #1\n" ::: "memory")
-#define local_irq_enable()    asm volatile ("msr DAIFClr, #2\n" ::: "memory")
-#define local_abort_enable()  asm volatile ("msr DAIFCLr, #4\n" ::: "memory")
+#define local_fiq_disable()   \
+    asm volatile ("msr DAIFSet, #1\n" ::: "memory")
+#define local_irq_disable()   \
+    asm volatile ("msr DAIFSet, #2\n" ::: "memory")
+#define local_abort_disable() \
+    asm volatile ("msr DAIFSet, #4\n" ::: "memory")
+
+#define local_daif_disable() \
+    asm volatile ("msr DAIFSet, #7\n" ::: "memory")
+
+#define local_fiq_enable()    \
+    asm volatile ("msr DAIFClr, #1\n" ::: "memory")
+#define local_irq_enable()    \
+    asm volatile ("msr DAIFClr, #2\n" ::: "memory")
+#define local_abort_enable()  \
+    asm volatile ("msr DAIFCLr, #4\n" ::: "memory")
 
 #define local_irq_restore(x) ({ \
     asm volatile (              \
@@ -101,5 +115,33 @@
     local_save_flags(x);        \
     local_irq_disable();        \
 })
+
+#define PSR_THUMB         (1U << 5)
+#define PSR_FIQ_MASK      (1U << 6)
+#define PSR_IRQ_MASK      (1U << 7)
+#define PSR_ABT_MASK      (1U << 8)
+#define PSR_BIG_ENDIAN    (1U << 9)
+#define PSR_DBG_MASK      (1U << 9)
+
+static inline int local_irq_is_enabled(void)
+{
+    unsigned long flags;
+    local_save_flags(flags);
+    return !(flags & PSR_IRQ_MASK);
+}
+
+static inline int local_fiq_is_enabled(void)
+{
+    unsigned long flags;
+    local_save_flags(flags);
+    return !(flags & PSR_FIQ_MASK);
+}
+
+static inline int local_abort_is_enabled(void)
+{
+    unsigned long flags;
+    local_save_flags(flags);
+    return !(flags & PSR_ABT_MASK);
+}
 // --------------------------------------------------------------
-#endif /* _ARCH_BARRIER_H */
+#endif /* _ASM_BARRIER_H */

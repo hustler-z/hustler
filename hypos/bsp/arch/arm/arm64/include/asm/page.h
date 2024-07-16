@@ -6,10 +6,10 @@
  * Usage:
  */
 
-#ifndef _ARCH_PAGE_H
-#define _ARCH_PAGE_H
+#ifndef _ASM_PAGE_H
+#define _ASM_PAGE_H
 // --------------------------------------------------------------
-#include <asm-generic/bitops.h>
+#include <org/bitops.h>
 #include <asm/sysregs.h>
 
 /*
@@ -81,4 +81,4 @@
 
 #define MAX_ORDER           (9)
 // --------------------------------------------------------------
-#endif /* _ARCH_PAGE_H */
+#endif /* _ASM_PAGE_H */

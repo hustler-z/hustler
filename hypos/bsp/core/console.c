@@ -7,8 +7,8 @@
  */
 
 #include <asm/debug.h>
-#include <asm-generic/globl.h>
-#include <asm-generic/section.h>
+#include <org/globl.h>
+#include <org/section.h>
 #include <bsp/console.h>
 #include <bsp/command.h>
 #include <bsp/debug.h>
@@ -17,16 +17,16 @@
 #include <bsp/hypmem.h>
 #include <bsp/period.h>
 #include <bsp/sdev.h>
-#include <common/compiler.h>
-#include <common/mmap.h>
-#include <common/errno.h>
-#include <common/exit.h>
-#include <common/timer.h>
+#include <bsp/compiler.h>
+#include <bsp/mmap.h>
+#include <bsp/errno.h>
+#include <bsp/exit.h>
+#include <bsp/delay.h>
 #include <lib/strops.h>
 #include <lib/ctype.h>
 #include <lib/math.h>
 
-#include <core/vm.h>
+#include <bsp/vm.h>
 
 /* TODO Needs to modify
  */
@@ -63,7 +63,7 @@ int serial_pr(const char *fmt, ...)
 
 int getc(void)
 {
-    if (get_globl()->smode == GLB_STDIO_SERIAL)
+    if (hypos_get(smode) == GLB_STDIO_SERIAL)
         return fgetc(stdin);
     else
         return serial_getc();
@@ -71,7 +71,7 @@ int getc(void)
 
 int tstc(void)
 {
-    if (get_globl()->smode == GLB_STDIO_SERIAL)
+    if (hypos_get(smode) == GLB_STDIO_SERIAL)
         return ftstc(stdin);
     else
         return serial_tstc();
@@ -101,9 +101,9 @@ static void pre_console_puts(const char *s)
 
 void putc(const char c)
 {
-    if (get_globl()->smode == GLB_STDIO_SERIAL)
+    if (hypos_get(smode) == GLB_STDIO_SERIAL)
         fputc(stdout, c);
-    else if (get_globl()->smode == GLB_BASIC_SERIAL) {
+    else if (hypos_get(smode) == GLB_BASIC_SERIAL) {
         pre_console_putc(c);
         serial_putc(c);
     } else
@@ -112,9 +112,9 @@ void putc(const char c)
 
 void puts(const char *s)
 {
-    if (get_globl()->smode == GLB_STDIO_SERIAL)
+    if (hypos_get(smode) == GLB_STDIO_SERIAL)
         fputs(stdout, s);
-    else if (get_globl()->smode == GLB_BASIC_SERIAL) {
+    else if (hypos_get(smode) == GLB_BASIC_SERIAL) {
         pre_console_puts(s);
         serial_puts(s);
     } else
@@ -123,9 +123,9 @@ void puts(const char *s)
 
 void flush(void)
 {
-    if (get_globl()->smode == GLB_STDIO_SERIAL)
+    if (hypos_get(smode) == GLB_STDIO_SERIAL)
         fflush(stdout);
-    else if (get_globl()->smode == GLB_BASIC_SERIAL)
+    else if (hypos_get(smode) == GLB_BASIC_SERIAL)
         serial_flush();
     else
         early_flush();

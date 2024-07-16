@@ -9,7 +9,7 @@
 #ifndef _LIB_LIST_H
 #define _LIB_LIST_H
 // --------------------------------------------------------------
-#include <common/type.h>
+#include <bsp/type.h>
 #include <lib/define.h>
 
 static inline void prefetch(const void *x) {;}
@@ -29,6 +29,11 @@ static inline void INIT_LIST_HEAD(struct list_head *list)
 {
     list->next = list;
     list->prev = list;
+}
+
+static inline bool list_head_is_null(const struct list_head *list)
+{
+    return !list->next && !list->prev;
 }
 
 static inline void __list_add(struct list_head *new,

@@ -6,12 +6,12 @@
  * Usage:
  */
 
-#ifndef _ARCH_HYP_REGS_H
-#define _ARCH_HYP_REGS_H
+#ifndef _ASM_HYP_REGS_H
+#define _ASM_HYP_REGS_H
 // --------------------------------------------------------------
 #ifndef __ASSEMBLY__
 
-#include <common/type.h>
+#include <bsp/type.h>
 
 struct hcpu_regs {
     register_t x0;
@@ -66,8 +66,7 @@ struct hcpu {
     unsigned int flags;
     unsigned int cpuid;
 
-    /* Put <stack> at the bottom */
-    unsigned char *stack;
+    /* XXX: Remain openning */
 };
 
 int hcpu_setup(void);
@@ -75,4 +74,4 @@ int hcpu_setup(void);
 #endif /* !__ASSEMBLY__ */
 
 // --------------------------------------------------------------
-#endif /* _ARCH_HYP_REGS_H */
+#endif /* _ASM_HYP_REGS_H */

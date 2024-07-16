@@ -6,13 +6,13 @@
  * Usage: jump table implementation
  */
 
-#include <asm-generic/globl.h>
+#include <org/globl.h>
 #include <bsp/jump.h>
 // --------------------------------------------------------------
 #define FUNCJMP(impl, rt, func, ...)  get_globl()->fjmp->func = impl,
 
 struct funcjmp hypos_fjmp = {
-#include <asm-generic/jmpglb.h>
+#include <org/jmpglb.h>
 };
 
 int jump_tbl_setup(void)

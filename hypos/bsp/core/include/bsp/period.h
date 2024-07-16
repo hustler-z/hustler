@@ -10,7 +10,7 @@
 #define _BSP_PERIOD_H
 // --------------------------------------------------------------
 
-#include <common/type.h>
+#include <bsp/type.h>
 #include <lib/list.h>
 
 struct periodic_work {

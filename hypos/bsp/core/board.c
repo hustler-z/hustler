@@ -6,8 +6,8 @@
  * Usage: board related implementation
  */
 
-#include <asm-generic/section.h>
-#include <asm-generic/globl.h>
+#include <org/section.h>
+#include <org/globl.h>
 #include <bsp/board.h>
 #include <bsp/debug.h>
 
@@ -40,10 +40,10 @@ int __bootfunc board_setup(void)
 {
     struct hypos_board *this_board;
 
-    get_globl()->board_type = RADXA_ZERO3;
+    hypos_set(RADXA_ZERO3, board_type);
     this_board = board_get();
     this_board->name =
-            board_name_opt[get_globl()->board_type];
+            board_name_opt[hypos_get(board_type)];
 
     MSGH("This board model is %s\n", this_board->name);
 

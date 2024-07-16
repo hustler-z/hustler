@@ -6,12 +6,12 @@
  * Usage:
  */
 
-#include <asm-generic/globl.h>
+#include <org/globl.h>
 #include <bsp/device.h>
 #include <bsp/hypmem.h>
 #include <bsp/debug.h>
-#include <common/errno.h>
-#include <common/type.h>
+#include <bsp/errno.h>
+#include <bsp/type.h>
 #include <lib/strops.h>
 // --------------------------------------------------------------
 static struct hypos_device_table device_table[HYP_DT_NR];

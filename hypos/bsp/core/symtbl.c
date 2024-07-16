@@ -7,10 +7,10 @@
  */
 
 #include <asm/ttbl.h>
-#include <asm-generic/section.h>
-#include <asm-generic/spinlock.h>
-#include <common/symtbl.h>
-#include <common/errno.h>
+#include <org/section.h>
+#include <bsp/spinlock.h>
+#include <bsp/symtbl.h>
+#include <bsp/errno.h>
 #include <lib/strops.h>
 #include <lib/convert.h>
 
@@ -43,7 +43,7 @@ const struct vsection *find_text_section(unsigned long addr)
 {
     const struct vsection *iter, *section = NULL;
 
-    spinlock(&vsection_lock);
+    spin_lock(&vsection_lock);
 
     list_for_each_entry(iter, &vsection_list, list) {
         if ((void *)addr >= iter->text_start &&
@@ -54,7 +54,7 @@ const struct vsection *find_text_section(unsigned long addr)
         }
     }
 
-    spinunlock(&vsection_lock);
+    spin_unlock(&vsection_lock);
 
     return section;
 }
@@ -145,7 +145,7 @@ int syms_read(u32 *symnum, char *type,
         return 0;
     }
 
-    spinlock(&sym_lock);
+    spin_lock(&sym_lock);
 
     if (*symnum == 0)
         next_offset = next_symbol = 0;
@@ -158,7 +158,7 @@ int syms_read(u32 *symnum, char *type,
 
     next_symbol = ++*symnum;
 
-    spinunlock(&sym_lock);
+    spin_unlock(&sym_lock);
 
     return 0;
 }

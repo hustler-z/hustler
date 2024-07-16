@@ -8,17 +8,20 @@
 
 #include <asm/ttbl.h>
 
+// --------------------------------------------------------------
 OUTPUT_FORMAT("elf64-littleaarch64")
 OUTPUT_ARCH("aarch64")
 ENTRY(_head)
 
-/* Program Headers => Segments
+/* --------------------------------------------------------------
+ * Program Headers => Segments
  *
  * Describe how the program should be loaded into memory,
  * Use PHDRS to avoid RWE Permission to LOAD segments.
  *
  * Another solution to avoid RWE:
  * LDFLAGS += -Wl,--no-warn-rwx-segments
+ * --------------------------------------------------------------
  */
 PHDRS {
     text PT_LOAD FILEHDR PHDRS;
@@ -55,6 +58,14 @@ SECTIONS
 
     . = ALIGN(PAGE_SIZE);
 
+    .core.text : {
+        __bootcalls_start = .;
+        *(.bootcall1.setup)
+        __bootcalls_end = .;
+    } : text
+
+    . = ALIGN(PAGE_SIZE);
+
     .rodata : {
         __rodata_start = .;
         *(.rodata .rodata.*)
@@ -71,6 +82,7 @@ SECTIONS
     .data : {
         __data_start = .;
         *(.data.boot_pgtbl)
+        *(.data.ttbr)
         *(.data.init)
         *(.data.read_mostly)
         *(.data.ro_after_init)
@@ -93,9 +105,10 @@ SECTIONS
     .bss : {
         __bss_start = .;
         *(.bss.page_aligned)
+        . = ALIGN(PAGE_SIZE);
         __percpu_start = .;
         *(.bss.percpu)
-        *(.bss.thread_percpu)
+        *(.bss.percpu.ro)
         __percpu_end = .;
         *(.bss .bss.*)
         . = ALIGN(8);
@@ -106,3 +119,4 @@ SECTIONS
 
     __hypos_end = .;
 }
+// --------------------------------------------------------------

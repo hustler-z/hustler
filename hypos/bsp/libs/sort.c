@@ -6,7 +6,7 @@
  * Usage:
  */
 
-#include <common/compiler.h>
+#include <bsp/compiler.h>
 #include <lib/sort.h>
 #include <lib/strops.h>
 #include <lib/math.h>
