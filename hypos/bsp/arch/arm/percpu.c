@@ -7,6 +7,7 @@
  */
 
 #include <org/section.h>
+#include <asm/debug.h>
 #include <bsp/percpu.h>
 #include <bsp/debug.h>
 #include <bsp/cpu.h>
@@ -26,6 +27,8 @@ int __bootfunc percpu_setup(void)
     unsigned int cpu;
 
     set_processor_id(0);
+
+    early_debug("[hypos] Boot CPU start kicking\n");
 
     for (cpu = 1; cpu < NR_CPUS; cpu++)
         __percpu_offset[cpu] = INVALID_PERCPU_AREA;

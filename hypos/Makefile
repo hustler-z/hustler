@@ -49,6 +49,10 @@ else
 CFLAGS      += -O2
 endif
 # ---------------------------------------------------------------
+ifeq ($(ARCH),arm64)
+CFLAGS      += -march=armv8.1-a
+endif
+# ---------------------------------------------------------------
 CFLAGS      += -nostdlib -g -Wall -nostdinc
 CFLAGS      += -std=gnu11 -fno-builtin -fno-common
 CFLAGS      += -Wno-unused-variable -Wno-pointer-arith

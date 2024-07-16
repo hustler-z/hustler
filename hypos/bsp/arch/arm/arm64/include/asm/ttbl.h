@@ -66,7 +66,7 @@
  *                     DIRECTMAP
  * --------------------------------------------------------------
  */
-#define HYPOS_DATA_VIRT_START      MEM_SLOT0(20)
+#define HYPOS_DATA_VIRT_START      MEM_SLOT0(1)
 #define HYPOS_DATA_VIRT_SIZE       MB(8)
 #define HYPOS_DATA_NR_ENTRIES(lvl) \
     (HYPOS_DATA_VIRT_SIZE / PGTBL_LEVEL_SIZE(lvl))

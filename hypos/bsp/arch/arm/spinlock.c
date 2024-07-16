@@ -21,7 +21,8 @@
 #if IS_IMPLEMENTED(__COMPLEX_SPINLOCK_IMPL)
 // --------------------------------------------------------------
 
-static always_inline spinlock_tickets_t observe_lock(spinlock_tickets_t *t)
+static always_inline
+spinlock_tickets_t observe_lock(spinlock_tickets_t *t)
 {
     spinlock_tickets_t v;
 
@@ -36,13 +37,15 @@ static always_inline u16 observe_head(spinlock_tickets_t *t)
     return read_atomic(&t->head);
 }
 
-static void always_inline spin_lock_common(spinlock_tickets_t *t,
-                                           void (*cb)(void *data), void *data)
+static void always_inline
+spin_lock_common(spinlock_tickets_t *t,
+                 void (*cb)(void *data), void *data)
 {
     spinlock_tickets_t tickets = SPINLOCK_TICKET_INC;
 
     preempt_disable();
-    tickets.head_tail = gnu_fetch_and_add(&t->head_tail, tickets.head_tail);
+    tickets.head_tail = gnu_fetch_and_add(&t->head_tail,
+                                          tickets.head_tail);
     while (tickets.tail != observe_head(t)) {
         if (cb)
             cb(data);
@@ -56,7 +59,8 @@ void _spin_lock(spinlock_t *lock)
     spin_lock_common(&lock->tickets, NULL, NULL);
 }
 
-void _spin_lock_cb(spinlock_t *lock, void (*cb)(void *data), void *data)
+void _spin_lock_cb(spinlock_t *lock, void (*cb)(void *data),
+                   void *data)
 {
     spin_lock_common(&lock->tickets, cb, data);
 }
@@ -77,7 +81,8 @@ unsigned long _spin_lock_irqsave(spinlock_t *lock)
     return flags;
 }
 
-static void always_inline spin_unlock_common(spinlock_tickets_t *t)
+static void always_inline
+spin_unlock_common(spinlock_tickets_t *t)
 {
     arch_lock_release_barrier();
     add_sized(&t->head, 1);
@@ -96,27 +101,26 @@ void _spin_unlock_irq(spinlock_t *lock)
     local_irq_enable();
 }
 
-void _spin_unlock_irqrestore(spinlock_t *lock, unsigned long flags)
+void _spin_unlock_irqrestore(spinlock_t *lock,
+                             unsigned long flags)
 {
     _spin_unlock(lock);
     local_irq_restore(flags);
 }
 
-static bool always_inline spin_is_locked_common(const spinlock_tickets_t *t)
+static bool always_inline
+spin_is_locked_common(const spinlock_tickets_t *t)
 {
     return t->head != t->tail;
 }
 
 bool _spin_is_locked(const spinlock_t *lock)
 {
-    /*
-     * This function is suitable only for use in ASSERT()s and alike, as it
-     * doesn't tell _who_ is holding the lock.
-     */
     return spin_is_locked_common(&lock->tickets);
 }
 
-static bool always_inline spin_trylock_common(spinlock_tickets_t *t)
+static bool always_inline
+spin_trylock_common(spinlock_tickets_t *t)
 {
     spinlock_tickets_t old, new;
 
@@ -128,7 +132,8 @@ static bool always_inline spin_trylock_common(spinlock_tickets_t *t)
     }
     new = old;
     new.tail++;
-    if (cmpxchg(&t->head_tail, old.head_tail, new.head_tail) != old.head_tail) {
+    if (cmpxchg(&t->head_tail, old.head_tail,
+                new.head_tail) != old.head_tail) {
         preempt_enable();
         return false;
     }
@@ -141,7 +146,8 @@ bool _spin_trylock(spinlock_t *lock)
     return spin_trylock_common(&lock->tickets);
 }
 
-static void always_inline spin_barrier_common(spinlock_tickets_t *t)
+static void always_inline
+spin_barrier_common(spinlock_tickets_t *t)
 {
     spinlock_tickets_t sample;
 
@@ -182,9 +188,11 @@ bool _rspin_trylock(rspinlock_t *lock)
 
     /* Don't allow overflow of recurse_cpu field. */
     BUILD_BUG_ON(NR_CPUS > SPINLOCK_NO_CPU);
-    BUILD_BUG_ON(SPINLOCK_CPU_BITS > sizeof(lock->recurse_cpu) * 8);
+    BUILD_BUG_ON(SPINLOCK_CPU_BITS >
+                 sizeof(lock->recurse_cpu) * 8);
     BUILD_BUG_ON(SPINLOCK_RECURSE_BITS < 3);
-    BUILD_BUG_ON(SPINLOCK_MAX_RECURSE > ((1u << SPINLOCK_RECURSE_BITS) - 1));
+    BUILD_BUG_ON(SPINLOCK_MAX_RECURSE >
+                 ((1u << SPINLOCK_RECURSE_BITS) - 1));
 
     if (likely(lock->recurse_cpu != cpu)) {
         if (!spin_trylock_common(&lock->tickets))
@@ -192,7 +200,8 @@ bool _rspin_trylock(rspinlock_t *lock)
         lock->recurse_cpu = cpu;
     }
 
-    /* We support only fairly shallow recursion, else the counter overflows. */
+    /* We support only fairly shallow recursion,
+     * else the counter overflows. */
     ASSERT(lock->recurse_cnt < SPINLOCK_MAX_RECURSE);
     lock->recurse_cnt++;
 
@@ -208,7 +217,8 @@ void _rspin_lock(rspinlock_t *lock)
         lock->recurse_cpu = cpu;
     }
 
-    /* We support only fairly shallow recursion, else the counter overflows. */
+    /* We support only fairly shallow recursion,
+     * else the counter overflows. */
     ASSERT(lock->recurse_cnt < SPINLOCK_MAX_RECURSE);
     lock->recurse_cnt++;
 }
@@ -231,7 +241,8 @@ void _rspin_unlock(rspinlock_t *lock)
     }
 }
 
-void _rspin_unlock_irqrestore(rspinlock_t *lock, unsigned long flags)
+void _rspin_unlock_irqrestore(rspinlock_t *lock,
+                              unsigned long flags)
 {
     _rspin_unlock(lock);
     local_irq_restore(flags);
@@ -278,7 +289,8 @@ unsigned long _nrspin_lock_irqsave(rspinlock_t *lock)
     return flags;
 }
 
-void _nrspin_unlock_irqrestore(rspinlock_t *lock, unsigned long flags)
+void _nrspin_unlock_irqrestore(rspinlock_t *lock,
+                               unsigned long flags)
 {
     _nrspin_unlock(lock);
     local_irq_restore(flags);

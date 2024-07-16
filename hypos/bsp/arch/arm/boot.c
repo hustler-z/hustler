@@ -38,8 +38,19 @@ void section_map_dump(void)
 
 size_t __read_mostly dcache_line_bytes;
 
+static void hypos_tag(void)
+{
+    MSGI("              ___  __  ____ \n");
+    MSGI("    /\\_/\\/\\/\\/ _ \\/  \\/ __/ \n");
+    MSGI("    \\  _ \\  / ___/ / /\\__ \\ \n");
+    MSGI("     \\/ \\/_/\\/   \\__/ /___/ Hustler Edu\n");
+    MSGI("\n");
+}
+
 int __bootfunc hcpu_setup(void)
 {
+    hypos_tag();
+
     MSGQ(true, "Note phys_offset - 0x%016lx\n",
             get_globl()->phys_offset);
 

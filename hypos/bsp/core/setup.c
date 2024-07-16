@@ -30,14 +30,7 @@
 #include <bsp/tasklet.h>
 
 // --------------------------------------------------------------
-static void hypos_tag(void)
-{
-    MSGI("              ___  __  ____ \n");
-    MSGI("    /\\_/\\/\\/\\/ _ \\/  \\/ __/ \n");
-    MSGI("    \\  _ \\  / ___/ / /\\__ \\ \n");
-    MSGI("     \\/ \\/_/\\/   \\__/ /___/ @_<\n");
-    MSGI("\n");
-}
+
 
 typedef int (*bootfunc_t)(void);
 
@@ -47,8 +40,6 @@ static int __bootfunc __bootchain(const bootfunc_t *boot_sequence)
     int ret, boot_count = 0;
     unsigned long base;
     unsigned int boot_status = hypos_get(hypos_status);
-
-    hypos_tag();
 
     for (boot_one = boot_sequence; *boot_one; boot_one++) {
         ret = (*boot_one)();
@@ -62,7 +53,7 @@ static int __bootfunc __bootchain(const bootfunc_t *boot_sequence)
                     "smp cpu" : "boot cpu");
             return -1;
         } else
-            MSGH("Boot phase <%02d> done executing %ps() on %s @_<\n",
+            MSGQ(false, "Boot phase <%02d> done executing %ps() on %s\n",
                     boot_count, __void__(*boot_one),
                     boot_status == HYPOS_SMP_BOOT_STAGE ?
                     "smp cpu" : "boot cpu");
@@ -79,11 +70,13 @@ static int __bootfunc __bootchain(const bootfunc_t *boot_sequence)
  * --------------------------------------------------------------
  */
 static bootfunc_t hypos_boot_sequence[] = {
+    /* Set up percpu areas
+     */
+    percpu_setup,
+
     /* Set up Board Type
      */
     board_setup,
-
-    percpu_setup,
 
     /* Hypervisor CPU Setup
      */
@@ -145,8 +138,6 @@ void asmlinkage __bootfunc __setup(unsigned long phys_offset,
 
     hypos_get(phys_offset) = phys_offset;
     hypos_get(boot_param) = boot_args;
-
-    early_debug("[hypos] Boot CPU start kicking\n");
 
     /* Normal booting process, initiate hypos services. my
      * goal here is to implement basic console and be able
