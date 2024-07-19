@@ -9,7 +9,7 @@
 #include <asm/define.h>
 #include <asm/debug.h>
 #include <asm/sysregs.h>
-#include <asm/ttbl.h>
+#include <asm/hvm.h>
 
 // --------------------------------------------------------------
 

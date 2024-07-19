@@ -379,8 +379,11 @@ struct arm_cpu {
 };
 
 extern struct arm_cpu core_cpu;
-extern void identify_cpu(struct arm_cpu *c);
 extern void update_system_features(const struct arm_cpu *new);
+void identify_cpu(struct arm_cpu *c);
+int processor_setup(void);
+
+// --------------------------------------------------------------
 
 extern struct arm_cpu cpu_data[];
 #define current_cpu_data cpu_data[smp_processor_id()]

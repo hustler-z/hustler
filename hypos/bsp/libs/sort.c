@@ -11,6 +11,7 @@
 #include <lib/strops.h>
 #include <lib/math.h>
 
+// --------------------------------------------------------------
 void qsort(void  *base,
     size_t nel,
     size_t width,
@@ -20,16 +21,13 @@ void qsort(void  *base,
     char tmp;
 
     if ((nel > 1) && (width > 0)) {
-        // assert(nel <= ((size_t)(-1)) / width); /* check for overflow */
         wgap = 0;
         do {
             wgap = 3 * wgap + 1;
         } while (wgap < (nel-1)/3);
-        /* From the above, we know that either wgap == 1 < nel or
-         * ((wgap-1)/3 < (int) ((nel-1)/3) <= (nel-1)/3 ==> wgap < nel.
-         */
-        wgap *= width; /* So this can not overflow if wnel doesn't. */
-        nel *= width;  /* Convert nel to 'wnel' */
+
+        wgap *= width;
+        nel *= width;
         do {
             i = wgap;
             do {
@@ -60,11 +58,6 @@ void qsort(void  *base,
 
 #define MAX_LIST_LENGTH_BITS 20
 
-/*
- * Returns a list organized in an intermediate format suited
- * to chaining of merge() calls: null-terminated, no reserved or
- * sentinel head node, "prev" links not maintained.
- */
 static struct list_head *merge(void *priv,
 				int (*cmp)(void *priv, struct list_head *a,
 					struct list_head *b),
@@ -73,7 +66,6 @@ static struct list_head *merge(void *priv,
     struct list_head head, *tail = &head;
 
     while (a && b) {
-        /* if equal, take 'a' - important for sort stability */
         if ((*cmp)(priv, a, b) <= 0) {
             tail->next = a;
             a = a->next;
@@ -87,13 +79,6 @@ static struct list_head *merge(void *priv,
     return head.next;
 }
 
-/*
- * Combine final list merge with restoration of standard doubly-linked
- * list structure.  This approach duplicates code from merge(), but
- * runs faster than the tidier alternatives of either a separate final
- * prev-link restoration pass, or maintaining the prev links
- * throughout.
- */
 static void merge_and_restore_back_links(void *priv,
 				int (*cmp)(void *priv, struct list_head *a,
 					struct list_head *b),
@@ -103,7 +88,6 @@ static void merge_and_restore_back_links(void *priv,
     struct list_head *tail = head;
 
     while (a && b) {
-        /* if equal, take 'a' - important for sort stability */
         if ((*cmp)(priv, a, b) <= 0) {
             tail->next = a;
             a->prev = tail;
@@ -118,12 +102,6 @@ static void merge_and_restore_back_links(void *priv,
     tail->next = a ? : b;
 
     do {
-        /*
-         * In worst cases this loop may run many iterations.
-         * Continue callbacks to the client even though no
-         * element comparison is needed, so the client's cmp()
-         * routine can invoke cond_resched() periodically.
-         */
         (*cmp)(priv, tail->next, tail->next);
 
         tail->next->prev = tail;
@@ -134,27 +112,12 @@ static void merge_and_restore_back_links(void *priv,
     head->prev = tail;
 }
 
-/**
- * list_sort - sort a list
- * @priv: private data, opaque to list_sort(), passed to @cmp
- * @head: the list to sort
- * @cmp: the elements comparison function
- *
- * This function implements "merge sort", which has O(nlog(n))
- * complexity.
- *
- * The comparison function @cmp must return a negative value if @a
- * should sort before @b, and a positive value if @a should sort after
- * @b. If @a and @b are equivalent, and their original relative
- * ordering is to be preserved, @cmp must return 0.
- */
 void list_sort(void *priv, struct list_head *head,
         int (*cmp)(void *priv, struct list_head *a,
         struct list_head *b))
 {
-    /* sorted partial lists - last slot is a sentinel */
     struct list_head *part[MAX_LIST_LENGTH_BITS + 1];
-    int lev;  /* index into part[] */
+    int lev;
     int max_lev = 0;
     struct list_head *list;
 
@@ -187,5 +150,66 @@ void list_sort(void *priv, struct list_head *head,
         if (part[lev])
             list = merge(priv, cmp, part[lev], list);
 
-    merge_and_restore_back_links(priv, cmp, head, part[max_lev], list);
+    merge_and_restore_back_links(priv, cmp, head,
+            part[max_lev], list);
 }
+
+void *bsearch(const void *key, const void *base, size_t num,
+              size_t size, int (*cmp)(const void *key,
+              const void *elt))
+{
+    size_t start = 0, end = num;
+    int result;
+
+    while (start < end) {
+        size_t mid = start + (end - start) / 2;
+
+        result = cmp(key, base + mid * size);
+        if ( result < 0 )
+            end = mid;
+        else if ( result > 0 )
+            start = mid + 1;
+        else
+            return (void *)base + mid * size;
+    }
+
+    return NULL;
+}
+
+void sort(void *base, size_t num, size_t size,
+          int (*cmp)(const void *a, const void *b),
+          void (*swap)(void *a, void *b, size_t size))
+{
+    /* pre-scale counters for performance */
+    size_t i = (num / 2) * size, n = num * size, c, r;
+
+    /* heapify */
+    while (i > 0) {
+        for (r = i -= size; r * 2 + size < n; r = c) {
+            c = r * 2 + size;
+            if ((c < n - size) && (cmp(base + c,
+                                       base + c + size) < 0))
+                c += size;
+            if (cmp(base + r, base + c) >= 0)
+                break;
+            swap(base + r, base + c, size);
+        }
+    }
+
+    /* sort */
+    for (i = n; i > 0; ) {
+        i -= size;
+        swap(base, base + i, size);
+        for (r = 0; r * 2 + size < i; r = c) {
+            c = r * 2 + size;
+            if ((c < i - size) && (cmp(base + c,
+                                       base + c + size) < 0))
+                c += size;
+            if (cmp(base + r, base + c) >= 0)
+                break;
+            swap(base + r, base + c, size);
+        }
+    }
+}
+
+// --------------------------------------------------------------

@@ -266,6 +266,7 @@ void smp_call_function_interrupt(void);
 // --------------------------------------------------------------
 void put_cpu_maps(void);
 bool get_cpu_maps(void);
+int  smp_clear_cpu_maps(void);
 
 void cpu_hotplug_begin(void);
 void cpu_hotplug_done(void);

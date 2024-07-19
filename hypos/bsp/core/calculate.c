@@ -7,7 +7,7 @@
  */
 
 #include <org/section.h>
-#include <bsp/core.h>
+#include <bsp/bootcore.h>
 #include <bsp/time.h>
 #include <bsp/percpu.h>
 #include <bsp/calculate.h>

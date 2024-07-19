@@ -13,8 +13,8 @@
 #include <bsp/type.h>
 
 struct arch_globl {
-    paddr_t boot_ttbr;
-    paddr_t exec_ttbr;
+    hpa_t boot_ttbr;
+    hpa_t exec_ttbr;
 
     /* page allocation related */
 

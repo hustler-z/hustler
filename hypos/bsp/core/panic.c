@@ -6,6 +6,10 @@
  * Usage: system execution checker
  */
 
+#include <org/globl.h>
+#include <org/psci.h>
+#include <org/smp.h>
+#include <org/time.h>
 #include <asm/barrier.h>
 #include <asm/sysregs.h>
 #include <asm/hcpu.h>
@@ -13,31 +17,88 @@
 #include <asm/exit.h>
 #include <asm/define.h>
 #include <bsp/exit.h>
+#include <bsp/time.h>
 #include <bsp/debug.h>
+#include <bsp/delay.h>
 #include <bsp/percpu.h>
 #include <bsp/panic.h>
 #include <bsp/spinlock.h>
 #include <lib/args.h>
 
 // --------------------------------------------------------------
-void hang(void) {
+void hang(void)
+{
+    while (1)
+        wfe();
+}
+
+static void halt_cpu(void *arg)
+{
+    unsigned int i;
+
+    local_irq_disable();
+    dsb(sy);
+    isb();
+
+    MSGE("hypos crashed within %lu milliseconds, rebooting ...\n",
+            get_msec());
+
+    while (1)
+        wfi();
+}
+
+void halt(void)
+{
+    int timeout = 10;
+
+    local_irq_enable();
+    smp_call_function(halt_cpu, NULL, 0);
+    local_irq_disable();
+
+    while ((num_online_cpus() > 1) && (timeout-- > 0))
+        mdelay(1);
+
+    call_psci_system_off();
+
+    halt_cpu(NULL);
+}
+
+void reboot(unsigned int delay_ms)
+{
+    int timeout = 10;
+    unsigned long count = 0;
+
+    local_irq_enable();
+    smp_call_function(halt_cpu, NULL, 0);
+    local_irq_disable();
+
+    mdelay(delay_ms);
+
+    while ((num_online_cpus() > 1) && (timeout-- > 0))
+        mdelay(1);
+
+    call_psci_system_reset();
+}
+
+void crash(void) {
     MSGE("------------------ [Hypervisor Crashed] ------------------\n");
 
     flush();
 
-    for (;;)
-        ;
+    /* XXX: At HYPOS_EARLY_BOOT_STAGE, GIC might ain't set yet.
+     *      In this case, simply halt the boot cpu directly.
+     */
+    if (hypos_get(hypos_status) == HYPOS_EARLY_BOOT_STAGE)
+        halt_cpu(NULL);
+
+#if IS_ENABLED(CFG_REBOOT_ON_PANIC)
+    reboot(5000);
+#else
+    halt();
+#endif
 }
 
-void do_reboot(void)
-{
-    arch_cpu_reboot();
-}
-
-void do_exit(int exit_code)
-{
-
-}
+// --------------------------------------------------------------
 
 extern void save_context(struct hcpu_regs *regs);
 
@@ -79,32 +140,33 @@ static void hack_stack(void)
     MSGI("@_<\n");
 }
 
+// --------------------------------------------------------------
+
 static void panic_end(void)
 {
     MSGI("\n");
 
-    hang();
+    crash();
 }
-
-static DEFINE_SPINLOCK(panic_lock);
 
 void panic(bool in_exception, const char *fmt, ...)
 {
-
+    unsigned long flags;
+    static DEFINE_SPINLOCK(panic_lock);
 
     local_irq_disable();
 
     if (!in_exception)
         hack_stack();
 
-    spin_lock(&panic_lock);
+    spin_lock_irqsave(&panic_lock, flags);
 
     va_list args;
     va_start(args, fmt);
     vpr_common(fmt, args);
     va_end(args);
 
-    spin_unlock(&panic_lock);
+    spin_unlock_irqrestore(&panic_lock, flags);
 
     panic_end();
 }
@@ -112,8 +174,10 @@ void panic(bool in_exception, const char *fmt, ...)
 void warn(const char *fmt, ...)
 {
     va_list args;
+    static DEFINE_SPINLOCK(warn_lock);
+    unsigned long flags;
 
-    spin_lock(&panic_lock);
+    spin_lock_irqsave(&warn_lock, flags);
 
     hack_stack();
 
@@ -121,7 +185,7 @@ void warn(const char *fmt, ...)
     vpr_common(fmt, args);
     va_end(args);
 
-    spin_unlock(&panic_lock);
+    spin_unlock_irqrestore(&warn_lock, flags);
 }
 
 void __warn_crap(const char *assertion, const char *file,

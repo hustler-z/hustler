@@ -101,7 +101,7 @@ int prep_smp_mm(int cpu)
 
 // --------------------------------------------------------------
 
-void __dump_ttbl_walk(paddr_t ttbr, paddr_t addr,
+void __dump_ttbl_walk(hpa_t ttbr, hpa_t addr,
                       unsigned int root_level,
                       unsigned int nr_root_tables)
 {
@@ -139,9 +139,9 @@ void __dump_ttbl_walk(paddr_t ttbr, paddr_t addr,
     unmap_table(mapping);
 }
 
-void dump_ttbl_walk(vaddr_t va)
+void dump_ttbl_walk(hva_t va)
 {
-    paddr_t ttbr = READ_SYSREG(TTBR0_EL2);
+    hpa_t ttbr = READ_SYSREG(TTBR0_EL2);
 
     MSGH("Walk TTBL VA 0x%016lx on CPU%d via TTBR 0x%016lx\n",
             va, smp_processor_id(), ttbr);
@@ -168,7 +168,7 @@ ttbl_t pfn_to_entry(pfn_t pfn, unsigned int attr)
             .ng   = 1,
             .contig = 0,
             .uxn  = 1, /* No executable in user space */
-            .pxn  = 0,
+            .pxn  = 0, /* Privileged executable */
             .res1 = 0,
             .res2 = 0,
         }
@@ -194,9 +194,9 @@ ttbl_t pfn_to_entry(pfn_t pfn, unsigned int attr)
     return pte;
 }
 
-ttbl_t __bootfunc pte_of_va(vaddr_t va)
+ttbl_t __bootfunc pte_of_va(hva_t va)
 {
-    paddr_t pa = va + get_globl()->phys_offset;
+    hpa_t pa = va + get_globl()->phys_offset;
 
     return pfn_to_entry(pa_to_pfn(pa), MT_NORMAL);
 }
@@ -205,7 +205,7 @@ ttbl_t __bootfunc pte_of_va(vaddr_t va)
  */
 void update_idmap(unsigned int ok)
 {
-    paddr_t __pa = va_to_pa(__hypos_start);
+    hpa_t __pa = va_to_pa(__hypos_start);
     int ret;
 
     if (ok)
@@ -223,7 +223,7 @@ typedef void (switch_ttbr_cb)(unsigned long ttbr);
 
 static void __bootfunc switch_ttbr(u64 ttbr)
 {
-    vaddr_t addr = va_to_pa(__switch_ttbr);
+    hva_t addr = va_to_pa(__switch_ttbr);
     switch_ttbr_cb *cb = (switch_ttbr_cb *)addr;
     ttbl_t pte;
 
@@ -231,7 +231,7 @@ static void __bootfunc switch_ttbr(u64 ttbr)
      */
     update_idmap(1);
 
-    pte = pte_of_va((vaddr_t)__switch_ttbr);
+    pte = pte_of_va((hva_t)__switch_ttbr);
     pte.ttbl.table = 1;
     pte.ttbl.uxn = 0;
     pte.ttbl.ap = 3;
@@ -259,7 +259,7 @@ static void hypos_enforce_wnx(void)
 
 static void __bootfunc boot_idmap_setup(void)
 {
-    paddr_t idmap_spaddr = va_to_pa(__hypos_start);
+    hpa_t idmap_spaddr = va_to_pa(__hypos_start);
     ttbl_t pte;
     TTBL_OFFSETS(idmap_offset, idmap_spaddr);
 
@@ -290,21 +290,21 @@ static void __bootfunc boot_idmap_setup(void)
 
 static void __bootfunc hypos_idmap_setup(void)
 {
-    paddr_t idmap_paddr = va_to_pa(__hypos_start);
+    hpa_t idmap_paddr = va_to_pa(__hypos_start);
     ttbl_t pte;
     TTBL_OFFSETS(idmap_offset, idmap_paddr);
 
-    pte = pte_of_va((vaddr_t)hypos_idmap1);
+    pte = pte_of_va((hva_t)hypos_idmap1);
     pte.ttbl.table = 1;
     pte.ttbl.uxn = 0;
     write_pte(&hypos_pgtbl0[idmap_offset[0]], pte);
 
-    pte = pte_of_va((vaddr_t)hypos_idmap2);
+    pte = pte_of_va((hva_t)hypos_idmap2);
     pte.ttbl.table = 1;
     pte.ttbl.uxn = 0;
     write_pte(&hypos_idmap1[idmap_offset[1]], pte);
 
-    pte = pte_of_va((vaddr_t)hypos_idmap3);
+    pte = pte_of_va((hva_t)hypos_idmap3);
     pte.ttbl.table = 1;
     pte.ttbl.uxn = 0;
     write_pte(&hypos_idmap2[idmap_offset[2]], pte);
@@ -358,7 +358,7 @@ int __bootfunc ttbl_setup(void)
     ptes[0].ttbl.uxn = 0;
 
     for (i = 0; i < HYPOS_DATA_NR_ENTRIES(3); i++) {
-        vaddr_t va = HYPOS_VIRT_START + (i << PAGE_SHIFT);
+        hva_t va = HYPOS_VIRT_START + (i << PAGE_SHIFT);
 
         if (!is_core_section(va))
             break;
@@ -381,9 +381,9 @@ int __bootfunc ttbl_setup(void)
      * Reserved data memory region
      */
     for (i = 0; i < HYPOS_DATA_NR_ENTRIES(2); i++) {
-        vaddr_t va = HYPOS_VIRT_START + (i << PGTBL_LEVEL_SHIFT(2));
+        hva_t va = HYPOS_VIRT_START + (i << PGTBL_LEVEL_SHIFT(2));
 
-        pte = pte_of_va((vaddr_t)(hypos_pgtbl3
+        pte = pte_of_va((hva_t)(hypos_pgtbl3
                     + (i * PGTBL_TTBL_ENTRIES)));
         pte.ttbl.table = 1;
         hypos_pgtbl2[PGTBL2_OFFSET(va)] = pte;
@@ -391,23 +391,23 @@ int __bootfunc ttbl_setup(void)
 
     /* Set up Fixmap
      */
-    pte = pte_of_va((vaddr_t)hypos_fixmap);
+    pte = pte_of_va((hva_t)hypos_fixmap);
     pte.ttbl.table = 1;
     hypos_pgtbl2[PGTBL2_OFFSET(HYPOS_FIXMAP_ADDR(0))] = pte;
 
     ttbl_consts();
 
-    ttbr = (ap_t)hypos_pgtbl0 + get_globl()->phys_offset;
+    ttbr = (ap_t)hypos_pgtbl0 + hypos_get(phys_offset);
 
-    get_globl()->arch.boot_ttbr = READ_SYSREG(TTBR0_EL2);
+    hypos_get(arch.boot_ttbr) = READ_SYSREG(TTBR0_EL2);
 
     switch_ttbr(ttbr);
 
-    get_globl()->arch.exec_ttbr = READ_SYSREG(TTBR0_EL2);
+    hypos_get(arch.exec_ttbr) = READ_SYSREG(TTBR0_EL2);
 
     MSGH("Switch TTBR from %016lx to %016lx\n",
-            get_globl()->arch.boot_ttbr,
-            get_globl()->arch.exec_ttbr);
+            hypos_get(arch.boot_ttbr),
+            hypos_get(arch.exec_ttbr));
 
     hypos_enforce_wnx();
 

@@ -9,7 +9,7 @@
 
 #include <bsp/mmap.h>
 
-void *map_devmem(paddr_t paddr)
+void *map_devmem(hpa_t paddr)
 {
     return NULL;
 }

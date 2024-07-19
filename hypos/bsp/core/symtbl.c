@@ -6,7 +6,7 @@
  * Usage:
  */
 
-#include <asm/ttbl.h>
+#include <asm/hvm.h>
 #include <org/section.h>
 #include <bsp/spinlock.h>
 #include <bsp/symtbl.h>
@@ -180,7 +180,8 @@ const char *symbols_lookup(unsigned long addr,
         return NULL;
 
     if (section->symbols_lookup)
-        return section->symbols_lookup(addr, symbolsize, offset, namebuf);
+        return section->symbols_lookup(addr, symbolsize,
+                                       offset, namebuf);
 
     low = 0;
     high = symbols_num_syms;
@@ -193,7 +194,8 @@ const char *symbols_lookup(unsigned long addr,
             high = mid;
     }
 
-    while (low && symbols_address(low - 1) == symbols_address(low))
+    while (low && symbols_address(low - 1)
+           == symbols_address(low))
         --low;
 
     symbols_expand_symbol(get_symbol_offset(low), namebuf);
@@ -208,7 +210,8 @@ const char *symbols_lookup(unsigned long addr,
     /* if we found no next symbol, we use the end of the section */
     if (!symbol_end)
         symbol_end = is_boot_section(addr) ?
-            (unsigned long)__boot_start : (unsigned long)__text_start;
+            (unsigned long)__boot_start :
+            (unsigned long)__text_start;
 
     *symbolsize = symbol_end - symbols_address(low);
     *offset = addr - symbols_address(low);

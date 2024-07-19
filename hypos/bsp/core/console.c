@@ -299,7 +299,7 @@ int fgetc(int file)
          * Effectively poll for input wherever it may be available.
          */
         for (;;) {
-            schedule();
+            periodic_work_schedule();
             if (CONSOLE_MUX_ENABLE) {
                 /*
                  * Upper layer may have already called tstc() so
@@ -351,7 +351,7 @@ void fflush(int file)
         console_flush(file);
 }
 
-int fprintf(int file, const char *fmt, ...)
+int fMSGI(int file, const char *fmt, ...)
 {
     va_list args;
     unsigned int i;
@@ -551,7 +551,7 @@ int console_readline_into_buffer(const char *const prompt, char *buffer,
     for (;;) {
         if (__tstc_timeout())
             return -2;	/* timed out */
-        schedule();
+        periodic_work_schedule();
 
         c = getc();
 
@@ -952,7 +952,7 @@ void __console_loop(void)
             puts("\nTimed out waiting for command\n");
 
             /* Reinit board to run initialization code again */
-            do_reboot();
+            reboot(1000);
         }
 
         if (len == -1)
@@ -994,10 +994,10 @@ int run_commandf(const char *fmt, ...)
 
 static void hypos_stamp(void)
 {
-    MSGI("                __________    _________  \n");
-    MSGI(" /A__/A /A  /A / ___/_  _/A  / ___/ __ A \n");
-    MSGI(" V  __ AV A_V AV___A / // /_/ ___AA __ / \n");
-    MSGI("  V_A V_AV____/____/ V/ V___A____AV/  V  HYPOS\n");
+    MSGI("              _________    ____ ___                   \n");
+    MSGI(" /\\__/\\/\\  /\\/ __/_  _/\\  / __// _ \\            \n");
+    MSGI(" \\  __ \\ \\_\\ \\__ \\/ // /_/ __\\/ _  /           \n");
+    MSGI("  \\/  \\/\\____/___/\\/ \\___\\___\\\\/ \\/  EDU 2024\n");
     MSGI("\n");
 }
 
@@ -1007,7 +1007,7 @@ int __bootfunc console_setup(void)
      */
     hypos_stamp();
 
-    if (!get_globl()->console_enable) {
+    if (!hypos_get(console_enable)) {
         DEBUG("Console been disbale\n");
         force_kick_guests_up();
     } else {

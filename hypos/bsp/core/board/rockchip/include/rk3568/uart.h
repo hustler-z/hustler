@@ -6,8 +6,8 @@
  * Usage:
  */
 
-#ifndef _BOARD_UART_H
-#define _BOARD_UART_H
+#ifndef _RK3568_UART_H
+#define _RK3568_UART_H
 // --------------------------------------------------------------
 #include <bsp/init.h>
 #include <asm/bitops.h>
@@ -69,4 +69,4 @@ struct board_uart_regs {
 
 void board_debug_uart_init(void);
 // --------------------------------------------------------------
-#endif /* _BOARD_UART_H */
+#endif /* _RK3568_UART_H */

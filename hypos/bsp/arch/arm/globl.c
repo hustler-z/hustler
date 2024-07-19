@@ -22,6 +22,7 @@ static struct hypos_globl __initdata boot_globl = {
 #ifdef __RK3568__
     .baudrate = 1500000,
 #endif
+    .accessible = true,
     .smode = GLB_EARLY_SERIAL,
     .flags = GLB_INITIALIZED,
     .hypos_status = HYPOS_EARLY_BOOT_STAGE,
@@ -30,6 +31,8 @@ static struct hypos_globl __initdata boot_globl = {
 struct hypos_globl *get_globl(void)
 {
     struct hypos_globl *globl = &boot_globl;
+
+    ASSERT(globl->accessible);
 
     return globl;
 }

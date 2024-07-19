@@ -22,7 +22,7 @@ static inline void unmap_hypmem(void *addr)
 
 }
 
-void *map_devmem(paddr_t paddr);
+void *map_devmem(hpa_t paddr);
 
 // ------------------------------------------------------------------------
 #endif /* _BSP_MMAP_H */

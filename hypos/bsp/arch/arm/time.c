@@ -73,7 +73,8 @@ int reprogram_timer(stime_t timeout)
 }
 // --------------------------------------------------------------
 
-/* XXX: Delay Implementation */
+/* XXX: Delay Implementation
+ */
 void udelay(unsigned long usecs)
 {
     stime_t deadline = get_stime() + 1000 * (stime_t)usecs;
@@ -206,7 +207,7 @@ void do_settime(u64 secs, unsigned int nsecs,
 }
 
 /* Return secs after 00:00:00 localtime, 1 January, 1970. */
-unsigned long get_localtime(struct hypos *h)
+u64 get_localtime(struct hypos *h)
 {
     return wc_sec + (wc_nsec + NOW()) / 1000000000UL
         + h->time_offset.seconds;
@@ -219,7 +220,7 @@ u64 get_localtime_us(struct hypos *h)
             + wc_nsec + NOW()) / 1000UL;
 }
 
-unsigned long get_sec(void)
+u64 get_sec(void)
 {
     return wc_sec + (wc_nsec + NOW()) / 1000000000UL;
 }
@@ -259,10 +260,24 @@ int __bootfunc time_preset(void)
 }
 // --------------------------------------------------------------
 
-/* Generic Timer */
+/* Generic Timer
+ *
+ * XXX: Time Unit Conversion
+ *
+ * s ◀-- ms ◀-- us ◀-- ns
+ *    |      |      |
+ *  1000     |      |
+ *         1000     |
+ *                1000
+ */
 u64 get_usec(void)
 {
-    return get_sec() * 1000000UL;
+    return wc_sec * 1000000UL + (wc_nsec + NOW()) / 1000UL;
+}
+
+u64 get_msec(void)
+{
+    return wc_sec * 1000UL + (wc_nsec + NOW()) / 1000000UL;
 }
 
 u64 get_msec_bias(u64 base)

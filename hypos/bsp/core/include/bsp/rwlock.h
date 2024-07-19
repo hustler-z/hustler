@@ -51,11 +51,6 @@ static inline bool _is_write_locked_by_me(unsigned int cnts)
 
 static inline bool _can_read_lock(unsigned int cnts)
 {
-    /*
-     * If write locked by the caller, no other readers are possible.
-     * Not allowing the lock holder to read_lock() another
-     * INT_MAX >> _QR_SHIFT times ought to be fine.
-     */
     return cnts <= INT_MAX &&
            (!(cnts & _QW_WMASK) || _is_write_locked_by_me(cnts));
 }
@@ -69,43 +64,29 @@ static inline int _read_trylock(rwlock_t *lock)
     cnts = atomic_read(&lock->cnts);
     if (likely(_can_read_lock(cnts))) {
         cnts = (u32)atomic_add_return(_QR_BIAS, &lock->cnts);
-        /*
-         * atomic_add_return() is a full barrier so no need for an
-         * arch_lock_acquire_barrier().
-         */
+
         if (likely(_can_read_lock(cnts))) {
             return 1;
         }
         atomic_sub(_QR_BIAS, &lock->cnts);
     }
+
     preempt_enable();
 
     return 0;
 }
 
-/*
- * _read_lock - acquire read lock of a queue rwlock.
- * @lock: Pointer to queue rwlock structure.
- */
 static inline void _read_lock(rwlock_t *lock)
 {
     u32 cnts;
 
     preempt_disable();
     cnts = atomic_add_return(_QR_BIAS, &lock->cnts);
-    /*
-     * atomic_add_return() is a full barrier so no need for an
-     * arch_lock_acquire_barrier().
-     */
+
     if (likely(_can_read_lock(cnts)))
         return;
 
-    /* The slowpath will decrement the reader count, if necessary. */
     queue_read_lock_slowpath(lock);
-    /*
-     * queue_read_lock_slowpath() is using spinlock and therefore is a
-     * full barrier. So no need for an arch_lock_acquire_barrier().
-     */
 }
 
 static inline void _read_lock_irq(rwlock_t *lock)
@@ -123,16 +104,9 @@ static inline unsigned long _read_lock_irqsave(rwlock_t *lock)
     return flags;
 }
 
-/*
- * _read_unlock - release read lock of a queue rwlock.
- * @lock : Pointer to queue rwlock structure.
- */
 static inline void _read_unlock(rwlock_t *lock)
 {
     arch_lock_release_barrier();
-    /*
-     * Atomically decrement the reader count
-     */
     atomic_sub(_QR_BIAS, &lock->cnts);
     preempt_enable();
 }
@@ -160,27 +134,14 @@ static inline unsigned int _write_lock_val(void)
     return _QW_LOCKED | smp_processor_id();
 }
 
-/*
- * queue_write_lock - acquire write lock of a queue rwlock.
- * @lock : Pointer to queue rwlock structure.
- */
 static inline void _write_lock(rwlock_t *lock)
 {
     preempt_disable();
-    /*
-     * Optimize for the unfair lock case where the fair flag is 0.
-     *
-     * atomic_cmpxchg() is a full barrier so no need for an
-     * arch_lock_acquire_barrier().
-     */
+
     if (atomic_cmpxchg(&lock->cnts, 0, _write_lock_val()) == 0)
         return;
 
     queue_write_lock_slowpath(lock);
-    /*
-     * queue_write_lock_slowpath() is using spinlock and therefore is a
-     * full barrier. So no need for an arch_lock_acquire_barrier().
-     */
 }
 
 static inline void _write_lock_irq(rwlock_t *lock)
@@ -199,11 +160,6 @@ static inline unsigned long _write_lock_irqsave(rwlock_t *lock)
     return flags;
 }
 
-/*
- * queue_write_trylock - try to acquire write lock of a queue rwlock.
- * @lock : Pointer to queue rwlock structure.
- * Return: 1 if lock acquired, 0 if failed.
- */
 static inline int _write_trylock(rwlock_t *lock)
 {
     u32 cnts;
@@ -212,7 +168,8 @@ static inline int _write_trylock(rwlock_t *lock)
 
     cnts = atomic_read(&lock->cnts);
     if (unlikely(cnts) ||
-        unlikely(atomic_cmpxchg(&lock->cnts, 0, _write_lock_val()) != 0)) {
+        unlikely(atomic_cmpxchg(&lock->cnts, 0,
+                 _write_lock_val()) != 0)) {
         preempt_enable();
         return 0;
     }
@@ -282,7 +239,6 @@ static always_inline void write_lock_irq(rwlock_t *l)
     ({                                                          \
         BUILD_BUG_ON(sizeof(f) != sizeof(unsigned long));       \
         ((f) = _write_lock_irqsave(l));                         \
-        block_lock_speculation();                               \
     })
 
 #define write_trylock(l)              \
@@ -318,33 +274,23 @@ static inline void _percpu_rwlock_owner_check(percpu_rwlock_t **per_cpudata,
 static always_inline void _percpu_read_lock(percpu_rwlock_t **per_cpudata,
                                             percpu_rwlock_t *percpu_rwlock)
 {
-    /* Validate the correct per_cpudata variable has been provided. */
     _percpu_rwlock_owner_check(per_cpudata, percpu_rwlock);
 
-    /* We cannot support recursion on the same lock. */
     ASSERT(this_cpu_ptr(per_cpudata) != percpu_rwlock);
-    /*
-     * Detect using a second percpu_rwlock_t simulatenously and fallback
-     * to standard read_lock.
-     */
+
     if (unlikely(this_cpu_ptr(per_cpudata) != NULL)) {
         read_lock(&percpu_rwlock->rwlock);
         return;
     }
 
-    /* Indicate this cpu is reading. */
     preempt_disable();
     this_cpu_ptr(per_cpudata) = percpu_rwlock;
     smp_mb();
-    /* Check if a writer is waiting. */
+
     if (unlikely(percpu_rwlock->writer_activating)) {
-        /* Let the waiting writer know we aren't holding the lock. */
         this_cpu_ptr(per_cpudata) = NULL;
-        /* Wait using the read lock to keep the lock fair. */
         read_lock(&percpu_rwlock->rwlock);
-        /* Set the per CPU data again and continue. */
         this_cpu_ptr(per_cpudata) = percpu_rwlock;
-        /* Drop the read lock because we don't need it anymore. */
         read_unlock(&percpu_rwlock->rwlock);
     }
 }
@@ -352,16 +298,10 @@ static always_inline void _percpu_read_lock(percpu_rwlock_t **per_cpudata,
 static inline void _percpu_read_unlock(percpu_rwlock_t **per_cpudata,
                 percpu_rwlock_t *percpu_rwlock)
 {
-    /* Validate the correct per_cpudata variable has been provided. */
     _percpu_rwlock_owner_check(per_cpudata, percpu_rwlock);
 
-    /* Verify the read lock was taken for this lock */
     ASSERT(this_cpu_ptr(per_cpudata) != NULL);
 
-    /*
-     * Detect using a second percpu_rwlock_t simulatenously and fallback
-     * to standard read_unlock.
-     */
     if (unlikely(this_cpu_ptr(per_cpudata) != percpu_rwlock)) {
         read_unlock(&percpu_rwlock->rwlock);
         return;
@@ -371,14 +311,12 @@ static inline void _percpu_read_unlock(percpu_rwlock_t **per_cpudata,
     preempt_enable();
 }
 
-/* Don't inline percpu write lock as it's a complex function. */
 void _percpu_write_lock(percpu_rwlock_t **per_cpudata,
                         percpu_rwlock_t *percpu_rwlock);
 
 static inline void _percpu_write_unlock(percpu_rwlock_t **per_cpudata,
                 percpu_rwlock_t *percpu_rwlock)
 {
-    /* Validate the correct per_cpudata variable has been provided. */
     _percpu_rwlock_owner_check(per_cpudata, percpu_rwlock);
 
     ASSERT(percpu_rwlock->writer_activating);
@@ -407,7 +345,6 @@ static inline void _percpu_write_unlock(percpu_rwlock_t **per_cpudata,
     DEFINE_PER_CPU(percpu_rwlock_t *, name)
 #define DECLARE_PERCPU_RWLOCK_GLOBAL(name) \
     DECLARE_PERCPU(percpu_rwlock_t *, name)
-
 
 // --------------------------------------------------------------
 #endif /* _BSP_RWLOCK_H */

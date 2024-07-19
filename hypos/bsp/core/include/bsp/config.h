@@ -10,11 +10,12 @@
 #define _BSP_CONFIG_H
 // --------------------------------------------------------------
 
-#define IS_ENABLED(cfg)           (!!(cfg))
+#define IS_ENABLED(cfg)            (!!(cfg))
 
-#define CFG_ARM_CORTEX_A73        0
-#define CFG_WORDS_BIGENDIAN       0
-#define CFG_GIC_DEBUG             0
+#define CFG_ARM_CORTEX_A73         0
+#define CFG_WORDS_BIGENDIAN        0
+#define CFG_GIC_DEBUG              0
+#define CFG_REBOOT_ON_PANIC        1
 
 // --------------------------------------------------------------
 

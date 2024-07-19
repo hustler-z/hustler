@@ -38,7 +38,7 @@ int __tstc_timeout(void)
     while (!tstc()) {	/* while no incoming data */
         if (retrytime >= 0 && get_cycles() > endtime)
             return -ETIMEDOUT;
-        schedule();
+        periodic_work_schedule();
     }
 
     return 0;

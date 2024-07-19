@@ -6,8 +6,8 @@
  * Usage: rk3566 related defines
  */
 
-#ifndef _CPU_RK3568_H
-#define _CPU_RK3568_H
+#ifndef _RK3568_H
+#define _RK3568_H
 
 // --------------------------------------------------------------
 #define GRF_BASE            0xFDC20000U /* GRF base address */
@@ -65,4 +65,4 @@
 #define GPIO4_BASE          0xFE770000U /* GPIO4 base address */
 #define MBOX0_BASE          0xFE780000U /* MBOX0 base address */
 // --------------------------------------------------------------
-#endif /* _CPU_RK3568_H */
+#endif /* _RK3568_H */

@@ -652,6 +652,8 @@ int irq_set_type(unsigned int irq, unsigned int type)
 #else
 // --------------------------------------------------------------
 
+/* TODO Leave those things unimplemented.
+ */
 int irq_set_type(unsigned int irq, unsigned int type)
 {
     return 0;

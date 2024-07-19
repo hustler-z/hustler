@@ -14,10 +14,11 @@
 
 stime_t get_stime_fixed(u64 at_tick);
 stime_t get_stime(void);
-unsigned long get_localtime(struct hypos *h);
+u64 get_localtime(struct hypos *h);
 u64 get_localtime_us(struct hypos *h);
-unsigned long get_sec(void);
+u64 get_sec(void);
 u64 get_usec(void);
+u64 get_msec(void);
 u64 get_msec_bias(u64 base);
 
 struct tm {

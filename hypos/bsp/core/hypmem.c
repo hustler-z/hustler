@@ -1261,7 +1261,7 @@ static void _free_pages(struct page *pg, unsigned int order,
 // --------------------------------------------------------------
 
 /* Buddy Allocator */
-void pages_setup(paddr_t ps, paddr_t pe)
+void pages_setup(hpa_t ps, hpa_t pe)
 {
     ps = ROUND_PGUP(ps);
     pe = ROUND_PGDOWN(pe);

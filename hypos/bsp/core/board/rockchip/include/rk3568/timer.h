@@ -6,11 +6,11 @@
  * Usage:
  */
 
-#ifndef _BOARD_TIMER_H
-#define _BOARD_TIMER_H
+#ifndef _RK3568_TIMER_H
+#define _RK3568_TIMER_H
 // --------------------------------------------------------------
 
 void board_timer_setup(void);
 
 // --------------------------------------------------------------
-#endif /* _BOARD_TIMER_H */
+#endif /* _RK3568_TIMER_H */

@@ -14,8 +14,9 @@
 #include <bsp/config.h>
 #include <bsp/panic.h>
 #include <bsp/debug.h>
-#include <bsp/core.h>
 #include <bsp/type.h>
+#include <bsp/bootcore.h>
+
 // --------------------------------------------------------------
 DECLARE_BITMAP(cpu_hwcaps, ARM_NCAPS);
 
@@ -99,22 +100,41 @@ int enable_nonboot_cpu_caps(const struct arm_cpu_capabilities *caps)
 void identify_cpu(struct arm_cpu *c)
 {
     bool aarch32_el0 = true;
-
+    /* MIDR_EL1 Main ID Register
+     * Provides identification infos for the PE, including
+     * an implementer code for the device and a device ID
+     * number.
+     */
     c->midr.bits     = READ_SYSREG(MIDR_EL1);
     c->mpidr.bits    = READ_SYSREG(MPIDR_EL1);
+    /* ID_PFRx_EL1 AArch64 Processor Feature Registers
+     */
     c->pfr64.bits[0] = READ_SYSREG(ID_AA64PFR0_EL1);
     c->pfr64.bits[1] = READ_SYSREG(ID_AA64PFR1_EL1);
+    /* ID_AA64DFRx_EL1 AArch64 Debug Feature Registers
+     */
     c->dbg64.bits[0] = READ_SYSREG(ID_AA64DFR0_EL1);
     c->dbg64.bits[1] = READ_SYSREG(ID_AA64DFR1_EL1);
+    /* ID_AA64AFRx_EL1 AArch64 Auxiliary Feature Registers
+     */
     c->aux64.bits[0] = READ_SYSREG(ID_AA64AFR0_EL1);
     c->aux64.bits[1] = READ_SYSREG(ID_AA64AFR1_EL1);
+    /* ID_AA64MMFRx_EL1 AArch64 Memory Model Features Registers
+     */
     c->mm64.bits[0]  = READ_SYSREG(ID_AA64MMFR0_EL1);
     c->mm64.bits[1]  = READ_SYSREG(ID_AA64MMFR1_EL1);
     c->mm64.bits[2]  = READ_SYSREG(ID_AA64MMFR2_EL1);
+    /* ID_AA64ISARx_EL1 AArch64 Instruction Set Attribute Registers
+     */
     c->isa64.bits[0] = READ_SYSREG(ID_AA64ISAR0_EL1);
     c->isa64.bits[1] = READ_SYSREG(ID_AA64ISAR1_EL1);
     c->isa64.bits[2] = READ_SYSREG(ID_AA64ISAR2_EL1);
 #if IS_SUPPORTED(SUP__ID_AA64ZFR0_EL1)
+    /* ID_AA64ZFR0_EL1 SVE Feature Register.
+     * Provides additional infos about the implemented features
+     * of the AArch64 Scalable Vector Extension, when the
+     * ID_AA64ZFR0_EL1.SVE field is not zero.
+     */
     c->zfr64.bits[0] = READ_SYSREG(ID_AA64ZFR0_EL1);
 #endif
     if (cpu_has_sve)
@@ -188,7 +208,9 @@ __bootcall(create_hypos_cpuinfo);
 
 // --------------------------------------------------------------
 
-void __bootfunc processor_id(void)
+/* XXX: Get to know more about processors.
+ */
+int __bootfunc processor_setup(void)
 {
     const char *implementer = "Unknown";
     struct arm_cpu *c = &core_cpu;
@@ -196,16 +218,18 @@ void __bootfunc processor_id(void)
     identify_cpu(c);
     current_cpu_data = *c;
 
+    MSGI(BLANK_ALIGN"----------------------------------------------------------\n");
+
     if (c->midr.architecture != 0xF)
         MSGE("Huh, cpu architecture %x, expected 0xf (defined by cpuid)\n",
                c->midr.architecture);
 
-    MSGI("[globl] Processor: %016lx: \"%s\", variant: 0x%x, part 0x%03x,"
-           "rev 0x%x\n", c->midr.bits, implementer,
-           c->midr.variant, c->midr.part_number, c->midr.revision);
+    MSGI("[cores] Processor: %016lx, variant: 0x%x, part 0x%03x, "
+         "rev 0x%x\n", c->midr.bits, c->midr.variant,
+         c->midr.part_number, c->midr.revision);
 
-    MSGI("[globl] 64-bit Execution:\n");
-    MSGI(BLANK_ALIGN"Processor Features: %016lx %016lx\n",
+    MSGI(BLANK_ALIGN"<64-bit Execution>\n");
+    MSGI(BLANK_ALIGN"Processor Features:      %016lx %016lx\n",
            core_cpu.pfr64.bits[0], core_cpu.pfr64.bits[1]);
     MSGI(BLANK_ALIGN"Exception Levels: EL3:%s EL2:%s EL1:%s EL0:%s\n",
            cpu_has_el3_32 ? "64+32" : cpu_has_el3_64 ? "64" : "No",
@@ -213,8 +237,8 @@ void __bootfunc processor_id(void)
            cpu_has_el1_32 ? "64+32" : cpu_has_el1_64 ? "64" : "No",
            cpu_has_el0_32 ? "64+32" : cpu_has_el0_64 ? "64" : "No");
     MSGI(BLANK_ALIGN"Extensions:%s%s%s%s\n",
-           cpu_has_fp ? " FloatingPoint" : "",
-           cpu_has_simd ? " AdvancedSIMD" : "",
+           cpu_has_fp ? " Floating-Point" : "",
+           cpu_has_simd ? " Advanced-SIMD" : "",
            cpu_has_gicv3 ? " GICv3-SysReg" : "",
            cpu_has_sve ? " SVE" : "");
 
@@ -228,18 +252,18 @@ void __bootfunc processor_id(void)
              "this may result in corruption on the platform\n",
              boot_cpu_feature64(simd));
 
-    MSGI(BLANK_ALIGN"Debug Features: %016lx %016lx\n",
+    MSGI(BLANK_ALIGN"Debug Features:          %016lx %016lx\n",
            core_cpu.dbg64.bits[0], core_cpu.dbg64.bits[1]);
-    MSGI(BLANK_ALIGN"Auxiliary Features: %016lx %016lx\n",
+    MSGI(BLANK_ALIGN"Auxiliary Features:      %016lx %016lx\n",
            core_cpu.aux64.bits[0], core_cpu.aux64.bits[1]);
-    MSGI(BLANK_ALIGN"Memory Model Features: %016lx %016lx\n",
+    MSGI(BLANK_ALIGN"Memory Model Features:   %016lx %016lx\n",
            core_cpu.mm64.bits[0], core_cpu.mm64.bits[1]);
-    MSGI(BLANK_ALIGN"ISA Features:  %016lx %016lx\n",
+    MSGI(BLANK_ALIGN"ISA Features:            %016lx %016lx\n",
            core_cpu.isa64.bits[0], core_cpu.isa64.bits[1]);
 
     if (cpu_has_aarch32) {
-        MSGI("[globl] 32-bit Execution:\n");
-        MSGI(BLANK_ALIGN"Processor Features: %016lx:%016lx\n",
+        MSGI(BLANK_ALIGN"<32-bit Execution>\n");
+        MSGI(BLANK_ALIGN"Processor Features:      %016lx %016lx\n",
                core_cpu.pfr32.bits[0], core_cpu.pfr32.bits[1]);
         MSGI(BLANK_ALIGN"Instruction Sets:%s%s%s%s%s%s\n",
                cpu_has_aarch32 ? " AArch32" : "",
@@ -252,22 +276,27 @@ void __bootfunc processor_id(void)
                cpu_has_gentimer ? " GenericTimer" : "",
                cpu_has_security ? " Security" : "");
 
-        MSGI(BLANK_ALIGN"Debug Features: %016lx\n",
+        MSGI(BLANK_ALIGN"Debug Features:          %016lx\n",
                core_cpu.dbg32.bits[0]);
-        MSGI(BLANK_ALIGN"Auxiliary Features: %016lx\n",
+        MSGI(BLANK_ALIGN"Auxiliary Features:      %016lx\n",
                core_cpu.aux32.bits[0]);
-        MSGI(BLANK_ALIGN"Memory Model Features: %016lx %016lx\n"
-             BLANK_ALIGN"                       %016lx %016lx\n",
+        MSGI(BLANK_ALIGN"Memory Model Features:   %016lx %016lx\n"
+             BLANK_ALIGN"                         %016lx %016lx\n",
              core_cpu.mm32.bits[0], core_cpu.mm32.bits[1],
              core_cpu.mm32.bits[2], core_cpu.mm32.bits[3]);
-        MSGI(BLANK_ALIGN"ISA Features: %016lx %016lx %016lx\n"
-             BLANK_ALIGN"              %016lx %016lx %016lx\n",
+        MSGI(BLANK_ALIGN"ISA Features:            %016lx %016lx\n"
+             BLANK_ALIGN"                         %016lx %016lx\n"
+             BLANK_ALIGN"                         %016lx %016lx\n",
              core_cpu.isa32.bits[0], core_cpu.isa32.bits[1],
              core_cpu.isa32.bits[2], core_cpu.isa32.bits[3],
              core_cpu.isa32.bits[4], core_cpu.isa32.bits[5]);
     } else {
         MSGE("32-bit Execution: Unsupported\n");
     }
+
+    MSGI(BLANK_ALIGN"----------------------------------------------------------\n");
+
+    return 0;
 }
 
 // --------------------------------------------------------------

@@ -279,7 +279,7 @@ static void write_src(void)
         return;
     }
     printf("#include <asm/define.h>\n");
-    printf("#include <asm/ttbl.h>\n");
+    printf("#include <asm/hvm.h>\n");
     printf("#include <org/bitops.h>\n");
     printf("#if BITS_PER_LONG == 64 && !defined(SYMBOLS_ORIGIN)\n");
     printf("#define PTR .quad\n");

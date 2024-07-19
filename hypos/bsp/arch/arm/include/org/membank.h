@@ -17,16 +17,10 @@
 #define INVALID_PADDR       (~0UL)
 
 struct membank {
-    unsigned long start;
-    unsigned long size;
-    unsigned int type;
+    hpa_t        start;
+    size_t       size;
+    unsigned int type; /* Assoicated with hpm_type (bsp/board.h) */
     unsigned int nr_pfns;
-};
-
-enum membank_type {
-    PAGE_MEMBANK_TYPE,
-    HEAP_MEMBANK_TYPE,
-    INVALID_MEMBANK_TYPE,
 };
 
 struct membanks {
@@ -34,11 +28,6 @@ struct membanks {
         unsigned int nr_banks;
         unsigned int max_banks;
     } stats;
-
-    struct {
-        paddr_t start;
-        paddr_t end;
-    } range;
 
     struct membank banks[NR_BOOT_MEMBANKS];
 };
@@ -54,7 +43,7 @@ struct memchunk {
 
 pfn_t get_memchunks(unsigned long nr_pfns,
                     unsigned long pfn_align);
-void memchunks_setup(paddr_t ps, paddr_t pe);
+void memchunks_setup(hpa_t ps, hpa_t pe);
 
 int bootmem_setup(void);
 

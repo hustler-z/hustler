@@ -11,7 +11,7 @@
 // --------------------------------------------------------------
 #ifndef __ASSEMBLY__
 // --------------------------------------------------------------
-#include <asm/ttbl.h>
+#include <asm/hvm.h>
 #include <asm/atomic.h>
 #include <asm/sysregs.h>
 #include <asm/barrier.h>
@@ -184,7 +184,7 @@ static inline bool pte_is_mapped(ttbl_t pte, unsigned int level)
 }
 
 /*
- * VFN -> IFN -> PFN (VA -> IPA -> PA)
+ * VFN -> IFN -> PFN (GPA -> IPA -> HPA)
  * vfn_t   -  Virtual Page Frame Number
  * ifn_t   -  Immediate Physical Page Frame Number
  * pfn_t   -  Physical Page Frame Number
@@ -245,7 +245,7 @@ ttbl_t pfn_to_entry(pfn_t pfn, unsigned int attr);
  * S1E3A
  * --------------------------------------------------------------
  */
-static inline u64 __va_to_pa(vaddr_t va)
+static inline u64 __va_to_pa(hva_t va)
 {
     u64 par, tmp = read_sysreg_par();
     asm volatile ("at s1e2r, %0;" : : "r"(va));
@@ -256,9 +256,9 @@ static inline u64 __va_to_pa(vaddr_t va)
 }
 
 #define PAR_INVALID         (_AC(1, UL) << 0)
-void dump_ttbl_walk(vaddr_t va);
+void dump_ttbl_walk(hva_t va);
 
-static inline paddr_t _va_to_pa(vaddr_t va) {
+static inline hpa_t _va_to_pa(hva_t va) {
     u64 par = __va_to_pa(va);
 
     if (par & PAR_INVALID) {
@@ -266,12 +266,12 @@ static inline paddr_t _va_to_pa(vaddr_t va) {
         panic_par(par);
     }
 
-    return (paddr_t)((par & PADDR_MASK & PAGE_MASK) |
+    return (hpa_t)((par & PADDR_MASK & PAGE_MASK) |
             (va & ~PAGE_MASK));
 }
 
-#define va_to_pa(va)     _va_to_pa((vaddr_t)(va))
-#define va_to_pfn(va)    pfn_set((va_to_pa((vaddr_t)va) >> PAGE_SHIFT))
+#define va_to_pa(va)     _va_to_pa((hva_t)(va))
+#define va_to_pfn(va)    pfn_set((va_to_pa((hva_t)va) >> PAGE_SHIFT))
 
 #define __pa_to_pfn(pa)  ((unsigned long)(pa) >> PAGE_SHIFT)
 #define pa_to_pfn(pa)    pfn_set(__pa_to_pfn(pa))
@@ -294,7 +294,7 @@ extern unsigned long page_frame_table_va_end;
     (idx_to_pfn((unsigned long)((pg) - page_frame_table) \
                 + page_frame_table_base_idx))
 
-#define vmap_to_pfn(va)  pa_to_pfn(va_to_pa((vaddr_t)(va)))
+#define vmap_to_pfn(va)  pa_to_pfn(va_to_pa((hva_t)(va)))
 #define vmap_to_page(va) pfn_to_page(vmap_to_pfn(va))
 // --------------------------------------------------------------
 extern unsigned long directmap_va_start;
@@ -310,16 +310,24 @@ extern unsigned long directmap_base_idx;
      _pfn < pfn_get(directmap_pfn_end));     \
 })
 
-void *pa_to_va(paddr_t pa);
+static inline void *pa_to_va(hpa_t pa)
+{
+    ASSERT((pfn_to_idx(pa_to_pfn(pa)) - directmap_base_idx)
+           < (HVM_DMAP_SIZE >> PAGE_SHIFT));
+
+    return (void *)(HYPOS_HEAP_VIRT_START -
+                    (directmap_base_idx << PAGE_SHIFT)
+                    + pa_to_directmapoff(pa));
+}
 
 #define __va(x)          (pa_to_va(x))
 #define pfn_to_va(pfn)   (pa_to_va(pfn_get(pfn) << PAGE_SHIFT))
 #define __va_to_pfn(va)  (va_to_pa(va) >> PAGE_SHIFT)
-#define __pfn_to_va(pfn) (pa_to_va((paddr_t)(pfn) << PAGE_SHIFT))
+#define __pfn_to_va(pfn) (pa_to_va((hpa_t)(pfn) << PAGE_SHIFT))
 
 #define __pa(x)          (va_to_pa(x))
-#define pfn_to_pa(pfn)   ((paddr_t)(pfn_get(pfn) << PAGE_SHIFT))
-#define __pfn_to_pa(pfn) ((paddr_t)((pfn) << PAGE_SHIFT))
+#define pfn_to_pa(pfn)   ((hpa_t)(pfn_get(pfn) << PAGE_SHIFT))
+#define __pfn_to_pa(pfn) ((hpa_t)((pfn) << PAGE_SHIFT))
 // --------------------------------------------------------------
 TYPE_SAFE(unsigned long, ifn);
 
@@ -327,7 +335,7 @@ TYPE_SAFE(unsigned long, ifn);
 #define GV2P_WRITE       (1U << 0)
 #define GV2P_EXEC        (1U << 1)
 
-static inline u64 __gva_to_pa(vaddr_t va, unsigned int flags)
+static inline u64 __gva_to_pa(hva_t va, unsigned int flags)
 {
     u64 par, tmp = read_sysreg_par();
     if (!flags & GV2P_WRITE)
@@ -341,7 +349,7 @@ static inline u64 __gva_to_pa(vaddr_t va, unsigned int flags)
     return par;
 }
 
-static inline u64 __gva_to_ipa(vaddr_t va, unsigned int flags)
+static inline u64 __gva_to_ipa(hva_t va, unsigned int flags)
 {
     u64 par, tmp = read_sysreg_par();
     if (!flags & GV2P_WRITE)
@@ -384,8 +392,7 @@ struct pglist_head {
     struct page *next, *tail;
 };
 
-extern struct page *page_frame_table;
-void page_frame_table_init(void);
+#define page_frame_table        ((struct page *)HVM_BTMB_START)
 
 #define page_to_idx(pg)         ((pg) - page_frame_table)
 #define idx_to_page(idx)        (page_frame_table + (idx))

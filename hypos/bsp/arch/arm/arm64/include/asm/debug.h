@@ -9,7 +9,7 @@
 #ifndef _ASM_DEBUG_H
 #define _ASM_DEBUG_H
 // --------------------------------------------------------------
-#include <asm/ttbl.h>
+#include <asm/hvm.h>
 #include <org/bitops.h>
 
 #ifdef __RK3568__

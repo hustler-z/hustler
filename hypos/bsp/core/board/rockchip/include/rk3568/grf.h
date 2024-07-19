@@ -6,8 +6,8 @@
  * Usage:
  */
 
-#ifndef _BOARD_GRF_H
-#define _BOARD_GRF_H
+#ifndef _RK3568_GRF_H
+#define _RK3568_GRF_H
 
 // --------------------------------------------------------------
 struct rk3568_grf {
@@ -367,4 +367,4 @@ struct rk3568_pmugrf {
 };
 
 // --------------------------------------------------------------
-#endif /* _BOARD_GRF_H */
+#endif /* _RK3568_GRF_H */

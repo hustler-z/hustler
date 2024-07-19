@@ -11,7 +11,7 @@
 
 // --------------------------------------------------------------
 
-void *ioremap_attr(paddr_t start, size_t len, unsigned int attributes)
+void *ioremap_attr(hpa_t start, size_t len, unsigned int attributes)
 {
     pfn_t pfn = pfn_set(PFN_DOWN(start));
     unsigned int offs = start & (PAGE_SIZE - 1);
@@ -24,7 +24,7 @@ void *ioremap_attr(paddr_t start, size_t len, unsigned int attributes)
     return ptr + offs;
 }
 
-void *ioremap(paddr_t pa, size_t len)
+void *ioremap(hpa_t pa, size_t len)
 {
     return ioremap_attr(pa, len, PAGE_HYPOS_NOCACHE);
 }

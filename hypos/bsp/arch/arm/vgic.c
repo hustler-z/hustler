@@ -16,7 +16,7 @@
 struct virt_its {
     struct hypos *d;
     struct list_head vits_list;
-    paddr_t doorbell_address;
+    hpa_t doorbell_address;
     unsigned int devid_bits;
     unsigned int evid_bits;
     spinlock_t vcmd_lock;
@@ -51,7 +51,7 @@ typedef u64 dev_table_entry_t;
 #define GITS_BASER_RO_MASK \
     (GITS_BASER_TYPE_MASK | (0x1fL << GITS_BASER_ENTRY_SIZE_SHIFT))
 
-static paddr_t get_baser_phys_addr(u64 reg)
+static hpa_t get_baser_phys_addr(u64 reg)
 {
     if (reg & BIT(9, UL))
         return (reg & GENMASK(47, 16)) |
@@ -63,7 +63,7 @@ static paddr_t get_baser_phys_addr(u64 reg)
 static int its_set_collection(struct virt_its *its, u16 collid,
                               coll_table_entry_t vcpu_id)
 {
-    paddr_t addr = get_baser_phys_addr(its->baser_coll);
+    hpa_t addr = get_baser_phys_addr(its->baser_coll);
 
     BUILD_BUG_ON(BIT(sizeof(coll_table_entry_t) * 8, UL) < MAX_VIRT_CPUS);
 
@@ -80,7 +80,7 @@ static int its_set_collection(struct virt_its *its, u16 collid,
 static struct vcpu *get_vcpu_from_collection(struct virt_its *its,
                                              u16 collid)
 {
-    paddr_t addr = get_baser_phys_addr(its->baser_coll);
+    hpa_t addr = get_baser_phys_addr(its->baser_coll);
     coll_table_entry_t vcpu_id;
     int ret;
 
@@ -102,9 +102,9 @@ static struct vcpu *get_vcpu_from_collection(struct virt_its *its,
 }
 
 static int its_set_itt_address(struct virt_its *its, u32 devid,
-                               paddr_t itt_address, u32 nr_bits)
+                               hpa_t itt_address, u32 nr_bits)
 {
-    paddr_t addr = get_baser_phys_addr(its->baser_dev);
+    hpa_t addr = get_baser_phys_addr(its->baser_dev);
     dev_table_entry_t itt_entry = DEV_TABLE_ENTRY(itt_address, nr_bits);
 
     if (devid >= its->max_devices)
@@ -118,7 +118,7 @@ static int its_set_itt_address(struct virt_its *its, u32 devid,
 static int its_get_itt(struct virt_its *its, u32 devid,
                        dev_table_entry_t *itt)
 {
-    paddr_t addr = get_baser_phys_addr(its->baser_dev);
+    hpa_t addr = get_baser_phys_addr(its->baser_dev);
 
     if (devid >= its->max_devices)
         return -EINVAL;
@@ -128,7 +128,7 @@ static int its_get_itt(struct virt_its *its, u32 devid,
                                       itt, sizeof(*itt), false);
 }
 
-static paddr_t its_get_itte_address(struct virt_its *its,
+static hpa_t its_get_itte_address(struct virt_its *its,
                                     u32 devid, u32 evid)
 {
     dev_table_entry_t itt;
@@ -148,7 +148,7 @@ static paddr_t its_get_itte_address(struct virt_its *its,
 static bool read_itte(struct virt_its *its, u32 devid, u32 evid,
                       struct vcpu **vcpu_ptr, u32 *vlpi_ptr)
 {
-    paddr_t addr;
+    hpa_t addr;
     struct vits_itte itte;
     struct vcpu *vcpu;
 
@@ -174,7 +174,7 @@ static bool read_itte(struct virt_its *its, u32 devid, u32 evid,
 static bool write_itte(struct virt_its *its, u32 devid,
                        u32 evid, u32 collid, u32 vlpi)
 {
-    paddr_t addr;
+    hpa_t addr;
     struct vits_itte itte;
 
     ASSERT(spin_is_locked(&its->its_lock));
@@ -289,7 +289,7 @@ out_unlock:
 
 static int update_lpi_property(struct hypos *d, struct pending_irq *p)
 {
-    paddr_t addr;
+    hpa_t addr;
     uint8_t property;
     int ret;
 
@@ -481,7 +481,7 @@ static int its_handle_mapd(struct virt_its *its, u64 *cmdptr)
     u32 devid = its_cmd_get_deviceid(cmdptr);
     unsigned int size = its_cmd_get_size(cmdptr) + 1;
     bool valid = its_cmd_get_validbit(cmdptr);
-    paddr_t itt_addr = its_cmd_get_ittaddr(cmdptr);
+    hpa_t itt_addr = its_cmd_get_ittaddr(cmdptr);
     int ret;
 
     if (valid && (size > its->evid_bits))
@@ -659,7 +659,7 @@ static void dump_its_command(u64 *command)
 static int vgic_its_handle_cmds(struct hypos *d,
                                 struct virt_its *its)
 {
-    paddr_t addr = its->cbaser & GENMASK(51, 12);
+    hpa_t addr = its->cbaser & GENMASK(51, 12);
     u64 command[4];
 
     ASSERT(spin_is_locked(&its->vcmd_lock));
@@ -1130,7 +1130,7 @@ static const struct mmio_handler_ops vgic_its_mmio_handler = {
     .write = vgic_v3_its_mmio_write,
 };
 
-static int vgic_v3_its_init_virtual(struct hypos *d, paddr_t guest_addr,
+static int vgic_v3_its_init_virtual(struct hypos *d, hpa_t guest_addr,
                                     unsigned int devid_bits,
                                     unsigned int evid_bits)
 {
@@ -1237,13 +1237,13 @@ void vgic_v3_its_free_hypos(struct hypos *d)
 
 static struct {
     bool enabled;
-    paddr_t dbase;
+    hpa_t dbase;
     unsigned int nr_rdist_regions;
     const struct rdist_region *regions;
     unsigned int intid_bits;
 } vgic_v3_hw;
 
-void vgic_v3_setup_hw(paddr_t dbase,
+void vgic_v3_setup_hw(hpa_t dbase,
                       unsigned int nr_rdist_regions,
                       const struct rdist_region *regions,
                       unsigned int intid_bits)
@@ -2078,7 +2078,7 @@ write_ignore:
 
 static struct vcpu *get_vcpu_from_rdist(struct hypos *d,
     const struct vgic_rdist_region *region,
-    paddr_t gpa, u32 *offset)
+    hpa_t gpa, u32 *offset)
 {
     struct vcpu *v;
     unsigned int vcpu_id;
@@ -2573,7 +2573,7 @@ static const struct mmio_handler_ops vgic_distr_mmio_handler = {
 static int vgic_v3_vcpu_init(struct vcpu *v)
 {
     int i;
-    paddr_t rdist_base;
+    hpa_t rdist_base;
     struct vgic_rdist_region *region;
     unsigned int last_cpu;
 
@@ -2635,7 +2635,7 @@ static int vgic_v3_hypos_init(struct hypos *d)
         d->arch.vgic.dbase = vgic_v3_hw.dbase;
 
         for (i = 0; i < vgic_v3_hw.nr_rdist_regions; i++) {
-            paddr_t size = vgic_v3_hw.regions[i].size;
+            hpa_t size = vgic_v3_hw.regions[i].size;
 
             d->arch.vgic.rdist_regions[i].base = vgic_v3_hw.regions[i].base;
             d->arch.vgic.rdist_regions[i].size = size;
@@ -3355,7 +3355,7 @@ void vgic_check_inflight_irqs_pending(struct hypos *d, struct vcpu *v,
 // --------------------------------------------------------------
 #else
 
-void vgic_v3_setup_hw(paddr_t dbase,
+void vgic_v3_setup_hw(hpa_t dbase,
                       unsigned int nr_rdist_regions,
                       const struct rdist_region *regions,
                       unsigned int intid_bits)

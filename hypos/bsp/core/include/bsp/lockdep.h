@@ -18,8 +18,8 @@ struct lockdep_node;
 struct lockdep_edge {
     struct lockdep_node *to;
     uptr_t thread_id;
-    vaddr_t *call_stack_from;
-    vaddr_t *call_stack_to;
+    hva_t *call_stack_from;
+    hva_t *call_stack_to;
     STAILQ_ENTRY(lockdep_edge) link;
 };
 
@@ -36,7 +36,7 @@ TAILQ_HEAD(lockdep_node_head, lockdep_node);
 
 struct lockdep_lock {
     struct lockdep_node *node;
-    vaddr_t *call_stack;
+    hva_t *call_stack;
     TAILQ_ENTRY(lockdep_lock) link;
 };
 

@@ -33,7 +33,7 @@ static inline void name(void)                    \
 }
 
 #define TLB_HELPER_VA(name, tlbop)               \
-static inline void name(vaddr_t va)              \
+static inline void name(hva_t va)                \
 {                                                \
     asm volatile(                                \
         "tlbi "  # tlbop  ", %0;"                \
@@ -70,8 +70,8 @@ TLB_HELPER_VA(__flush_tlb_one_local, vae2)
  */
 TLB_HELPER_VA(__flush_tlb_one, vae2is)
 
-void flush_tlb_range_va_local(vaddr_t va, unsigned long size);
-void flush_tlb_range_va(vaddr_t va, unsigned long size);
+void flush_tlb_range_va_local(hva_t va, unsigned long size);
+void flush_tlb_range_va(hva_t va, unsigned long size);
 
 #endif /* !__ASSEMBLY__ */
 

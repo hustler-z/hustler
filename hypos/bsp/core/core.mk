@@ -35,3 +35,5 @@ core-y += preempt.o
 core-y += rcu.o
 core-y += tasklet.o
 core-y += calculate.o
+
+core-y += bootcore.o

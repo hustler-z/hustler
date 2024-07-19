@@ -167,11 +167,6 @@ void _spin_barrier(spinlock_t *lock)
 
 bool _rspin_is_locked(const rspinlock_t *lock)
 {
-    /*
-     * Recursive locks may be locked by another CPU, yet we return
-     * "false" here, making this function suitable only for use in
-     * ASSERT()s and alike.
-     */
     return lock->recurse_cpu == SPINLOCK_NO_CPU
            ? spin_is_locked_common(&lock->tickets)
            : lock->recurse_cpu == smp_processor_id();

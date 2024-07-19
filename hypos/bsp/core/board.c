@@ -10,6 +10,7 @@
 #include <org/globl.h>
 #include <bsp/board.h>
 #include <bsp/debug.h>
+#include <bsp/panic.h>
 
 // --------------------------------------------------------------
 extern struct hypos_board radax_zero3w;
@@ -19,11 +20,16 @@ static __initdata char *board_name_opt[] = {
     "Radax Zero 2Pro",
 };
 
+static __initdata char *board_cpu_vendor[] = {
+    "Rockchip",
+    "Amlogic",
+};
+
 static struct hypos_board *__bootfunc board_get(void)
 {
     struct hypos_board *this;
 
-    switch (get_globl()->board_type) {
+    switch (hypos_get(board_type)) {
     case RADXA_ZERO3:
         this = &radax_zero3w;
         break;
@@ -36,45 +42,73 @@ static struct hypos_board *__bootfunc board_get(void)
     return this;
 }
 
+struct hpm_blk *hypos_hpm_get(unsigned int type)
+{
+    struct hypos_board *this = board_get();
+    struct hpm_blk *hpm = NULL;
+    unsigned int blk;
+
+    for (blk = 0; blk < HPM_BLK_NR; blk++) {
+        if (type == this->mem->hpm[blk].type) {
+            hpm = &this->mem->hpm[blk];
+            break;
+        }
+    }
+
+    BUG_ON(hpm == NULL);
+
+    return hpm;
+}
+
+struct hvm_blk *hypos_hvm_get(unsigned int type)
+{
+    struct hypos_board *this = board_get();
+    struct hvm_blk *hvm = NULL;
+    unsigned int blk;
+
+    for (blk = 0; blk < HVM_BLK_NR; blk++) {
+        if (type == this->mem->hvm[blk].type) {
+            hvm = &this->mem->hvm[blk];
+            break;
+        }
+    }
+
+    BUG_ON(hvm == NULL);
+
+    return hvm;
+}
+
+struct hypos_cpu *hypos_cpu_get(void)
+{
+    return board_get()->cpu;
+}
+// --------------------------------------------------------------
+static void hypos_label(void)
+{
+    MSGI("              ___  __  ____ \n");
+    MSGI("    /\\_/\\/\\/\\/ _ \\/  \\/ __/ \n");
+    MSGI("    \\  _ \\  / ___/ / /\\__ \\ \n");
+    MSGI("     \\/ \\/_/\\/   \\__/ /___/ Hustler Edu\n");
+    MSGI("\n");
+}
+
 int __bootfunc board_setup(void)
 {
     struct hypos_board *this_board;
+
+    hypos_label();
+
+    ASSERT(HVM_BLK_NR <= HVM_BLK_MAX);
+    ASSERT(HPM_BLK_NR <= HPM_BLK_MAX);
 
     hypos_set(RADXA_ZERO3, board_type);
     this_board = board_get();
     this_board->name =
             board_name_opt[hypos_get(board_type)];
 
-    MSGH("This board model is %s\n", this_board->name);
+    MSGH("This board model is %s %s\n", this_board->name,
+            (char *)this_board->cpu->priv);
 
     return 0;
-}
-
-struct hypos_ram_region *__bootfunc hypos_ram_get(void)
-{
-    struct hypos_board *this = board_get();
-
-    return this->mem->dram;
-}
-
-struct hypos_mem_region *__bootfunc
-                    hypos_mem_get(unsigned int region)
-{
-    struct hypos_board *this = board_get();
-
-    switch (region) {
-    case DATA_REGION:
-        return this->mem->data;
-    case FIXMAP_REGION:
-        return this->mem->fixmap;
-    case VMAP_REGION:
-        return this->mem->vmap;
-    case BOOTMEM_REGION:
-        return this->mem->bootmem;
-    case DIRECTMAP_REGION:
-        return this->mem->directmap;
-    default:
-        return NULL;
-    }
 }
 // --------------------------------------------------------------

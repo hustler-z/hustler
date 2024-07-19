@@ -22,7 +22,7 @@
 #include <bsp/config.h>
 #include <bsp/errno.h>
 #include <bsp/iomem.h>
-#include <bsp/core.h>
+#include <bsp/bootcore.h>
 #include <bsp/vmap.h>
 #include <lib/bitops.h>
 #include <lib/strops.h>
@@ -902,7 +902,7 @@ static int __bootfunc gicv3_populate_rdist(void)
                 this_cpu(rbase) = ptr;
 
                 if (typer & GICR_TYPER_PLPIS) {
-                    paddr_t rdist_addr;
+                    hpa_t rdist_addr;
                     unsigned int procnum;
                     int ret;
 
@@ -1387,12 +1387,12 @@ static const hw_irq_controller gicv3_guest_irq_type = {
     .set_affinity = gicv3_irq_set_affinity,
 };
 
-static paddr_t __initdata dbase = INVALID_PADDR;
-static paddr_t __initdata vbase = INVALID_PADDR, vsize = 0;
-static paddr_t __initdata cbase = INVALID_PADDR, csize = 0;
+static hpa_t __initdata dbase = INVALID_PADDR;
+static hpa_t __initdata vbase = INVALID_PADDR, vsize = 0;
+static hpa_t __initdata cbase = INVALID_PADDR, csize = 0;
 static inline void gicv3_init_v2(void) { }
 
-static void __bootfunc gicv3_ioremap_distributor(paddr_t dist_paddr)
+static void __bootfunc gicv3_ioremap_distributor(hpa_t dist_paddr)
 {
     if (dist_paddr & ~PAGE_MASK)
         exec_panic("GICv3:  Found unaligned distributor address %016lx\n",
@@ -1573,7 +1573,7 @@ struct its_device {
     struct rb_node rbnode;
     struct host_its *hw_its;
     void *itt_addr;
-    paddr_t guest_doorbell;             /* Identifies the virtual ITS */
+    hpa_t guest_doorbell;             /* Identifies the virtual ITS */
     u32 host_devid;
     u32 guest_devid;
     u32 eventids;                  /* Number of event IDs (MSIs) */
@@ -1717,7 +1717,7 @@ static int its_send_cmd_mapc(struct host_its *its, u32 collection_id,
 }
 
 static int its_send_cmd_mapd(struct host_its *its, u32 deviceid,
-                             u8 size_bits, paddr_t itt_addr, bool valid)
+                             u8 size_bits, hpa_t itt_addr, bool valid)
 {
     u64 cmd[4];
 
@@ -1784,12 +1784,12 @@ int gicv3_its_setup_collection(unsigned int cpu)
 /* Check that the physical address can be encoded in the PROPBASER register. */
 static bool check_baser_phys_addr(void *vaddr, unsigned int page_bits)
 {
-    paddr_t paddr = va_to_pa(vaddr);
+    hpa_t paddr = va_to_pa(vaddr);
 
     return (!(paddr & ~GENMASK(page_bits < 16 ? 47 : 51, page_bits)));
 }
 
-static u64 encode_baser_phys_addr(paddr_t addr, unsigned int page_bits)
+static u64 encode_baser_phys_addr(hpa_t addr, unsigned int page_bits)
 {
     u64 ret = addr & GENMASK(47, page_bits);
 
@@ -2024,7 +2024,7 @@ static int remove_mapped_guest_device(struct its_device *dev)
 }
 
 static struct host_its *
-gicv3_its_find_by_doorbell(paddr_t doorbell_address)
+gicv3_its_find_by_doorbell(hpa_t doorbell_address)
 {
     struct host_its *hw_its;
 
@@ -2037,7 +2037,7 @@ gicv3_its_find_by_doorbell(paddr_t doorbell_address)
 }
 
 static int compare_its_guest_devices(struct its_device *dev,
-                                     paddr_t vdoorbell, u32 vdevid)
+                                     hpa_t vdoorbell, u32 vdevid)
 {
     if (dev->guest_doorbell < vdoorbell)
         return -1;
@@ -2080,9 +2080,9 @@ static int gicv3_its_map_host_events(struct host_its *its,
 }
 
 int gicv3_its_map_guest_device(struct hypos *d,
-                               paddr_t host_doorbell,
+                               hpa_t host_doorbell,
                                u32 host_devid,
-                               paddr_t guest_doorbell,
+                               hpa_t guest_doorbell,
                                u32 guest_devid,
                                u64 nr_events, bool valid)
 {
@@ -2219,7 +2219,7 @@ out:
 }
 
 static struct its_device *get_its_device(struct hypos *d,
-                                         paddr_t vdoorbell,
+                                         hpa_t vdoorbell,
                                          u32 vdevid)
 {
     struct rb_node *node = d->arch.vgic.its_devices.rb_node;
@@ -2247,7 +2247,7 @@ static struct its_device *get_its_device(struct hypos *d,
 
 static struct pending_irq *
 get_event_pending_irq(struct hypos *d,
-                      paddr_t vdoorbell_address,
+                      hpa_t vdoorbell_address,
                       u32 vdevid,
                       u32 eventid,
                       u32 *host_lpi)
@@ -2270,7 +2270,7 @@ get_event_pending_irq(struct hypos *d,
 
 struct pending_irq *
 gicv3_its_get_event_pending_irq(struct hypos *d,
-                                paddr_t vdoorbell_address,
+                                hpa_t vdoorbell_address,
                                 u32 vdevid,
                                 u32 eventid)
 {
@@ -2279,7 +2279,7 @@ gicv3_its_get_event_pending_irq(struct hypos *d,
 }
 
 int gicv3_remove_guest_event(struct hypos *d,
-                             paddr_t vdoorbell_address,
+                             hpa_t vdoorbell_address,
                              u32 vdevid, u32 eventid)
 {
     u32 host_lpi = INVALID_LPI;
@@ -2297,7 +2297,7 @@ int gicv3_remove_guest_event(struct hypos *d,
 }
 
 struct pending_irq *gicv3_assign_guest_event(struct hypos *d,
-                                             paddr_t vdoorbell_address,
+                                             hpa_t vdoorbell_address,
                                              u32 vdevid, u32 eventid,
                                              u32 virt_lpi)
 {
@@ -2377,7 +2377,7 @@ static struct {
 } lpi_data;
 
 struct lpi_redist_data {
-    paddr_t             redist_addr;
+    hpa_t             redist_addr;
     unsigned int        redist_id;
     void                *pending_table;
 };
@@ -2408,7 +2408,7 @@ static union host_lpi *gic_get_host_lpi(u32 plpi)
     return &block[plpi % HOST_LPIS_PER_PAGE];
 }
 
-void gicv3_set_redist_address(paddr_t address,
+void gicv3_set_redist_address(hpa_t address,
                               unsigned int redist_id)
 {
     this_cpu(lpi_redist).redist_addr = address;

@@ -275,13 +275,13 @@ void ns16550_putc(struct ns16550 *com_port, char c)
 	serial_out(c, &com_port->thr);
 
 	if (c == '\n')
-		schedule();
+		periodic_work_schedule();
 }
 
 char ns16550_getc(struct ns16550 *com_port)
 {
 	while (!(serial_in(&com_port->lsr) & UART_LSR_DR))
-		schedule();
+		periodic_work_schedule();
 
 	return serial_in(&com_port->rbr);
 }
@@ -301,7 +301,7 @@ static int ns16550_serial_putc(struct hypos_device *dev, const char ch)
 	serial_out(ch, &com_port->thr);
 
 	if (ch == '\n')
-		schedule();
+		periodic_work_schedule();
 
 	return 0;
 }

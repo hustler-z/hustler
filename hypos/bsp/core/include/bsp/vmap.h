@@ -35,7 +35,7 @@ void *hypos_vmalloc(size_t size);
 void *vzalloc(size_t size);
 void vfree(void *va);
 
-void __iomem *ioremap(paddr_t pa, size_t len);
+void __iomem *ioremap(hpa_t pa, size_t len);
 
 unsigned int vmap_size(const void *va);
 
@@ -46,21 +46,21 @@ static inline void iounmap(void __iomem *va)
     vunmap((void *)(addr & PAGE_MASK));
 }
 
-void *ioremap(paddr_t pa, size_t len);
+void *ioremap(hpa_t pa, size_t len);
 
-void __iomem *ioremap_attr(paddr_t start, size_t len, unsigned int attributes);
+void __iomem *ioremap_attr(hpa_t start, size_t len, unsigned int attributes);
 
-static inline void __iomem *ioremap_nocache(paddr_t start, size_t len)
+static inline void __iomem *ioremap_nocache(hpa_t start, size_t len)
 {
     return ioremap_attr(start, len, PAGE_HYPOS_NOCACHE);
 }
 
-static inline void __iomem *ioremap_cache(paddr_t start, size_t len)
+static inline void __iomem *ioremap_cache(hpa_t start, size_t len)
 {
     return ioremap_attr(start, len, PAGE_HYPOS);
 }
 
-static inline void __iomem *ioremap_wc(paddr_t start, size_t len)
+static inline void __iomem *ioremap_wc(hpa_t start, size_t len)
 {
     return ioremap_attr(start, len, PAGE_HYPOS_WC);
 }

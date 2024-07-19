@@ -466,8 +466,8 @@
 #include <lib/list.h>
 
 struct rdist_region {
-    paddr_t base;
-    paddr_t size;
+    hpa_t base;
+    hpa_t size;
     void __iomem *map_base;
     bool single_rdist;
 };
@@ -483,8 +483,8 @@ struct rdist_region {
 /* Data structure for each hardware ITS */
 struct host_its {
     struct list_head entry;
-    paddr_t addr;
-    paddr_t size;
+    hpa_t addr;
+    hpa_t size;
     void __iomem *its_base;
     unsigned int devid_bits;
     unsigned int evid_bits;
@@ -691,10 +691,11 @@ void register_gic_ops(const struct gic_hw_operations *ops);
 void gic_route_irq_to_hypos(struct irq_desc *desc,
                             unsigned int priority);
 
+void gic_interrupt(struct hcpu_regs *regs, int is_fiq);
 // --------------------------------------------------------------
 
 int  gicv3_lpi_init_host_lpis(unsigned int host_lpi_bits);
-void gicv3_set_redist_address(paddr_t address,
+void gicv3_set_redist_address(hpa_t address,
                               unsigned int redist_id);
 int  gicv3_lpi_init_rdist(void __iomem * rdist_base);
 bool gicv3_its_host_has_its(void);

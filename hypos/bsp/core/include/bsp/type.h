@@ -30,8 +30,10 @@ typedef u32                __le32;
 typedef u64                __le64;
 #define NULL               ((void *)0)
 
-typedef unsigned long      vaddr_t;
-typedef unsigned long      paddr_t;
+typedef unsigned long      hva_t;
+typedef unsigned long      hpa_t;
+typedef unsigned long      gva_t;
+typedef unsigned long      gpa_t;
 
 typedef s64                stime_t;
 

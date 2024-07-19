@@ -20,10 +20,9 @@
  */
 struct hlist_head globl_pw_list = HLIST_HEAD_INIT;
 
-int __bootfunc periodw_setup(void)
+int __bootfunc periodic_work_setup(void)
 {
-
-    get_globl()->pw_list = globl_pw_list;
+    hypos_get(pw_list) = globl_pw_list;
 
     return 0;
 }
@@ -66,10 +65,10 @@ void periodic_work_run(void)
     u64 now, cpu_time;
 
     /* Prevent recursion */
-    if (get_globl()->flags & GLB_PERIODIC_RUN)
+    if (hypos_get(flags) & GLB_PERIODIC_RUN)
         return;
 
-    get_globl()->flags |= GLB_PERIODIC_RUN;
+    hypos_get(flags) |= GLB_PERIODIC_RUN;
     hlist_for_each_entry_safe(work, tmp, &get_globl()->pw_list, list) {
         /*
          * Check if this work function needs to get called, e.g.
@@ -94,12 +93,12 @@ void periodic_work_run(void)
             }
         }
     }
-    get_globl()->flags &= ~GLB_PERIODIC_RUN;
+    hypos_get(flags) &= ~GLB_PERIODIC_RUN;
 }
 
-void schedule(void)
+void periodic_work_schedule(void)
 {
-    if (get_globl()->flags & GLB_DEVICE_INIT)
+    if (hypos_get(flags) & GLB_DEVICE_INIT)
         periodic_work_run();
 }
 

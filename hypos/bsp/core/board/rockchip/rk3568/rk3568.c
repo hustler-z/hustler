@@ -6,10 +6,10 @@
  * Usage:
  */
 
-#include <asm/ttbl.h>
 #include <org/bitops.h>
 #include <org/section.h>
 #include <org/globl.h>
+#include <asm/hvm.h>
 #include <rk3568/rk3568.h>
 #include <rk3568/grf.h>
 #include <rockchip/hardware.h>
@@ -58,56 +58,74 @@ void __bootfunc board_uart_init(void)
 /* Radxa Zero 3W - 1G of RAM, WIFI Version, RK3566 Quad-Core CPU.
  * So gotta set up the whole thing carefully, in case some weird
  * craps happen.
+ *
+ * Data Region (codes: text, bss, etc.) is fo sure certain.
  */
-#define RAM_MEM_START                    _AT(vaddr_t, 0x00200000)
-#define RAM_MEM_END                      _AT(vaddr_t, 0x3fffffff)
 
-static struct hypos_mem_region __initdata data_region = {
-    .pa_start  = RAM_MEM_START,
-    .va_start  = HYPOS_DATA_VIRT_START,
-    .size      = 0,
-};
-
-static struct hypos_mem_region __initdata fixmap_region = {
-    .pa_start  = 0x0,
-    .va_start  = FIXADDR_START,
-    .size      = FIXADDR_END - FIXADDR_START,
-};
-
-static struct hypos_mem_region __initdata vmap_region = {
-    .pa_start  = 0x0,
-    .va_start  = FIXADDR_END + PAGE_SIZE,
-    .size      = MB(256),
-};
-
-static struct hypos_mem_region __initdata bootmem_region = {
-    .pa_start  = 0x0,
-    .va_start  = FIXADDR_END + (PAGE_SIZE * 2) + MB(256),
-    .size      = MB(128),
-};
-
-static struct hypos_mem_region __initdata directmap_region = {
-    .pa_start  = 0x0,
-    .va_start  = FIXADDR_END + (PAGE_SIZE * 3) + MB(256 + 128),
-    .size      = MB(512),
-};
-
-static struct hypos_ram_region __initdata dram_region = {
-    .ram_start = RAM_MEM_START,
-    .ram_end   = RAM_MEM_END,
-    .nr_pfns   = 0,
+static struct hypos_cpu __initdata radax_zero3w_cpu = {
+    .core_nr = 4,
+    .vendor  = VENDOR_ROCKCHIP,
+    .priv    = "RK3566 Quad-Core ARM Cortex-A55",
 };
 
 static struct hypos_mem __initdata radax_zero3w_mem = {
-    .dram      = &dram_region,
-    .data      = &data_region,
-    .fixmap    = &fixmap_region,
-    .vmap      = &vmap_region,
-    .bootmem   = &bootmem_region,
-    .directmap = &directmap_region,
+    /* Host Physical Memory Layout */
+    .hpm = {
+        [0] = {
+            .start = 0x00200000,
+            .end   = 0x00A00000,
+            .type  = TXT_BLK,
+        },
+
+        [1] = {
+            .start = 0x00A00000,
+            .end   = 0x3EA00000,
+            .type  = RAM_BLK,
+        },
+
+        [2] = {
+            .start = 0x3EA00070,
+            .end   = 0x3FFFFFFF,
+            .type  = RSV_BLK,
+        },
+    },
+
+    /* Host Virtual Memory Layout */
+    .hvm = {
+        [0] = {
+            .start = HYPOS_DATA_VIRT_START,
+            .size  = HYPOS_DATA_VIRT_SIZE,
+            .type  = DATA_BLK,
+        },
+
+        [1] = {
+            .start = FIXADDR_START,
+            .size  = FIXADDR_END - FIXADDR_START,
+            .type  = FMAP_BLK,
+        },
+
+        [2] = {
+            .start = HVM_VMAP_START,
+            .size  = HVM_VMAP_SIZE,
+            .type  = VMAP_BLK,
+        },
+
+        [3] = {
+            .start = HVM_BTMB_START,
+            .size  = HVM_BTMB_SIZE,
+            .type  = BTMB_BLK,
+        },
+
+        [4] = {
+            .start = HVM_DMAP_START,
+            .size  = HVM_DMAP_SIZE,
+            .type  = DMAP_BLK,
+        },
+    }
 };
 
 struct hypos_board __initdata radax_zero3w = {
     .mem       = &radax_zero3w_mem,
+    .cpu       = &radax_zero3w_cpu,
 };
 // --------------------------------------------------------------

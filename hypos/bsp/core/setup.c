@@ -6,6 +6,7 @@
  * Usage: general initialization
  */
 
+#include <asm/at.h>
 #include <asm/ttbl.h>
 #include <asm/hcpu.h>
 #include <asm/debug.h>
@@ -13,12 +14,13 @@
 #include <org/section.h>
 #include <org/membank.h>
 #include <org/time.h>
+#include <org/smp.h>
 #include <org/vcpu.h>
-#include <asm/at.h>
 #include <bsp/hypmem.h>
 #include <bsp/percpu.h>
 #include <bsp/cpu.h>
 #include <bsp/sdev.h>
+#include <bsp/bootcore.h>
 #include <bsp/console.h>
 #include <bsp/debug.h>
 #include <bsp/period.h>
@@ -30,8 +32,6 @@
 #include <bsp/tasklet.h>
 
 // --------------------------------------------------------------
-
-
 typedef int (*bootfunc_t)(void);
 
 static int __bootfunc __bootchain(const bootfunc_t *boot_sequence)
@@ -86,6 +86,16 @@ static bootfunc_t hypos_boot_sequence[] = {
      */
     ttbl_setup,
 
+    smp_clear_cpu_maps,
+
+    /* Processor Information
+     */
+    processor_setup,
+
+    /* Time pre-set
+     */
+    time_preset,
+
     /* Hypervisor Memory Chuncks for Boot-time Memory
      */
     bootmem_setup,
@@ -97,10 +107,6 @@ static bootfunc_t hypos_boot_sequence[] = {
     /* Set up Buddy Allocators and Other Allocators
      */
     hypmem_setup,
-
-    /* Time pre-set
-     */
-    time_preset,
 
     /* Interrupt Controller Setup
      */
@@ -118,9 +124,13 @@ static bootfunc_t hypos_boot_sequence[] = {
      */
     pre_secondary_cpu_setup,
 
+    /* Extra Bootcalls
+     */
+    bootcalls,
+
     /* Periodic Work List Setup
      */
-    periodw_setup,
+    periodic_work_setup,
 
     /* Peripheral Setup
      */
@@ -154,7 +164,7 @@ static bootfunc_t hypos_smpboot_sequence[] = {
 
 void asmlinkage __bootfunc __smp_setup(void)
 {
-    get_globl()->hypos_status = HYPOS_SMP_BOOT_STAGE;
+    hypos_get(hypos_status) = HYPOS_SMP_BOOT_STAGE;
 
     if (__bootchain(hypos_smpboot_sequence))
         hang();

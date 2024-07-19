@@ -7,6 +7,7 @@
  */
 
 #include <org/esr.h>
+#include <org/vcpu.h>
 #include <asm/page.h>
 #include <asm/hcpu.h>
 #include <asm/sysregs.h>
@@ -460,7 +461,7 @@ static void dump_execution_status(struct hcpu_regs *regs,
     dump_stack(regs);
 }
 
-void panic_par(paddr_t par)
+void panic_par(hpa_t par)
 {
     const char *msg;
     int level = -1;
@@ -529,6 +530,8 @@ void do_bad_error(struct hcpu_regs *regs)
  */
 void do_sync(struct hcpu_regs *regs)
 {
+    const union hcpu_esr esr = { .bits = regs->esr };
+
     MSGH("<%s> Fired\n", __func__);
 }
 
@@ -538,6 +541,8 @@ void do_sync(struct hcpu_regs *regs)
 void do_irq(struct hcpu_regs *regs)
 {
     MSGH("<%s> Fired\n", __func__);
+
+    gic_interrupt(regs, 0);
 }
 
 /*
@@ -546,6 +551,8 @@ void do_irq(struct hcpu_regs *regs)
 void do_fiq(struct hcpu_regs *regs)
 {
     MSGH("<%s> Fired\n", __func__);
+
+    gic_interrupt(regs, 1);
 }
 
 /*

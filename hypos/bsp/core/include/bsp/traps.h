@@ -20,7 +20,7 @@ void do_sync(struct hcpu_regs *regs);
 void do_irq(struct hcpu_regs *regs);
 void do_fiq(struct hcpu_regs *regs);
 void do_error(struct hcpu_regs *regs);
-void panic_par(paddr_t par);
+void panic_par(hpa_t par);
 
 // --------------------------------------------------------------
 #endif /* _BSP_TRAPS_H */

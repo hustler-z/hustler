@@ -73,14 +73,14 @@ struct vgic_dist {
     struct vgic_irq_rank *shared_irqs;
     struct pending_irq   *pending_irqs;
 
-    paddr_t dbase; /* Distributor base address */
-    paddr_t cbase; /* CPU interface base address */
-    paddr_t csize; /* CPU interface size */
-    paddr_t vbase; /* Virtual CPU interface base address */
+    hpa_t dbase; /* Distributor base address */
+    hpa_t cbase; /* CPU interface base address */
+    hpa_t csize; /* CPU interface size */
+    hpa_t vbase; /* Virtual CPU interface base address */
 
     struct vgic_rdist_region {
-        paddr_t base;             /* Base address */
-        paddr_t size;             /* Size */
+        hpa_t base;             /* Base address */
+        hpa_t size;             /* Size */
         unsigned int first_cpu;   /* First CPU handled */
     } *rdist_regions;
 
@@ -106,7 +106,7 @@ struct vgic_cpu {
     struct list_head     inflight_irqs;
     struct list_head     lr_pending;
     spinlock_t           lock;
-    paddr_t              rdist_base;
+    hpa_t              rdist_base;
     u64                  rdist_pendbase;
     u8                   flags;
 };
@@ -154,12 +154,12 @@ static inline unsigned int REG_RANK_NR(unsigned int b, unsigned int n)
     }
 }
 
-static inline paddr_t vgic_cpu_base(const struct vgic_dist *vgic)
+static inline hpa_t vgic_cpu_base(const struct vgic_dist *vgic)
 {
     return vgic->cbase;
 }
 
-static inline paddr_t vgic_dist_base(const struct vgic_dist *vgic)
+static inline hpa_t vgic_dist_base(const struct vgic_dist *vgic)
 {
     return vgic->dbase;
 }
@@ -210,7 +210,7 @@ int vgic_v3_init(struct hypos *d, unsigned int *mmio_count);
 void vgic_inject_irq(struct hypos *d, struct vcpu *v,
                      unsigned int virq,
                      bool level);
-void vgic_v3_setup_hw(paddr_t dbase,
+void vgic_v3_setup_hw(hpa_t dbase,
                       unsigned int nr_rdist_regions,
                       const struct rdist_region *regions,
                       unsigned int intid_bits);

@@ -50,7 +50,7 @@ CFLAGS      += -O2
 endif
 # ---------------------------------------------------------------
 ifeq ($(ARCH),arm64)
-CFLAGS      += -march=armv8.1-a
+CFLAGS      += -mcpu=cortex-a55
 endif
 # ---------------------------------------------------------------
 CFLAGS      += -nostdlib -g -Wall -nostdinc

@@ -23,19 +23,19 @@
  */
 struct hypos_globl {
     unsigned long       flags; /* hypos_globl_flags */
-    unsigned long       baudrate;
+    const unsigned long baudrate;
     unsigned int        smode; /* hypos_serial_mode */
     unsigned int        precon_buf_idx;
     bool                console_enable;
     bool                keyboard_enable;
-    bool                print_once;
+    bool                accessible;
     unsigned int        hypos_status; /* hypos_status */
     unsigned int        board_type;
     unsigned long       phys_offset;
     unsigned long       boot_param;
-    paddr_t             boot_spaddr;
-    paddr_t             boot_epaddr;
-    paddr_t             bootmem_paddr;
+    hpa_t               boot_spaddr;
+    hpa_t               boot_epaddr;
+    hpa_t               bootmem_paddr;
     size_t              bootmem_size;
     size_t              dram_size;
     struct hlist_head   pw_list;

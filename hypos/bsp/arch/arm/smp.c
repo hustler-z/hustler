@@ -26,7 +26,7 @@
 #include <bsp/debug.h>
 #include <bsp/delay.h>
 #include <bsp/panic.h>
-#include <bsp/core.h>
+#include <bsp/bootcore.h>
 #include <bsp/vmap.h>
 #include <lib/math.h>
 
@@ -101,7 +101,7 @@ cpu_bit_bitmap[BITS_PER_LONG + 1][BITS_TO_LONGS(NR_CPUS)] = {
 DEFINE_PERCPU_RO(cpumask_var_t, cpu_sibling_mask);
 DEFINE_PERCPU_RO(cpumask_var_t, cpu_core_mask);
 
-static paddr_t cpu_release_addr[NR_CPUS];
+static hpa_t cpu_release_addr[NR_CPUS];
 static struct smp_enable_ops smp_enable_ops[NR_CPUS];
 
 static DEFINE_RWLOCK(cpu_add_remove_lock);
@@ -110,6 +110,19 @@ static DEFINE_SPINLOCK(call_lock);
 static DEFINE_PERCPU(struct tasklet, halt_tasklet);
 static struct halt_data halt_data;
 static DEFINE_SPINLOCK(halt_lock);
+
+// --------------------------------------------------------------
+
+int __bootfunc smp_clear_cpu_maps(void)
+{
+    cpumask_clear(&cpu_possible_map);
+    cpumask_clear(&cpu_online_map);
+    cpumask_set_cpu(0, &cpu_possible_map);
+    cpumask_set_cpu(0, &cpu_online_map);
+    cpu_logical_map(0) = READ_SYSREG(MPIDR_EL1) & MPIDR_HWID_MASK;
+
+    return 0;
+}
 
 // --------------------------------------------------------------
 
@@ -352,7 +365,7 @@ void smp_call_function_interrupt(void)
 
 static int __bootfunc smp_spin_table_cpu_up(int cpu)
 {
-    paddr_t __iomem *release;
+    hpa_t __iomem *release;
 
     if (!cpu_release_addr[cpu]) {
         MSGE("CPU%d: No release addr\n", cpu);
@@ -585,8 +598,8 @@ int cpu_down(unsigned int cpu)
     if (err)
         goto fail;
 
-    if (get_globl()->hypos_status < HYPOS_ACTIVE_STATE ||
-            get_globl()->hypos_status == HYPOS_RESUME_STATE)
+    if (hypos_get(hypos_status) < HYPOS_ACTIVE_STATE ||
+            hypos_get(hypos_status) == HYPOS_RESUME_STATE)
         on_selected_cpus(cpumask_of(cpu), _take_cpu_down,
                          NULL, true);
     else if ((err = halt_run(take_cpu_down, NULL, cpu)) < 0)
@@ -659,6 +672,8 @@ static int setup_cpu_sibling_map(int cpu)
 
     return 0;
 }
+
+// --------------------------------------------------------------
 
 static void __bootfunc smp_prep_cpus(void)
 {

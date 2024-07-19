@@ -55,7 +55,7 @@ void __bootfunc vm_init_type(enum vmap_region type, void *start,
         pfn_t pfn;
         int rc;
 
-        if (get_globl()->hypos_status == HYPOS_EARLY_BOOT_STAGE)
+        if (hypos_get(hypos_status) == HYPOS_EARLY_BOOT_STAGE)
             pfn = get_memchunks(1, 1);
         else {
             struct page *pg = alloc_page(0);
@@ -77,11 +77,10 @@ void __bootfunc vm_init_type(enum vmap_region type, void *start,
 
 int __bootfunc vmap_setup(void)
 {
-    const struct hypos_mem_region *vmap
-                                = hypos_mem_get(VMAP_REGION);
+    const struct hvm_blk *vmap = hypos_hvm_get(VMAP_BLK);
 
-    vm_init_type(VMAP_DEFAULT, (void *)vmap->va_start,
-                (void *)(vmap->va_start + vmap->size));
+    vm_init_type(VMAP_DEFAULT, (void *)vmap->start,
+                (void *)(vmap->start + vmap->size));
 
     return 0;
 }
@@ -136,7 +135,7 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
         if (vm_top[t] >= vm_end[t])
             return NULL;
 
-        if (get_globl()->hypos_status == HYPOS_EARLY_BOOT_STAGE)
+        if (hypos_get(hypos_status) == HYPOS_EARLY_BOOT_STAGE)
             pfn = get_memchunks(1, 1);
         else {
             struct page *pg = alloc_page(0);
@@ -161,7 +160,7 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
             }
         }
 
-        if (get_globl()->hypos_status == HYPOS_EARLY_BOOT_STAGE)
+        if (hypos_get(hypos_status) == HYPOS_EARLY_BOOT_STAGE)
             memchunks_setup(pfn_to_pa(pfn),
                             pfn_to_pa(pfn) + PAGE_SIZE);
         else

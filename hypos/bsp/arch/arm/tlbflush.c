@@ -11,9 +11,9 @@
 #include <asm/barrier.h>
 
 // --------------------------------------------------------------
-void flush_tlb_range_va_local(vaddr_t va, unsigned long size)
+void flush_tlb_range_va_local(hva_t va, unsigned long size)
 {
-    vaddr_t end = va + size;
+    hva_t end = va + size;
 
     dsb(nshst);
     while (va < end) {
@@ -24,9 +24,9 @@ void flush_tlb_range_va_local(vaddr_t va, unsigned long size)
     isb();
 }
 
-void flush_tlb_range_va(vaddr_t va, unsigned long size)
+void flush_tlb_range_va(hva_t va, unsigned long size)
 {
-    vaddr_t end = va + size;
+    hva_t end = va + size;
 
     dsb(ishst);
     while (va < end) {

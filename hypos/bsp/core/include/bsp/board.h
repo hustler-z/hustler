@@ -17,46 +17,63 @@ enum board_option {
     /* TODO */
 };
 
-enum memory_region_option {
-    DATA_REGION = 0,
-    FIXMAP_REGION,
-    VMAP_REGION,
-    BOOTMEM_REGION,
-    DIRECTMAP_REGION,
+enum cpu_vendor {
+    VENDOR_ROCKCHIP = 0,
+    VENDOR_AMLOGIC,
 };
 
-struct hypos_mem_region {
-    const vaddr_t va_start;
-    const size_t  size;
-    paddr_t       pa_start;
+struct hypos_cpu {
+    unsigned int  core_nr;
+    unsigned int  vendor;
+
+    char priv[64];
+};
+// --------------------------------------------------------------
+enum hpm_type {
+    TXT_BLK,
+    RAM_BLK,
+    RSV_BLK,
+    HPM_BLK_NR
 };
 
-struct hypos_ram_region {
-    const paddr_t ram_start;
-    const paddr_t ram_end;
-    unsigned long nr_pfns;
-    paddr_t map_start;
-    paddr_t map_end;
+enum hvm_type {
+    DATA_BLK = 0,
+    FMAP_BLK, /* Fix Memory Map */
+    VMAP_BLK, /* Virtual Memory Map */
+    BTMB_BLK, /* Boot-time Memory Bank */
+    DMAP_BLK, /* Direct Memory Map */
+    HVM_BLK_NR
 };
+
+struct hpm_blk {
+    const hpa_t start;
+    const hpa_t end;
+    const unsigned int type;
+};
+
+struct hvm_blk {
+    const hva_t  start;
+    const size_t size;
+    const unsigned int type;
+};
+
+#define HPM_BLK_MAX               (4)
+#define HVM_BLK_MAX               (8)
 
 struct hypos_mem {
-    struct hypos_ram_region *dram;
-    struct hypos_mem_region *data;
-    struct hypos_mem_region *fixmap;
-    struct hypos_mem_region *vmap;
-    struct hypos_mem_region *bootmem;
-    struct hypos_mem_region *directmap;
+    struct hpm_blk hpm[HPM_BLK_MAX];
+    struct hvm_blk hvm[HVM_BLK_MAX];
 };
 
+struct hpm_blk *hypos_hpm_get(unsigned int type);
+struct hvm_blk *hypos_hvm_get(unsigned int type);
+// --------------------------------------------------------------
 struct hypos_board {
     struct hypos_mem *mem;
-    /* TODO */
-
+    struct hypos_cpu *cpu;
     char *name; /* Board Name */
 };
 
 int board_setup(void);
-struct hypos_ram_region *hypos_ram_get(void);
-struct hypos_mem_region *hypos_mem_get(unsigned int region);
 // --------------------------------------------------------------
 #endif /* _BSP_BOARD_H */

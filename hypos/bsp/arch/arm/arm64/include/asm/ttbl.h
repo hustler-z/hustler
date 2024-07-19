@@ -10,7 +10,6 @@
 #define _ASM_TTBL_H
 // --------------------------------------------------------------
 #include <asm/page.h>
-#include <bsp/size.h>
 
 /*
  * Granularity | PAGE_SHIFT | TTBL_SHIFT
@@ -38,68 +37,12 @@
  */
 #define LEVEL_ORDER(n, lvl)    ((3-(lvl)) * (TTBL_SHIFT(n)))
 #define LEVEL_SHIFT(n, lvl)    (LEVEL_ORDER(n, lvl) + (n))
-#define LEVEL_SIZE(n, lvl)     (_AT(paddr_t, 1) << (LEVEL_SHIFT(n, lvl)))
+#define LEVEL_SIZE(n, lvl)     (_AT(hpa_t, 1) << (LEVEL_SHIFT(n, lvl)))
 #define PGTBL_LEVEL_SHIFT(lvl) LEVEL_SHIFT(PAGE_SHIFT, lvl)
 #define PGTBL_LEVEL_ORDER(lvl) LEVEL_ORDER(PAGE_SHIFT, lvl)
 #define PGTBL_LEVEL_SIZE(lvl)  LEVEL_SIZE(PAGE_SHIFT, lvl)
 #define PGTBL_LEVEL_MASK(lvl)  (~(PGTBL_LEVEL_SIZE(lvl) - 1))
 
-/* --------------------------------------------------------------
- * Translation Table (stage 1 and stage 2)
- *
- *
- * --------------------------------------------------------------
- */
-
-/* Memory slot of 8G */
-#define MEM_SLOT0(slot)             (_AT(vaddr_t, slot) << 39)
-
-/* - Aarch64 Memory Layout -
- *
- * For embedded device of maximum 32G of RAM
- * [0000000800000000 - 0000001000000000)
- * --------------------------------------------------------------
- * 8M                  DATA
- *                     FIXMAP
- *                     VMAP
- *                     PAGEFRAME
- *                     DIRECTMAP
- * --------------------------------------------------------------
- */
-#define HYPOS_DATA_VIRT_START      MEM_SLOT0(1)
-#define HYPOS_DATA_VIRT_SIZE       MB(8)
-#define HYPOS_DATA_NR_ENTRIES(lvl) \
-    (HYPOS_DATA_VIRT_SIZE / PGTBL_LEVEL_SIZE(lvl))
-// --------------------------------------------------------------
-
-/* HYPOS FIXMAP
- * ------------------------- CONSOLE      (0)
- *  |
- * ------------------------- PERIPHERAL   (1)
- *  |
- * ------------------------- PFNMAP       (2)
- *  |
- *  ▼
- */
-#define HYPOS_FIXMAP_VIRT_START    PAGE_ALIGN(HYPOS_DATA_VIRT_START \
-                                            + HYPOS_DATA_VIRT_SIZE)
-#define HYPOS_FIXMAP_VIRT_SIZE     MB(2)
-// --------------------------------------------------------------
-#define HYPOS_FIXMAP_ADDR(n)       (HYPOS_FIXMAP_VIRT_START + (n) * PAGE_SIZE)
-#define NUM_FIX_PFNMAP             8
-#define FIX_CONSOLE                0
-#define FIX_PERIPHERAL             1
-#define FIX_PFNMAP_START           2
-#define FIX_PFNMAP_END             (FIX_PFNMAP_START + NUM_FIX_PFNMAP - 1)
-#define FIXADDR_START              HYPOS_FIXMAP_ADDR(0)
-#define FIXADDR_END                HYPOS_FIXMAP_ADDR(FIX_PFNMAP_END)
-#ifndef __ASSEMBLY__
-extern unsigned long directmap_va_start;
-#define HYPOS_HEAP_VIRT_START      directmap_va_start
-#endif
-#define HYPOS_VIRT_START           HYPOS_DATA_VIRT_START
-#define HYPOS_VIRT_END             HYPOS_DIRECTMAP_END
-#define SYMBOLS_ORIGIN             HYPOS_VIRT_START
 // --------------------------------------------------------------
 
 /* Calculate the offsets into the pagetbls for a given VA */

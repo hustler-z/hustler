@@ -6,7 +6,7 @@
  * Usage: linker script for hypos project
  */
 
-#include <asm/ttbl.h>
+#include <asm/hvm.h>
 
 // --------------------------------------------------------------
 OUTPUT_FORMAT("elf64-littleaarch64")

@@ -115,7 +115,7 @@
     local_save_flags(x);        \
     local_irq_disable();        \
 })
-
+// --------------------------------------------------------------
 #define PSR_THUMB         (1U << 5)
 #define PSR_FIQ_MASK      (1U << 6)
 #define PSR_IRQ_MASK      (1U << 7)
@@ -123,6 +123,23 @@
 #define PSR_BIG_ENDIAN    (1U << 9)
 #define PSR_DBG_MASK      (1U << 9)
 
+#define hypos_daif_set(x)       \
+    do {                        \
+        asm volatile (          \
+        "msr DAIF, %0"          \
+        : : "r" (x)             \
+        : "memory");            \
+    } while (0)
+
+static inline unsigned long hypos_daif_get(void)
+{
+    unsigned long daif;
+
+    asm volatile ("mrs %0, DAIF" : "=r" (daif) : : "memory");
+
+    return daif;
+}
+// --------------------------------------------------------------
 static inline int local_irq_is_enabled(void)
 {
     unsigned long flags;

@@ -7,7 +7,7 @@
  */
 
 #include <asm/setup.h>
-#include <asm/ttbl.h>
+#include <asm/hvm.h>
 #include <org/globl.h>
 #include <org/section.h>
 #include <org/cache.h>
@@ -38,32 +38,15 @@ void section_map_dump(void)
 
 size_t __read_mostly dcache_line_bytes;
 
-static void hypos_tag(void)
-{
-    MSGI("              ___  __  ____ \n");
-    MSGI("    /\\_/\\/\\/\\/ _ \\/  \\/ __/ \n");
-    MSGI("    \\  _ \\  / ___/ / /\\__ \\ \n");
-    MSGI("     \\/ \\/_/\\/   \\__/ /___/ Hustler Edu\n");
-    MSGI("\n");
-}
-
 int __bootfunc hcpu_setup(void)
 {
-    hypos_tag();
-
     MSGQ(true, "Note phys_offset - 0x%016lx\n",
-            get_globl()->phys_offset);
+            hypos_get(phys_offset));
 
     dcache_line_bytes = read_dcache_line_bytes();
 
     section_map_dump();
 
     return 0;
-}
-
-void arch_cpu_reboot(void)
-{
-    /* TODO
-     */
 }
 // --------------------------------------------------------------

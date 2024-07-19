@@ -41,7 +41,7 @@ union hcpu_esr {
         unsigned long ec:6;
     };
 
-    struct {
+    struct hcpu_dabt {
         unsigned long dfsc:6;  /* Data Fault Status Code (bit[5:0]) */
         unsigned long wnr:1;   /* Write not Read (bit 6) */
          /* For a stage 2 fault, indicates whether the fault was a
@@ -70,7 +70,7 @@ union hcpu_esr {
         unsigned long ec:6;
     } dabt; /* Data Abort ISS Encoding */
 
-    struct {
+    struct hcpu_iabt {
         unsigned long ifsc:6; /* Instruction Fault Status Code (bit [5:0]) */
         unsigned long res0:1;
         unsigned long s1ptw:1;

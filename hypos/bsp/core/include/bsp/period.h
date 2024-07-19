@@ -28,8 +28,8 @@ struct periodic_work {
 
 typedef void (*periodic_func_t)(void *context);
 
-void schedule(void);
+void periodic_work_schedule(void);
 
-int periodw_setup(void);
+int periodic_work_setup(void);
 // --------------------------------------------------------------
 #endif /* _BSP_PERIOD_H */

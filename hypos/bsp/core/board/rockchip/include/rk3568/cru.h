@@ -6,8 +6,8 @@
  * Usage:
  */
 
-#ifndef _BOARD_CRU_H
-#define _BOARD_CRU_H
+#ifndef _RK3568_CRU_H
+#define _RK3568_CRU_H
 // --------------------------------------------------------------
 
 #include <bsp/type.h>
@@ -503,4 +503,4 @@ enum {
 	CPLL_100M_DIV_MASK		= 0x1f << CPLL_100M_DIV_SHIFT,
 };
 // --------------------------------------------------------------
-#endif /* _BOARD_CRU_H */
+#endif /* _RK3568_CRU_H */

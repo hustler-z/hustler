@@ -8,7 +8,7 @@
 
 #include <bsp/symtbl.h>
 #include <bsp/type.h>
-#include <asm/ttbl.h>
+#include <asm/hvm.h>
 
 #ifdef SYMBOLS_ORIGIN
 const unsigned int symbols_offsets[1];

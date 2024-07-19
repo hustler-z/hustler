@@ -6,6 +6,7 @@
  * Usage:
  */
 
+#include <org/vcpu.h>
 #include <bsp/spinlock.h>
 #include <bsp/preempt.h>
 #include <bsp/hypmem.h>

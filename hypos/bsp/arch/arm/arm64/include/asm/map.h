@@ -63,7 +63,7 @@ static inline void arch_pfn_unmap(unsigned int slot)
 
 #define fix_to_va(slot)   ((void *)HYPOS_FIXMAP_ADDR(slot))
 
-static inline unsigned int va_to_fix(vaddr_t va)
+static inline unsigned int va_to_fix(hva_t va)
 {
     ASSERT(va <= FIXADDR_END || va > FIXADDR_START);
 

@@ -7,6 +7,7 @@
  */
 
 #include <asm/sysregs.h>
+#include <asm/barrier.h>
 #include <asm/debug.h>
 #include <bsp/traps.h>
 
@@ -34,17 +35,27 @@ void hyp_serror_el2t_handler(struct hcpu_regs *regs)
 // --------------------------------------------------------------
 void hyp_syn_el2h_handler(struct hcpu_regs *regs)
 {
+    unsigned long spsr = READ_SYSREG(SPSR_EL2);
+    spsr &= (PSR_DBG_MASK | PSR_ABT_MASK | PSR_IRQ_MASK | PSR_FIQ_MASK);
+    hypos_daif_set(spsr);
+
     do_sync(regs);
 }
 
 void hyp_irq_el2h_handler(struct hcpu_regs *regs)
 {
+    unsigned long spsr = READ_SYSREG(SPSR_EL2);
+    unsigned long daif = PSR_DBG_MASK | PSR_ABT_MASK | PSR_FIQ_MASK;
+    spsr &= daif;
+    spsr |= PSR_IRQ_MASK;
+    hypos_daif_set(spsr);
+
     do_irq(regs);
 }
 
 void hyp_fiq_el2h_handler(struct hcpu_regs *regs)
 {
-    do_fiq(regs);
+    do_bad_fiq(regs);
 }
 
 void hyp_serror_el2h_handler(struct hcpu_regs *regs)

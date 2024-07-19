@@ -59,7 +59,7 @@ void __bootfunc unmap_pfn(const void *vp)
 
 ttbl_t *map_table(pfn_t pfn)
 {
-    if (get_globl()->hypos_status == HYPOS_EARLY_BOOT_STAGE)
+    if (hypos_get(hypos_status) == HYPOS_EARLY_BOOT_STAGE)
         return map_pfn(pfn);
     else {
         MSGH("Not Implemented yet.\n");
@@ -69,7 +69,7 @@ ttbl_t *map_table(pfn_t pfn)
 
 void unmap_table(const ttbl_t *table)
 {
-    if (get_globl()->hypos_status == HYPOS_EARLY_BOOT_STAGE)
+    if (hypos_get(hypos_status) == HYPOS_EARLY_BOOT_STAGE)
         unmap_pfn(table);
     else
         MSGH("Not Implemented yet.\n");
@@ -81,7 +81,7 @@ static int create_ttbl(ttbl_t *entry)
     void *ptr;
     ttbl_t pte;
 
-    if (get_globl()->hypos_status != HYPOS_EARLY_BOOT_STAGE) {
+    if (hypos_get(hypos_status) != HYPOS_EARLY_BOOT_STAGE) {
         MSGH("Not Implemented yet\n");
     } else
         pfn = get_memchunks(1, 1);
@@ -201,7 +201,7 @@ static int ttbl_update_entry(pfn_t root,
             && !(flags & _PAGE_POPULATE);
     ttbl_t pte, *entry;
 
-    TTBL_OFFSETS(offsets, (paddr_t)va);
+    TTBL_OFFSETS(offsets, (hpa_t)va);
 
     ASSERT((flags & (_PAGE_POPULATE|_PAGE_PRESENT))
             != (_PAGE_POPULATE|_PAGE_PRESENT));
