@@ -27,7 +27,7 @@ static inline size_t read_dcache_line_bytes(void)
     ctr = READ_SYSREG(CTR_EL0);
 
     /* Bits 16-19 are the log2 number of words in the cacheline. */
-    return (size_t) (4 << ((ctr >> 16) & 0xf));
+    return (size_t) (4 << ((ctr >> 16) & 0xF));
 }
 static inline int invalidate_dcache_va_range(const void *p,
                                              unsigned long size)
@@ -39,13 +39,13 @@ static inline int invalidate_dcache_va_range(const void *p,
         return 0;
 
     /* Passing a region that wraps around is illegal */
-    ASSERT(((ap_t)p + size - 1) >= (ap_t)p);
+    ASSERT(((addr_ptr)p + size - 1) >= (addr_ptr)p);
 
     dsb(sy);           /* So the CPU issues all writes to the range */
 
-    if ((ap_t)p & cacheline_mask) {
-        size -= dcache_line_bytes - ((ap_t)p & cacheline_mask);
-        p = (void *)((ap_t)p & ~cacheline_mask);
+    if ((addr_ptr)p & cacheline_mask) {
+        size -= dcache_line_bytes - ((addr_ptr)p & cacheline_mask);
+        p = (void *)((addr_ptr)p & ~cacheline_mask);
         asm volatile (__clean_and_invalidate_dcache_one(0)
                 : : "r" (p));
         p += dcache_line_bytes;
@@ -74,12 +74,12 @@ static inline int clean_dcache_va_range(const void *p,
         return 0;
 
     /* Passing a region that wraps around is illegal */
-    ASSERT(((ap_t)p + size - 1) >= (ap_t)p);
+    ASSERT(((addr_ptr)p + size - 1) >= (addr_ptr)p);
 
     dsb(sy);           /* So the CPU issues all writes to the range */
-    size += (ap_t)p & cacheline_mask;
+    size += (addr_ptr)p & cacheline_mask;
     size = (size + cacheline_mask) & ~cacheline_mask;
-    p = (void *)((ap_t)p & ~cacheline_mask);
+    p = (void *)((addr_ptr)p & ~cacheline_mask);
     for ( ; size >= dcache_line_bytes;
             idx += dcache_line_bytes, size -= dcache_line_bytes)
         asm volatile (__clean_dcache_one(0) : : "r" (p + idx));
@@ -98,12 +98,12 @@ static inline int clean_and_invalidate_dcache_va_range
         return 0;
 
     /* Passing a region that wraps around is illegal */
-    ASSERT(((ap_t)p + size - 1) >= (ap_t)p);
+    ASSERT(((addr_ptr)p + size - 1) >= (addr_ptr)p);
 
     dsb(sy);         /* So the CPU issues all writes to the range */
-    size += (ap_t)p & cacheline_mask;
+    size += (addr_ptr)p & cacheline_mask;
     size = (size + cacheline_mask) & ~cacheline_mask;
-    p = (void *)((ap_t)p & ~cacheline_mask);
+    p = (void *)((addr_ptr)p & ~cacheline_mask);
     for ( ; size >= dcache_line_bytes;
             idx += dcache_line_bytes, size -= dcache_line_bytes)
         asm volatile (__clean_and_invalidate_dcache_one(0)

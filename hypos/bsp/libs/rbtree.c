@@ -8,7 +8,7 @@
 
 #include <lib/rbtree.h>
 
-// ------------------------------------------------------------------------
+// --------------------------------------------------------------
 
 /*
  * red-black trees properties:
@@ -17,17 +17,19 @@
  *  2) The root is black
  *  3) All leaves (NULL) are black
  *  4) Both children of every red node are black
- *  5) Every simple path from root to leaves contains the same number
- *     of black nodes.
+ *  5) Every simple path from root to leaves contains the same
+ *     number of black nodes.
  *
- *  4 and 5 give the O(log n) guarantee, since 4 implies you cannot have two
- *  consecutive red nodes in a path and every red node is therefore followed by
- *  a black. So if B is the number of black nodes on every simple path (as per
- *  5), then the longest possible path due to 4 is 2B.
+ *  4 and 5 give the O(log n) guarantee, since 4 implies you
+ *  cannot have two consecutive red nodes in a path and every
+ *  red node is therefore followed by a black. So if B is the
+ *  number of black nodes on every simple path (as per 5), then
+ *  the longest possible path due to 4 is 2B.
  *
- *  We shall indicate color with case, where black nodes are uppercase and red
- *  nodes will be lowercase. Unknown color nodes shall be drawn as red within
- *  parentheses and have some accompanying text comment.
+ *  We shall indicate color with case, where black nodes are
+ *  uppercase and red nodes will be lowercase. Unknown color
+ *  nodes shall be drawn as red within parentheses and have
+ *  some accompanying text comment.
  */
 
 static inline void rb_set_black(struct rb_node *rb)
@@ -57,7 +59,8 @@ __rb_rotate_set_parents(struct rb_node *old, struct rb_node *new,
 
 static __always_inline void
 __rb_insert(struct rb_node *node, struct rb_root *root,
-	    void (*augment_rotate)(struct rb_node *old, struct rb_node *new))
+            void (*augment_rotate)(struct rb_node *old,
+            struct rb_node *new))
 {
 	struct rb_node *parent = rb_red_parent(node), *gparent, *tmp;
 
@@ -186,7 +189,8 @@ __rb_insert(struct rb_node *node, struct rb_root *root,
  */
 static __always_inline void
 ____rb_erase_color(struct rb_node *parent, struct rb_root *root,
-	void (*augment_rotate)(struct rb_node *old, struct rb_node *new))
+                   void (*augment_rotate)(struct rb_node *old,
+                   struct rb_node *new))
 {
 	struct rb_node *node = NULL, *sibling, *tmp1, *tmp2;
 
@@ -348,7 +352,8 @@ ____rb_erase_color(struct rb_node *parent, struct rb_root *root,
 
 /* Non-inline version for rb_erase_augmented() use */
 void __rb_erase_color(struct rb_node *parent, struct rb_root *root,
-	void (*augment_rotate)(struct rb_node *old, struct rb_node *new))
+                      void (*augment_rotate)(struct rb_node *old,
+                      struct rb_node *new))
 {
 	____rb_erase_color(parent, root, augment_rotate);
 }
@@ -356,13 +361,17 @@ void __rb_erase_color(struct rb_node *parent, struct rb_root *root,
 /*
  * Non-augmented rbtree manipulation functions.
  *
- * We use dummy augmented callbacks here, and have the compiler optimize them
- * out of the rb_insert_color() and rb_erase() function definitions.
+ * We use dummy augmented callbacks here, and have the compiler
+ * optimize them out of the rb_insert_color() and rb_erase()
+ * function definitions.
  */
 
-static inline void dummy_propagate(struct rb_node *node, struct rb_node *stop) {}
-static inline void dummy_copy(struct rb_node *old, struct rb_node *new) {}
-static inline void dummy_rotate(struct rb_node *old, struct rb_node *new) {}
+static inline void dummy_propagate(struct rb_node *node,
+                                   struct rb_node *stop) {}
+static inline void dummy_copy(struct rb_node *old,
+                              struct rb_node *new) {}
+static inline void dummy_rotate(struct rb_node *old,
+                                struct rb_node *new) {}
 
 static const struct rb_augment_callbacks dummy_callbacks = {
 	dummy_propagate, dummy_copy, dummy_rotate
@@ -384,8 +393,8 @@ void rb_erase(struct rb_node *node, struct rb_root *root)
 /*
  * Augmented rbtree manipulation functions.
  *
- * This instantiates the same __always_inline functions as in the non-augmented
- * case, but this time with user-defined callbacks.
+ * This instantiates the same __always_inline functions as in the
+ * non-augmented case, but this time with user-defined callbacks.
  */
 
 void __rb_insert_augmented(struct rb_node *node, struct rb_root *root,
@@ -433,7 +442,7 @@ struct rb_node *rb_next(const struct rb_node *node)
 	 * as we can.
 	 */
 	if (node->rb_right) {
-		node = node->rb_right; 
+		node = node->rb_right;
 		while (node->rb_left)
 			node=node->rb_left;
 		return (struct rb_node *)node;
@@ -535,4 +544,4 @@ struct rb_node *rb_first_postorder(const struct rb_root *root)
 }
 
 
-// ------------------------------------------------------------------------
+// --------------------------------------------------------------

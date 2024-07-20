@@ -10,7 +10,8 @@
 #include <lib/bitops.h>
 
 // --------------------------------------------------------------
-int __bitmap_empty(const unsigned long *bitmap, unsigned int bits)
+int __bitmap_empty(const unsigned long *bitmap,
+                   unsigned int bits)
 {
     int k, lim = bits / BITS_PER_LONG;
 
@@ -25,7 +26,8 @@ int __bitmap_empty(const unsigned long *bitmap, unsigned int bits)
     return 1;
 }
 
-int __bitmap_full(const unsigned long *bitmap, unsigned int bits)
+int __bitmap_full(const unsigned long *bitmap,
+                  unsigned int bits)
 {
     int k, lim = bits / BITS_PER_LONG;
 
@@ -41,7 +43,8 @@ int __bitmap_full(const unsigned long *bitmap, unsigned int bits)
 }
 
 int __bitmap_equal(const unsigned long *bitmap1,
-                   const unsigned long *bitmap2, unsigned int bits)
+                   const unsigned long *bitmap2,
+                   unsigned int bits)
 {
     int k, lim = bits / BITS_PER_LONG;
 
@@ -50,13 +53,16 @@ int __bitmap_equal(const unsigned long *bitmap1,
             return 0;
 
     if (bits % BITS_PER_LONG)
-        if ((bitmap1[k] ^ bitmap2[k]) & BITMAP_LAST_WORD_MASK(bits))
+        if ((bitmap1[k] ^ bitmap2[k]) &
+                BITMAP_LAST_WORD_MASK(bits))
             return 0;
 
     return 1;
 }
 
-void __bitmap_complement(unsigned long *dst, const unsigned long *src, unsigned int bits)
+void __bitmap_complement(unsigned long *dst,
+                         const unsigned long *src,
+                         unsigned int bits)
 {
     int k, lim = bits / BITS_PER_LONG;
 
@@ -67,8 +73,10 @@ void __bitmap_complement(unsigned long *dst, const unsigned long *src, unsigned 
         dst[k] = ~src[k] & BITMAP_LAST_WORD_MASK(bits);
 }
 
-void __bitmap_and(unsigned long *dst, const unsigned long *bitmap1,
-                  const unsigned long *bitmap2, unsigned int bits)
+void __bitmap_and(unsigned long *dst,
+                  const unsigned long *bitmap1,
+                  const unsigned long *bitmap2,
+                  unsigned int bits)
 {
     int k;
     int nr = BITS_TO_LONGS(bits);
@@ -77,8 +85,10 @@ void __bitmap_and(unsigned long *dst, const unsigned long *bitmap1,
         dst[k] = bitmap1[k] & bitmap2[k];
 }
 
-void __bitmap_or(unsigned long *dst, const unsigned long *bitmap1,
-                 const unsigned long *bitmap2, unsigned int bits)
+void __bitmap_or(unsigned long *dst,
+                 const unsigned long *bitmap1,
+                 const unsigned long *bitmap2,
+                 unsigned int bits)
 {
 	int k;
 	int nr = BITS_TO_LONGS(bits);
@@ -87,8 +97,10 @@ void __bitmap_or(unsigned long *dst, const unsigned long *bitmap1,
 		dst[k] = bitmap1[k] | bitmap2[k];
 }
 
-void __bitmap_xor(unsigned long *dst, const unsigned long *bitmap1,
-                  const unsigned long *bitmap2, unsigned int bits)
+void __bitmap_xor(unsigned long *dst,
+                  const unsigned long *bitmap1,
+                  const unsigned long *bitmap2,
+                  unsigned int bits)
 {
     int k;
     int nr = BITS_TO_LONGS(bits);
@@ -97,8 +109,10 @@ void __bitmap_xor(unsigned long *dst, const unsigned long *bitmap1,
         dst[k] = bitmap1[k] ^ bitmap2[k];
 }
 
-void __bitmap_andnot(unsigned long *dst, const unsigned long *bitmap1,
-                     const unsigned long *bitmap2, unsigned int bits)
+void __bitmap_andnot(unsigned long *dst,
+                     const unsigned long *bitmap1,
+                     const unsigned long *bitmap2,
+                     unsigned int bits)
 {
     int k;
     int nr = BITS_TO_LONGS(bits);
@@ -108,7 +122,8 @@ void __bitmap_andnot(unsigned long *dst, const unsigned long *bitmap1,
 }
 
 int __bitmap_intersects(const unsigned long *bitmap1,
-                        const unsigned long *bitmap2, unsigned int bits)
+                        const unsigned long *bitmap2,
+                        unsigned int bits)
 {
     int k, lim = bits / BITS_PER_LONG;
 
@@ -117,13 +132,15 @@ int __bitmap_intersects(const unsigned long *bitmap1,
             return 1;
 
     if (bits % BITS_PER_LONG)
-        if ((bitmap1[k] & bitmap2[k]) & BITMAP_LAST_WORD_MASK(bits))
+        if ((bitmap1[k] & bitmap2[k]) &
+                BITMAP_LAST_WORD_MASK(bits))
             return 1;
     return 0;
 }
 
 int __bitmap_subset(const unsigned long *bitmap1,
-                    const unsigned long *bitmap2, unsigned int bits)
+                    const unsigned long *bitmap2,
+                    unsigned int bits)
 {
     int k, lim = bits / BITS_PER_LONG;
 
@@ -132,12 +149,14 @@ int __bitmap_subset(const unsigned long *bitmap1,
             return 0;
 
     if (bits % BITS_PER_LONG)
-        if ((bitmap1[k] & ~bitmap2[k]) & BITMAP_LAST_WORD_MASK(bits))
+        if ((bitmap1[k] & ~bitmap2[k]) &
+                BITMAP_LAST_WORD_MASK(bits))
             return 0;
     return 1;
 }
 
-unsigned int __bitmap_weight(const unsigned long *bitmap, unsigned int bits)
+unsigned int __bitmap_weight(const unsigned long *bitmap,
+                             unsigned int bits)
 {
     unsigned int k, w = 0, lim = bits / BITS_PER_LONG;
 
@@ -145,12 +164,14 @@ unsigned int __bitmap_weight(const unsigned long *bitmap, unsigned int bits)
         w += hweight_long(bitmap[k]);
 
     if (bits % BITS_PER_LONG)
-        w += hweight_long(bitmap[k] & BITMAP_LAST_WORD_MASK(bits));
+        w += hweight_long(bitmap[k] &
+                BITMAP_LAST_WORD_MASK(bits));
 
     return w;
 }
 
-void __bitmap_set(unsigned long *map, unsigned int start, int len)
+void __bitmap_set(unsigned long *map,
+                  unsigned int start, int len)
 {
     unsigned long *p = map + BIT_WORD(start);
     const unsigned int size = start + len;
@@ -170,7 +191,8 @@ void __bitmap_set(unsigned long *map, unsigned int start, int len)
     }
 }
 
-void __bitmap_clear(unsigned long *map, unsigned int start, int len)
+void __bitmap_clear(unsigned long *map,
+                    unsigned int start, int len)
 {
     unsigned long *p = map + BIT_WORD(start);
     const unsigned int size = start + len;

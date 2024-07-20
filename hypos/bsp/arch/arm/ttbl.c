@@ -346,14 +346,14 @@ int __bootfunc ttbl_setup(void)
 
     prepare_idmap();
 
-    pte = pte_of_va((ap_t)hypos_pgtbl1);
+    pte = pte_of_va((addr_ptr)hypos_pgtbl1);
     pte.ttbl.table = 1;
     pte.ttbl.uxn = 0;
     hypos_pgtbl0[PGTBL0_OFFSET(HYPOS_VIRT_START)] = pte;
 
     ptes = (void *)hypos_pgtbl1;
 
-    ptes[0] = pte_of_va((ap_t)hypos_pgtbl2);
+    ptes[0] = pte_of_va((addr_ptr)hypos_pgtbl2);
     ptes[0].ttbl.table = 1;
     ptes[0].ttbl.uxn = 0;
 
@@ -397,7 +397,7 @@ int __bootfunc ttbl_setup(void)
 
     ttbl_consts();
 
-    ttbr = (ap_t)hypos_pgtbl0 + hypos_get(phys_offset);
+    ttbr = (addr_ptr)hypos_pgtbl0 + hypos_get(phys_offset);
 
     hypos_get(arch.boot_ttbr) = READ_SYSREG(TTBR0_EL2);
 

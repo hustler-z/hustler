@@ -15,3 +15,5 @@ ifeq ($(PLATFORM),rockchip)
 drivers-y += rkserial.o
 drivers-y += rktimer.o
 endif
+
+# ----------------------------------------------------------

@@ -42,7 +42,8 @@
 #define __VGIC_IMPL                0
 #define __ROUTE_IRQ_TO_GUEST       0
 #define __WAIT_QUEUE_IMPL          0
-
+#define __IOMMU_IMPL               0
+#define __SMMUV3_IMPL              0
 // --------------------------------------------------------------
 #define IS_SUPPORTED(sup)          (!!(sup))
 

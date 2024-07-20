@@ -18,7 +18,7 @@ unsigned long find_next_bit(const unsigned long *addr,
                             unsigned long offset)
 {
     const unsigned long *p = addr + BIT_WORD(offset);
-    unsigned long result = offset & ~(BITS_PER_LONG-1);
+    unsigned long result = offset & ~(BITS_PER_LONG - 1);
     unsigned long tmp;
 
     if (offset >= size)
@@ -35,7 +35,7 @@ unsigned long find_next_bit(const unsigned long *addr,
         size -= BITS_PER_LONG;
         result += BITS_PER_LONG;
     }
-    while (size & ~(BITS_PER_LONG-1)) {
+    while (size & ~(BITS_PER_LONG - 1)) {
         if ((tmp = *(p++)))
             goto found_middle;
         result += BITS_PER_LONG;
@@ -75,7 +75,7 @@ unsigned long find_next_zero_bit(const unsigned long *addr,
         size -= BITS_PER_LONG;
         result += BITS_PER_LONG;
     }
-    while (size & ~(BITS_PER_LONG-1)) {
+    while (size & ~(BITS_PER_LONG - 1)) {
         if (~(tmp = *(p++)))
             goto found_middle;
         result += BITS_PER_LONG;
@@ -100,7 +100,7 @@ unsigned long find_first_bit(const unsigned long *addr,
     unsigned long result = 0;
     unsigned long tmp;
 
-    while (size & ~(BITS_PER_LONG-1)) {
+    while (size & ~(BITS_PER_LONG - 1)) {
         if ((tmp = *(p++)))
             goto found;
         result += BITS_PER_LONG;
@@ -123,7 +123,7 @@ unsigned long find_first_zero_bit(const unsigned long *addr,
     unsigned long result = 0;
     unsigned long tmp;
 
-    while (size & ~(BITS_PER_LONG-1)) {
+    while (size & ~(BITS_PER_LONG - 1)) {
         if (~(tmp = *(p++)))
             goto found;
         result += BITS_PER_LONG;
@@ -133,8 +133,8 @@ unsigned long find_first_zero_bit(const unsigned long *addr,
         return result;
 
     tmp = (*p) | (~0UL << size);
-    if (tmp == ~0UL)	/* Are any bits zero? */
-        return result + size;	/* Nope. */
+    if (tmp == ~0UL)
+        return result + size;
 found:
     return result + ffz(tmp);
 }

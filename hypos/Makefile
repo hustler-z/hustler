@@ -76,6 +76,7 @@ SPATH_ARCH   := $(SPATH_ARCX)/$(ARCH)
 SPATH_BRDP   := $(SPATH_BSPS)/core/board/$(PLATFORM)
 SPATH_BRDT   := $(SPATH_BRDP)/$(BOARD)
 SPATH_DRIV   := $(SPATH_BSPS)/core/drivers
+SPATH_THRU   := $(SPATH_DRIV)/passthrough
 SPATH_LIBS   := $(SPATH_BSPS)/libs
 SPATH_CORE   := $(SPATH_BSPS)/core
 
@@ -83,6 +84,7 @@ include $(SPATH_ARCX)/$(BASE).mk
 include $(SPATH_ARCH)/$(ARCH).mk
 include $(SPATH_BRDT)/$(BOARD).mk
 include $(SPATH_DRIV)/drivers.mk
+include $(SPATH_THRU)/passthrough.mk
 include $(SPATH_LIBS)/lib.mk
 include $(SPATH_CORE)/core.mk
 
@@ -100,6 +102,7 @@ PATH_ARCX    := $(OUTPUT)/$(SPATH_ARCX)
 PATH_ARCH    := $(OUTPUT)/$(SPATH_ARCH)
 PATH_BRDT    := $(OUTPUT)/$(SPATH_BRDT)
 PATH_DRIV    := $(OUTPUT)/$(SPATH_DRIV)
+PATH_THRU    := $(OUTPUT)/$(SPATH_THRU)
 PATH_LIBS    := $(OUTPUT)/$(SPATH_LIBS)
 PATH_CORE    := $(OUTPUT)/$(SPATH_CORE)
 
@@ -114,12 +117,13 @@ archao       := $(addprefix $(PATH_ARCH)/,$(arma-y))
 endif
 brdtco       := $(addprefix $(PATH_BRDT)/,$($(BOARD)-y))
 drivco       := $(addprefix $(PATH_DRIV)/,$(drivers-y))
+thruco       := $(addprefix $(PATH_THRU)/,$(passthrough-y))
 hypsco       := $(addprefix $(PATH_CORE)/,$(core-y))
 libsco       := $(addprefix $(PATH_LIBS)/,$(libs-y))
 
 hyposo       := $(archao) $(archco) $(archxo) \
                 $(libsco) $(hypsco) $(drivco) \
-                $(brdtco)
+                $(brdtco) $(thruco)
 # ---------------------------------------------------------------
 ifeq ($(V),1)
 	Q :=
@@ -221,6 +225,8 @@ $(drivco): $(PATH_DRIV)/%.o: $(SPATH_DRIV)/%.c
 $(hypsco): $(PATH_CORE)/%.o: $(SPATH_CORE)/%.c
 	$(call cc_cc,$@,$<)
 $(libsco): $(PATH_LIBS)/%.o: $(SPATH_LIBS)/%.c
+	$(call cc_cc,$@,$<)
+$(thruco): $(PATH_THRU)/%.o: $(SPATH_THRU)/%.c
 	$(call cc_cc,$@,$<)
 $(lds): $(PATH_ARCH)/%.lds: $(SPATH_ARCH)/%.lds.S
 	$(call cc_lds,$@,$<)

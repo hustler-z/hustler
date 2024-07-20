@@ -41,7 +41,7 @@ static struct page *vttbl_alloc_page(struct hypos *d)
 static void vttbl_free_page(struct hypos *d, struct page *pg)
 {
     if (is_hardware_hypos(d))
-        free_domheap_page(pg);
+        free_page(pg);
     else {
         spin_lock(&d->arch.paging.lock);
         page_list_add_tail(pg, &d->arch.paging.vttbl_freelist);
@@ -66,7 +66,7 @@ int vttbl_set_allocation(struct hypos *d, unsigned long pages, bool *preempted)
             /* Need to allocate more memory from domheap */
             pg = alloc_domheap_page(NULL, 0);
             if (pg == NULL) {
-                MSGH(XENLOG_ERR "Failed to allocate VTTBL pages.\n");
+                MSGH("Failed to allocate VTTBL pages.\n");
                 return -ENOMEM;
             }
             ACCESS_ONCE(d->arch.paging.vttbl_total_pages) =
@@ -78,10 +78,9 @@ int vttbl_set_allocation(struct hypos *d, unsigned long pages, bool *preempted)
             if(pg) {
                 ACCESS_ONCE(d->arch.paging.vttbl_total_pages) =
                     d->arch.paging.vttbl_total_pages - 1;
-                free_domheap_page(pg);
+                free_page(pg);
             } else {
-                MSGH(XENLOG_ERR
-                       "Failed to free VTTBL pages, VTTBL freelist is empty.\n");
+                MSGH("Failed to free VTTBL pages, VTTBL freelist is empty.\n");
                 return -ENOMEM;
             }
         } else
@@ -941,12 +940,10 @@ bool vttbl_resolve_translation_fault(struct hypos *d, gfn_t gfn)
     bool resolved = false;
     ttbl_t entry, *table;
 
-    /* Convenience aliases */
     DECLARE_OFFSETS(offsets, gfn_to_gaddr(gfn));
 
     vttbl_write_lock(vttbl);
 
-    /* This gfn is higher than the highest the vttbl map currently holds */
     if ( gfn_x(gfn) > gfn_x(vttbl->max_mapped_gfn) )
         goto out;
 
@@ -965,7 +962,6 @@ bool vttbl_resolve_translation_fault(struct hypos *d, gfn_t gfn)
         if (level == 3)
             break;
 
-        /* Stop as soon as we hit an entry with the valid bit unset. */
         if (!ttbl_is_valid(entry))
             break;
 
@@ -1011,7 +1007,6 @@ static struct page *vttbl_allocate_root(void)
     if (page == NULL)
         return NULL;
 
-    /* Clear both first level pages */
     for (i = 0; i < VTTBL_ROOT_PAGES; i++)
         clear_and_clean_page(page + i);
 
@@ -1029,10 +1024,6 @@ static int vttbl_alloc_table(struct hypos *d)
     vttbl->vttbr = generate_vttbr(vttbl->vmid,
                                   page_to_pfn(vttbl->root));
 
-    /*
-     * Make sure that all TLBs corresponding to the new VMID are flushed
-     * before using it
-     */
     vttbl_write_lock(vttbl);
     vttbl_force_tlb_flush_sync(vttbl);
     vttbl_write_unlock(vttbl);
@@ -1079,7 +1070,7 @@ void vttbl_final_teardown(struct hypos *d)
     ASSERT(page_list_empty(&d->arch.paging.vttbl_freelist));
 
     if (vttbl->root)
-        free_domheap_pages(vttbl->root, VTTBL_ROOT_ORDER);
+        free_pages(vttbl->root, VTTBL_ROOT_ORDER);
 
     vttbl->root = NULL;
 
@@ -1258,15 +1249,15 @@ void __init setup_virt_paging(void)
     }
 
     /* Check if we found the associated entry in the array */
-    if ( pa_range >= ARRAY_SIZE(pa_range_info) ||
-            !pa_range_info[pa_range].pabits )
+    if (pa_range >= ARRAY_SIZE(pa_range_info) ||
+            !pa_range_info[pa_range].pabits)
         exec_panic("%u-bit VTTBL is not supported\n", vttbl_ipa_bits);
 
     val |= VTCR_PS(pa_range);
     val |= VTCR_TG0_4K;
 
     /* Set the VS bit only if 16 bit VMID is supported. */
-    if ( MAX_VMID == MAX_VMID_16_BIT )
+    if (MAX_VMID == MAX_VMID_16_BIT)
         val |= VTCR_VS;
 
     val |= VTCR_SL0(pa_range_info[pa_range].sl0);

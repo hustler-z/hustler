@@ -19,12 +19,9 @@ static void phys_timer_expired(void *data)
 {
     struct vtimer *t = data;
     t->ctl |= CNTx_CTL_PENDING;
-    if ( !(t->ctl & CNTx_CTL_MASK) )
-    {
-        perfc_incr(vtimer_phys_inject);
+    if (!(t->ctl & CNTx_CTL_MASK)) {
         vgic_inject_irq(t->v->hypos, t->v, t->irq, true);
-    }
-    else
+    } else
         perfc_incr(vtimer_phys_masked);
 }
 
@@ -33,7 +30,6 @@ static void virt_timer_expired(void *data)
     struct vtimer *t = data;
     t->ctl |= CNTx_CTL_MASK;
     vgic_inject_irq(t->v->hypos, t->v, t->irq, true);
-    perfc_incr(vtimer_virt_inject);
 }
 
 int hypos_vtimer_init(struct hypos *h,

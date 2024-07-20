@@ -1218,7 +1218,7 @@ void vgic_v3_its_free_hypos(struct hypos *d)
     list_for_each_entry_safe(pos, temp,
                              &d->arch.vgic.vits_list, vits_list) {
         list_del(&pos->vits_list);
-        xfree(pos);
+        free(pos);
     }
 
     ASSERT(RB_EMPTY_ROOT(&d->arch.vgic.its_devices));
@@ -2069,7 +2069,8 @@ bad_width:
     return 0;
 
 write_ignore_32:
-    if ( dabt.size != DABT_WORD ) goto bad_width;
+    if (dabt.size != DABT_WORD)
+        goto bad_width;
     return 1;
 
 write_ignore:
@@ -2084,7 +2085,7 @@ static struct vcpu *get_vcpu_from_rdist(struct hypos *d,
     unsigned int vcpu_id;
 
     vcpu_id = region->first_cpu + ((gpa - region->base) / GICV3_GICR_SIZE);
-    if ( unlikely(vcpu_id >= d->max_vcpus) )
+    if (unlikely(vcpu_id >= d->max_vcpus))
         return NULL;
 
     v = d->vcpu[vcpu_id];
@@ -2174,7 +2175,6 @@ static int vgic_v3_distr_mmio_read(struct vcpu *v, mmio_info_t *info,
 
         return 1;
     }
-
     case VREG32(GICD_IIDR):
         if ( dabt.size != DABT_WORD ) goto bad_width;
         *r = vreg_reg32_extract(GICV3_GICD_IIDR_VAL, info);
@@ -2214,7 +2214,6 @@ static int vgic_v3_distr_mmio_read(struct vcpu *v, mmio_info_t *info,
 
     case VRANGE32(0x005C, 0x007C):
         goto read_reserved;
-
     case VRANGE32(GICD_IGROUPR, GICD_IGROUPRN):
     case VRANGE32(GICD_ISENABLER, GICD_ISENABLERN):
     case VRANGE32(GICD_ICENABLER, GICD_ICENABLERN):
@@ -2226,22 +2225,16 @@ static int vgic_v3_distr_mmio_read(struct vcpu *v, mmio_info_t *info,
     case VRANGE32(GICD_ICFGR, GICD_ICFGRN):
     case VRANGE32(GICD_IGRPMODR, GICD_IGRPMODRN):
         return __vgic_v3_distr_common_mmio_read("vGICD", v, info, gicd_reg, r);
-
     case VRANGE32(GICD_NSACR, GICD_NSACRN):
         goto read_as_zero_32;
-
     case VREG32(GICD_SGIR):
         goto read_as_zero_32;
-
     case VRANGE32(GICD_CPENDSGIR, GICD_CPENDSGIRN):
         goto read_as_zero_32;
-
     case VRANGE32(GICD_SPENDSGIR, GICD_SPENDSGIRN):
         goto read_as_zero_32;
-
     case VRANGE32(0x0F30, 0x60FC):
         goto read_reserved;
-
     case VRANGE64(GICD_IROUTER32, GICD_IROUTER1019):
     {
         u64 irouter;
@@ -2261,25 +2254,19 @@ static int vgic_v3_distr_mmio_read(struct vcpu *v, mmio_info_t *info,
 
         return 1;
     }
-
     case VRANGE32(0x7FE0, 0xBFFC):
         goto read_reserved;
-
     case VRANGE32(0xC000, 0xFFCC):
         goto read_impl_defined;
-
     case VRANGE32(0xFFD0, 0xFFE4):
         goto read_impl_defined;
-
     case VREG32(GICD_PIDR2):
         if (dabt.size != DABT_WORD)
             goto bad_width;
         *r = vreg_reg32_extract(GICV3_GICD_PIDR2, info);
         return 1;
-
     case VRANGE32(0xFFEC, 0xFFFC):
         goto read_impl_defined;
-
     default:
         MSGH("%pv: vGICD: unhandled read r%d offset %#08x\n",
              v, dabt.reg, gicd_reg);
@@ -2343,46 +2330,32 @@ static int vgic_v3_distr_mmio_write(struct vcpu *v, mmio_info_t *info,
     }
     case VREG32(GICD_TYPER):
         goto write_ignore_32;
-
     case VREG32(GICD_IIDR):
         goto write_ignore_32;
-
     case VREG32(0x000C):
         goto write_reserved;
-
     case VREG32(GICD_STATUSR):
         goto write_ignore_32;
-
     case VRANGE32(0x0014, 0x001C):
         goto write_reserved;
-
     case VRANGE32(0x0020, 0x003C):
         goto write_impl_defined;
-
     case VREG32(GICD_SETSPI_NSR):
         goto write_reserved;
-
     case VREG32(0x0044):
         goto write_reserved;
-
     case VREG32(GICD_CLRSPI_NSR):
         goto write_reserved;
-
     case VREG32(0x004C):
         goto write_reserved;
-
     case VREG32(GICD_SETSPI_SR):
         goto write_reserved;
-
     case VREG32(0x0054):
         goto write_reserved;
-
     case VREG32(GICD_CLRSPI_SR):
         goto write_reserved;
-
     case VRANGE32(0x005C, 0x007C):
         goto write_reserved;
-
     case VRANGE32(GICD_IGROUPR, GICD_IGROUPRN):
     case VRANGE32(GICD_ISENABLER, GICD_ISENABLERN):
     case VRANGE32(GICD_ICENABLER, GICD_ICENABLERN):
@@ -2395,26 +2368,20 @@ static int vgic_v3_distr_mmio_write(struct vcpu *v, mmio_info_t *info,
     case VRANGE32(GICD_IGRPMODR, GICD_IGRPMODRN):
         return __vgic_v3_distr_common_mmio_write("vGICD", v, info,
                                                  gicd_reg, r);
-
     case VRANGE32(GICD_NSACR, GICD_NSACRN):
         goto write_ignore_32;
-
     case VREG32(GICD_SGIR):
         goto write_ignore_32;
-
     case VRANGE32(GICD_CPENDSGIR, GICD_CPENDSGIRN):
         if (dabt.size != DABT_WORD)
             goto bad_width;
         return 0;
-
     case VRANGE32(GICD_SPENDSGIR, GICD_SPENDSGIRN):
         if (dabt.size != DABT_WORD)
             goto bad_width;
         return 0;
-
     case VRANGE32(0x0F30, 0x60FC):
         goto write_reserved;
-
     case VRANGE64(GICD_IROUTER32, GICD_IROUTER1019):
     {
         u64 irouter;
@@ -2434,19 +2401,14 @@ static int vgic_v3_distr_mmio_write(struct vcpu *v, mmio_info_t *info,
         vgic_unlock_rank(v, rank, flags);
         return 1;
     }
-
     case VRANGE32(0x7FE0, 0xBFFC):
         goto write_reserved;
-
     case VRANGE32(0xC000, 0xFFCC):
         goto write_impl_defined;
-
     case VRANGE32(0xFFD0, 0xFFE4):
         goto write_impl_defined;
-
     case VREG32(GICD_PIDR2):
         goto write_ignore_32;
-
     case VRANGE32(0xFFEC, 0xFFFC):
         goto write_impl_defined;
 
@@ -2620,7 +2582,7 @@ static int vgic_v3_hypos_init(struct hypos *d)
     rdist_count = vgic_v3_max_rdist_count(d);
 
     rdist_regions = xzalloc_array(struct vgic_rdist_region, rdist_count);
-    if ( !rdist_regions )
+    if (!rdist_regions)
         return -ENOMEM;
 
     d->arch.vgic.nr_regions = rdist_count;
@@ -2688,7 +2650,7 @@ static void vgic_v3_hypos_free(struct hypos *d)
     vgic_v3_its_free_hypos(d);
 
     radix_tree_destroy(&d->arch.vgic.pend_lpi_tree, NULL);
-    xfree(d->arch.vgic.rdist_regions);
+    free(d->arch.vgic.rdist_regions);
 }
 
 static struct pending_irq *vgic_v3_lpi_to_pending(struct hypos *d,
@@ -2878,9 +2840,9 @@ void hypos_vgic_free(struct hypos *d)
 
     if (d->arch.vgic.handler)
         d->arch.vgic.handler->hypos_free(d);
-    xfree(d->arch.vgic.shared_irqs);
-    xfree(d->arch.vgic.pending_irqs);
-    xfree(d->arch.vgic.allocated_irqs);
+    free(d->arch.vgic.shared_irqs);
+    free(d->arch.vgic.pending_irqs);
+    free(d->arch.vgic.allocated_irqs);
 }
 
 int vcpu_vgic_init(struct vcpu *v)
@@ -2909,7 +2871,7 @@ int vcpu_vgic_init(struct vcpu *v)
 
 int vcpu_vgic_free(struct vcpu *v)
 {
-    xfree(v->arch.vgic.private_irqs);
+    free(v->arch.vgic.private_irqs);
     return 0;
 }
 
@@ -3244,7 +3206,7 @@ void vgic_inject_irq(struct hypos *d, struct vcpu *v,
     if (test_bit(GIC_IRQ_GUEST_ENABLED, &n->status))
         gic_raise_guest_irq(v, virq, priority);
 
-    list_for_each_entry (iter, &v->arch.vgic.inflight_irqs,
+    list_for_each_entry(iter, &v->arch.vgic.inflight_irqs,
             inflight) {
         if (iter->priority > priority) {
             list_add_tail(&n->inflight, &iter->inflight);
@@ -3344,7 +3306,7 @@ void vgic_check_inflight_irqs_pending(struct hypos *d, struct vcpu *v,
 
         p = irq_to_pending(v_target, irq);
 
-        if ( p && !list_empty(&p->inflight) )
+        if (p && !list_empty(&p->inflight))
             MSGH("%pv trying to clear pending interrupt %u.\n",
                  v, irq);
 

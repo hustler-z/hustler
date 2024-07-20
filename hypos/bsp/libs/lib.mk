@@ -13,3 +13,6 @@ libs-y += sort.o
 libs-y += convert.o
 libs-y += bitops.o
 libs-y += bitmap.o
+libs-y += radix.o
+
+# ----------------------------------------------------------

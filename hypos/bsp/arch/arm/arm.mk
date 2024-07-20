@@ -29,3 +29,8 @@ arm-y += tlbflush.o
 arm-y += psci.o
 arm-y += cpu.o
 arm-y += cope.o
+arm-y += pci.o
+arm-y += vpci.o
+arm-y += smmu.o
+
+# ----------------------------------------------------------

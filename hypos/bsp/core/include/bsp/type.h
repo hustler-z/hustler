@@ -91,7 +91,7 @@ typedef enum {
 #define NULL_PTR(p) ((void *)(p) == NULL)
 
 /* Address Pointers */
-typedef unsigned long __attribute__((__mode__(__pointer__))) ap_t;
+typedef unsigned long __attribute__((__mode__(__pointer__))) addr_ptr;
 
 #define __void__(x)     ((void *)(unsigned long)(x))
 // --------------------------------------------------------------
