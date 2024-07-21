@@ -106,6 +106,8 @@ void identify_cpu(struct arm_cpu *c)
      * number.
      */
     c->midr.bits     = READ_SYSREG(MIDR_EL1);
+    /* MPIDR_EL1
+     */
     c->mpidr.bits    = READ_SYSREG(MPIDR_EL1);
     /* ID_PFRx_EL1 AArch64 Processor Feature Registers
      */
