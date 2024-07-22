@@ -13,10 +13,10 @@
 
 void *ioremap_attr(hpa_t start, size_t len, unsigned int attributes)
 {
-    pfn_t pfn = pfn_set(PFN_DOWN(start));
+    hfn_t hfn = hfn_set(PFN_DOWN(start));
     unsigned int offs = start & (PAGE_SIZE - 1);
     unsigned int nr = PFN_UP(offs + len);
-    void *ptr = __vmap(&pfn, nr, 1, 1, attributes, VMAP_DEFAULT);
+    void *ptr = __vmap(&hfn, nr, 1, 1, attributes, VMAP_DEFAULT);
 
     if (ptr == NULL)
         return NULL;

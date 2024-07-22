@@ -53,10 +53,10 @@ extern unsigned long memnode_mapsize;
 extern nid_t *memnode_map;
 extern struct node_data node_data[];
 
-static inline nid_t pfn_to_nid(pfn_t pfn)
+static inline nid_t hfn_to_nid(hfn_t hfn)
 {
     nid_t nid;
-    unsigned long idx = pfn_to_idx(pfn);
+    unsigned long idx = hfn_to_idx(hfn);
 
     ASSERT((idx >> memnode_shift) < memnode_mapsize);
     nid = memnode_map[idx >> memnode_shift];

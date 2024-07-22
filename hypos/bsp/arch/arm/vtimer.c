@@ -21,8 +21,7 @@ static void phys_timer_expired(void *data)
     t->ctl |= CNTx_CTL_PENDING;
     if (!(t->ctl & CNTx_CTL_MASK)) {
         vgic_inject_irq(t->v->hypos, t->v, t->irq, true);
-    } else
-        perfc_incr(vtimer_phys_masked);
+    }
 }
 
 static void virt_timer_expired(void *data)

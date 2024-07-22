@@ -20,7 +20,7 @@ struct membank {
     hpa_t        start;
     size_t       size;
     unsigned int type; /* Assoicated with hpm_type (bsp/board.h) */
-    unsigned int nr_pfns;
+    unsigned int nr_hfns;
 };
 
 struct membanks {
@@ -41,8 +41,8 @@ struct memchunk {
     unsigned long start, end;
 };
 
-pfn_t get_memchunks(unsigned long nr_pfns,
-                    unsigned long pfn_align);
+hfn_t get_memchunks(unsigned long nr_hfns,
+                    unsigned long hfn_align);
 void memchunks_setup(hpa_t ps, hpa_t pe);
 
 int bootmem_setup(void);

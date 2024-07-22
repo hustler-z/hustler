@@ -52,19 +52,19 @@ void __bootfunc vm_init_type(enum vmap_region type, void *start,
 
     for (i = 0, va = (unsigned long)vm_bitmap(type);
             i < nr; ++i, va += PAGE_SIZE) {
-        pfn_t pfn;
+        hfn_t hfn;
         int rc;
 
         if (hypos_get(hypos_status) == HYPOS_EARLY_BOOT_STAGE)
-            pfn = get_memchunks(1, 1);
+            hfn = get_memchunks(1, 1);
         else {
             struct page *pg = alloc_page(0);
 
             BUG_ON(!pg);
-            pfn = page_to_pfn(pg);
+            hfn = page_to_hfn(pg);
         }
 
-        rc = map_pages(va, pfn, 1, PAGE_HYPOS);
+        rc = map_pages(va, hfn, 1, PAGE_HYPOS);
         BUG_ON(rc);
 
         zero_page((void *)va);
@@ -103,7 +103,7 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
 
     spin_lock(&vm_lock);
     for (; ;) {
-        pfn_t pfn;
+        hfn_t hfn;
 
         ASSERT(vm_low[t] == vm_top[t]
                 || !test_bit(vm_low[t], vm_bitmap(t)));
@@ -136,13 +136,13 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
             return NULL;
 
         if (hypos_get(hypos_status) == HYPOS_EARLY_BOOT_STAGE)
-            pfn = get_memchunks(1, 1);
+            hfn = get_memchunks(1, 1);
         else {
             struct page *pg = alloc_page(0);
 
             if (!pg)
                 return NULL;
-            pfn = page_to_pfn(pg);
+            hfn = page_to_hfn(pg);
         }
 
         spin_lock(&vm_lock);
@@ -151,7 +151,7 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
             unsigned long va = (unsigned long)vm_bitmap(t)
                                 + vm_top[t] / 8;
 
-            if (!map_pages(va, pfn, 1, PAGE_HYPOS)) {
+            if (!map_pages(va, hfn, 1, PAGE_HYPOS)) {
                 zero_page((void *)va);
                 vm_top[t] += PAGE_SIZE * 8;
                 if (vm_top[t] > vm_end[t])
@@ -161,10 +161,10 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
         }
 
         if (hypos_get(hypos_status) == HYPOS_EARLY_BOOT_STAGE)
-            memchunks_setup(pfn_to_pa(pfn),
-                            pfn_to_pa(pfn) + PAGE_SIZE);
+            memchunks_setup(hfn_to_pa(hfn),
+                            hfn_to_pa(hfn) + PAGE_SIZE);
         else
-            free_page(pfn_to_page(pfn));
+            free_page(hfn_to_page(hfn));
 
         if (start >= vm_top[t]) {
             spin_unlock(&vm_lock);
@@ -245,7 +245,7 @@ static void vm_free(const void *va)
     spin_unlock(&vm_lock);
 }
 
-void *__vmap(const pfn_t *pfn,
+void *__vmap(const hfn_t *hfn,
              unsigned int granularity,
              unsigned int nr,
              unsigned int align,
@@ -255,8 +255,8 @@ void *__vmap(const pfn_t *pfn,
     void *va = vm_alloc(nr * granularity, align, type);
     unsigned long cur = (unsigned long)va;
 
-    for (; va && nr--; ++pfn, cur += PAGE_SIZE * granularity) {
-        if (map_pages(cur, *pfn, granularity, flags)) {
+    for (; va && nr--; ++hfn, cur += PAGE_SIZE * granularity) {
+        if (map_pages(cur, *hfn, granularity, flags)) {
             vunmap(va);
             va = NULL;
         }
@@ -265,15 +265,15 @@ void *__vmap(const pfn_t *pfn,
     return va;
 }
 
-void *vmap(const pfn_t *pfn, unsigned int nr)
+void *vmap(const hfn_t *hfn, unsigned int nr)
 {
-    return __vmap(pfn, 1, nr, 1, PAGE_HYPOS,
+    return __vmap(hfn, 1, nr, 1, PAGE_HYPOS,
                   VMAP_DEFAULT);
 }
 
-void *vmap_contig(pfn_t pfn, unsigned int nr)
+void *vmap_contig(hfn_t hfn, unsigned int nr)
 {
-    return __vmap(&pfn, nr, 1, 1, PAGE_HYPOS,
+    return __vmap(&hfn, nr, 1, 1, PAGE_HYPOS,
                   VMAP_DEFAULT);
 }
 
@@ -303,7 +303,7 @@ void vunmap(const void *va)
 static void *vmalloc_type(size_t size,
                           enum vmap_region type)
 {
-    pfn_t *pfn;
+    hfn_t *hfn;
     unsigned int i, pages = PFN_UP(size);
     struct page *pg;
     void *va;
@@ -313,28 +313,29 @@ static void *vmalloc_type(size_t size,
     if (PFN_DOWN(size) > pages)
         return NULL;
 
-    pfn = malloc_array(pfn_t, pages);
-    if ( pfn == NULL )
+    hfn = malloc_array(hfn_t, pages);
+    if ( hfn == NULL )
         return NULL;
 
     for (i = 0; i < pages; i++) {
         pg = alloc_page(0);
         if ( pg == NULL )
             goto error;
-        pfn[i] = page_to_pfn(pg);
+        hfn[i] = page_to_hfn(pg);
     }
 
-    va = __vmap(pfn, 1, pages, 1, PAGE_HYPOS, type);
+    va = __vmap(hfn, 1, pages, 1, PAGE_HYPOS, type);
     if ( va == NULL )
         goto error;
 
-    mfree(pfn);
+    mfree(hfn);
     return va;
 
  error:
     while (i--)
-        free_page(pfn_to_page(pfn[i]));
-    mfree(pfn);
+        free_page(hfn_to_page(hfn[i]));
+    mfree(hfn);
+
     return NULL;
 }
 

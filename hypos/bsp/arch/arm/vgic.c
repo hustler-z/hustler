@@ -10,6 +10,164 @@
 #include <bsp/config.h>
 #include <asm/barrier.h>
 
+/* --------------------------------------------------------------
+ * XXX: vGICv3 Implementation
+ *
+ * GICv3 virtualization allows virtual interrupts to be signaled
+ * to the currently scheduled vPE on a pPE.
+ *
+ * Hypervisors create, control, and schedule virtual machines
+ * (VM). A virtual machine is functionally equivalent to a
+ * physical system and contains one or more virtual processors.
+ * Each of those virtual processors contain one or more virtual
+ * PEs (vPEs).
+ *
+ * ICC_*_EL1: Physical CPU Interface Registers
+ *
+ * The hypervisor executing at EL2 uses the regular ICC_*_ELx
+ * registers to handle physical interrupts.
+ *
+ * ICH_*_EL2: Virtualization Control Registers
+ *
+ * The hypervisor has access to additional registers to control
+ * the virtualization features provided by the architecture.
+ * (a) Enabling and disabling the virtual CPU interface.
+ * (b) Accessing virtual register state to enable context switching.
+ * (c) Configuring maintenance interrupts.
+ * (d) Controlling virtual interrupts for the currently scheduled
+ *     vPE.
+ *
+ * ICV_*_EL1: Virtual CPU Interface Registers
+ *                     |vIRQ      |vFIQ
+ *                     ▼          ▼
+ *                     (Virtual PE)
+ *
+ * Software executing in a virtualized environment uses the
+ * ICV_*_EL1 registers to handle virtual interrupts.
+ *
+ * A hypervisor can generate virtual interrupts for the currently
+ * scheduled vPE using the List registers, ICH_LR<n>_EL2. Each
+ * register represents one virtual interrupt, and records:
+ *
+ * (a) vINTID (Virtual INTID)
+ * (b) State
+ * (c) Group
+ * (d) pINTID (Physical INTID)
+ *
+ * XXX: Physical IRQ routed to vPE
+ *
+ * +---------------+
+ * | Physical IRQ  |       +------------------------+
+ * |     from      |------▶| Physical CPU Interface |
+ * | Redistributor |       +------------------------+
+ * +---------------+                   | Physical IRQ asserted
+ *                                     ▼
+ *                         +------------------------+
+ *                         | Hypervisor decides to  |
+ *                         | forward the IRQ to the |
+ *                         | Currently Running vPE. |
+ *                         +------------------------+
+ *                                     | Hypervisor writes list
+ *                                     | register to register a
+ *                                     | virtual IRQ.
+ *                                     ▼
+ *                         +------------------------+
+ *                         | Virtualization Control |
+ *                         +------------------------+
+ *                                     |
+ *                                     ▼
+ *                         +------------------------+
+ *                         | Virtual CPU Interface  |
+ *                         +------------------------+
+ *                                     | Virtual IRQ asserted
+ *                                     ▼
+ *                         +------------------------+
+ *                         |        Guest OS        |
+ *                         +------------------------+
+ *
+ * --------------------------------------------------------------
+ *
+ * (a) A physical interrupt is forwarded to the physical CPU
+ * interface from the Redistributor.
+ *
+ * (b) The physical CPU interface checks whether the physical
+ * interrupt can be forwarded to the PE.
+ * In this instance, the checks pass, and a physical exception
+ * is asserted.
+ *
+ * (c) The interrupt is taken to EL2. The hypervisor reads the
+ * IAR, which returns the pINTID. The pINTID is now in the
+ * Active state. The hypervisor determines that the interrupt
+ * is to be forwarded to the currently running vPE. The
+ * hypervisor writes the pINTID to ICC_EOIR1_EL1. With
+ * ICC_CTLR_EL1.EOImode==1, this only performs priority drop
+ * without deactivating the physical interrupt.
+ *
+ * (d) The hypervisor writes one of the List registers to
+ * register a virtual interrupt as pending. The List
+ * register entry specifies the vINTID that is to be sent and
+ * the original pINTID. The hypervisor
+ * then performs an exception return, returning execution to
+ * the vPE.
+ *
+ * (e) The virtual CPU interface checks whether the virtual
+ * interrupt can be forwarded to the vPE. These checks are the
+ * same as for physical interrupts, other than that they use
+ * the ICV registers. In this instance, the checks pass, and a
+ * virtual exception is asserted.
+ *
+ * (f) The virtual exception is taken to EL1. When software reads
+ * the IAR, the vINTID is returned and the virtual interrupt is
+ * now in the Active state.
+ *
+ * (g) The Guest OS handles the interrupt. When it has finished
+ * handling the interrupt, it writes the EOIR to perform a
+ * priority drop and deactivation. As the List register recorded
+ * the pINTID, this deactivates both the vINTID and pINTID.
+ *
+ * --------------------------------------------------------------
+ * MSI
+ * ITS (Interrupt Translation Service)
+ *
+ * The Interrupt Translation Service (ITS) translates an input
+ * EventID from a device, identified by its DeviceID, and
+ * determines:
+ *   1. The corresponding INTID for this input.
+ *   2. The target Redistributor and, through this, the target
+ *      PE for that INTID.
+ * For GICv3, the ITS performs this function for events that are
+ * translated into physical LPIs. LPIs can be forwarded to a
+ * Redistributor either by an ITS or by a direct write to
+ * GICR_SETLPIR. An implementation must support only one of these
+ * methods.
+ * For GICv4, the ITS also performs this function for interrupts
+ * that are directly injected as virtual LPIs, and for GICV4.1,
+ * virtual SGIs.
+ * An ITS has no effect on physical SGIs, SPIs, or PPIs.
+ * The flow of the ITS translation is as follows:
+ *   1. The DeviceID selects a Device table entry (DTE) in the
+ *      Device table that describes which Interrupt translation
+ *      table (ITT) to use.
+ *   2. The EventID selects an Interrupt translation entry (ITE)
+ *      in the ITT that describes:
+ *        • For physical interrupts:
+ *          — The output physical INTID.
+ *          — The Interrupt collection number, ICID.
+ *        • For virtual interrupts, in GICv4:
+ *          — The output virtual INTID.
+ *          — The vPEID.
+ *          — A doorbell to use if the vPE is not scheduled.
+ *   3. For physical interrupts, ICID selects a Collection table
+ *      entry in the Collection table (CT) that describes the
+ *      target Redistributor, and therefore the target PE, to
+ *      which the interrupt is routed.
+ *   4. For virtual interrupts, in GICv4, the vPEID selects a vPE
+ *      table entry that describes the Redistributor that is
+ *      currently hosting the target vPE to which the interrupt
+ *      is routed.
+ * --------------------------------------------------------------
+ */
+
 #if IS_IMPLEMENTED(__VGIC_IMPL)
 // --------------------------------------------------------------
 

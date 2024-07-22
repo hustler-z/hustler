@@ -12,7 +12,7 @@
 #include <asm/at.h>
 #include <bsp/compiler.h>
 
-#define map_hypos_page(pfn)         __pfn_to_va(pfn_get(pfn))
+#define map_hypos_page(hfn)         __hfn_to_va(hfn_get(hfn))
 #define __map_hypos_page(pg)        page_to_va(pg)
 #define unmap_hypos_page(ptr)       ((void)(ptr))
 

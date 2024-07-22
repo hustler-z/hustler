@@ -34,6 +34,7 @@
  * XXX: Load-Acquire, Store-Release Technique
  * --------------------------------------------------------------
  */
+
 #define gnu_fetch_and_add(x, v) __sync_fetch_and_add(x, v)
 
 // --------------------------------------------------------------

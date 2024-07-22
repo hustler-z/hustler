@@ -37,6 +37,30 @@ static always_inline u16 observe_head(spinlock_tickets_t *t)
     return read_atomic(&t->head);
 }
 
+/* --------------------------------------------------------------
+ * XXX: Spinlock Implementation Based on Atomic Operation
+ *
+ * SPINLOCK_TICKET_INC                - 0x00010000
+ *
+ * Head                   Tail
+ * |◀-------- 16 --------▶|◀-------- 16 --------▶|
+ *
+ * When first got spinlock, head + 1 atomically. compare the
+ * <tail> to <head>. when locked, target lock as below:
+ *  00                  00 00                  01
+ * local lock:
+ *  00                  00 00                  00
+ *
+ * When other try to get held lock. target lock as below:
+ *  00                  00 00                  02
+ *  local lock:
+ *  00                  00 00                  01
+ * then it spins.
+ *
+ * when the held lock been released, then target lock as below:
+ *  00                  01 00                  ?
+ * --------------------------------------------------------------
+ */
 static void always_inline
 spin_lock_common(spinlock_tickets_t *t,
                  void (*cb)(void *data), void *data)

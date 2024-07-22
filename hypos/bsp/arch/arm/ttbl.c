@@ -79,7 +79,7 @@ static void clear_boot_ttbl(void)
 
 static void set_ttbr_base(ttbl_t *root)
 {
-    void *ptr = map_hypos_page(va_to_pfn(&ttbr_base));
+    void *ptr = map_hypos_page(va_to_hfn(&ttbr_base));
 
     ptr += PAGE_OFFSET(&ttbr_base);
 
@@ -105,7 +105,7 @@ void __dump_ttbl_walk(hpa_t ttbr, hpa_t addr,
                       unsigned int root_level,
                       unsigned int nr_root_tables)
 {
-    const pfn_t root_pfn = pa_to_pfn(ttbr);
+    const hfn_t root_hfn = pa_to_hfn(ttbr);
     ttbl_t pte, *mapping;
     unsigned int level, root_table;
     TTBL_OFFSETS(offsets, addr);
@@ -118,7 +118,7 @@ void __dump_ttbl_walk(hpa_t ttbr, hpa_t addr,
     } else
         root_table = 0;
 
-    mapping = map_table(pfn_add(root_pfn, root_table));
+    mapping = map_table(hfn_add(root_hfn, root_table));
 
     for (level = root_level; ; level++) {
         if (offsets[level] > PGTBL_TTBL_ENTRIES)
@@ -133,7 +133,7 @@ void __dump_ttbl_walk(hpa_t ttbr, hpa_t addr,
             break;
 
         unmap_table(mapping);
-        mapping = map_table(pte_get_pfn(pte));
+        mapping = map_table(pte_get_hfn(pte));
     }
 
     unmap_table(mapping);
@@ -155,7 +155,7 @@ int mmu_enabled(void)
     return READ_SYSREG(SCTLR_EL2) & SCTLR_Axx_ELx_M;
 }
 
-ttbl_t pfn_to_entry(pfn_t pfn, unsigned int attr)
+ttbl_t hfn_to_entry(hfn_t hfn, unsigned int attr)
 {
     ttbl_t pte = {
         .ttbl = {
@@ -187,9 +187,9 @@ ttbl_t pfn_to_entry(pfn_t pfn, unsigned int attr)
         break;
     }
 
-    ASSERT(!(pfn_to_pa(pfn) & ~PADDR_MASK));
+    ASSERT(!(hfn_to_pa(hfn) & ~PADDR_MASK));
 
-    pte_set_pfn(pte, pfn);
+    pte_set_hfn(pte, hfn);
 
     return pte;
 }
@@ -198,7 +198,7 @@ ttbl_t __bootfunc pte_of_va(hva_t va)
 {
     hpa_t pa = va + get_globl()->phys_offset;
 
-    return pfn_to_entry(pa_to_pfn(pa), MT_NORMAL);
+    return hfn_to_entry(pa_to_hfn(pa), MT_NORMAL);
 }
 
 /* Enable / Disable Identity Mapping
@@ -209,7 +209,7 @@ void update_idmap(unsigned int ok)
     int ret;
 
     if (ok)
-        ret = map_pages(__pa, pa_to_pfn(__pa), 1,
+        ret = map_pages(__pa, pa_to_hfn(__pa), 1,
                 PAGE_HYPOS_RX);
     else
         ret = remove_maps(__pa, __pa + PAGE_SIZE);
@@ -270,17 +270,17 @@ static void __bootfunc boot_idmap_setup(void)
     zero_page(boot_idmap2);
     zero_page(boot_idmap3);
 
-    pte = pfn_to_entry(va_to_pfn(boot_idmap1), MT_NORMAL);
+    pte = hfn_to_entry(va_to_hfn(boot_idmap1), MT_NORMAL);
     pte.ttbl.table = 1;
     pte.ttbl.uxn = 0;
     write_pte(&boot_pgtbl0[idmap_offset[0]], pte);
 
-    pte = pfn_to_entry(va_to_pfn(boot_idmap2), MT_NORMAL);
+    pte = hfn_to_entry(va_to_hfn(boot_idmap2), MT_NORMAL);
     pte.ttbl.table = 1;
     pte.ttbl.uxn = 0;
     write_pte(&boot_idmap1[idmap_offset[1]], pte);
 
-    pte = pfn_to_entry(va_to_pfn(boot_idmap3), MT_NORMAL);
+    pte = hfn_to_entry(va_to_hfn(boot_idmap3), MT_NORMAL);
     pte.ttbl.table = 1;
     pte.ttbl.uxn = 0;
     write_pte(&boot_idmap2[idmap_offset[2]], pte);

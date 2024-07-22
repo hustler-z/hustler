@@ -14,11 +14,11 @@
 unsigned int __read_mostly vttbl_root_order;
 unsigned int __read_mostly vttbl_root_level;
 
-static pfn_t __read_mostly empty_root_pfn;
+static hfn_t __read_mostly empty_root_hfn;
 
-static u64 generate_vttbr(uint16_t vmid, pfn_t root_pfn)
+static u64 generate_vttbr(uint16_t vmid, hfn_t root_hfn)
 {
-    return (pfn_to_maddr(root_pfn) | ((u64)vmid << 48));
+    return (hfn_to_maddr(root_hfn) | ((u64)vmid << 48));
 }
 
 static struct page *vttbl_alloc_page(struct hypos *d)
@@ -26,9 +26,9 @@ static struct page *vttbl_alloc_page(struct hypos *d)
     struct page *pg;
 
     if (is_hardware_hypos(d)) {
-        pg = alloc_domheap_page(NULL, 0);
+        pg = alloc_pages(NULL, 0);
         if (pg == NULL)
-            MSGH(XENLOG_G_ERR "Failed to allocate VTTBL pages for hwdom.\n");
+            MSGH(XENLOG_G_ERR "Failed to allocate VTTBL pages for hwhypos.\n");
     } else {
         spin_lock(&d->arch.paging.lock);
         pg = page_list_remove_head(&d->arch.paging.vttbl_freelist);
@@ -63,8 +63,8 @@ int vttbl_set_allocation(struct hypos *d, unsigned long pages, bool *preempted)
 
     for ( ; ; ) {
         if (d->arch.paging.vttbl_total_pages < pages) {
-            /* Need to allocate more memory from domheap */
-            pg = alloc_domheap_page(NULL, 0);
+            /* Need to allocate more memory from hyposheap */
+            pg = alloc_hyposheap_page(NULL, 0);
             if (pg == NULL) {
                 MSGH("Failed to allocate VTTBL pages.\n");
                 return -ENOMEM;
@@ -73,7 +73,7 @@ int vttbl_set_allocation(struct hypos *d, unsigned long pages, bool *preempted)
                 d->arch.paging.vttbl_total_pages + 1;
             page_list_add_tail(pg, &d->arch.paging.vttbl_freelist);
         } else if (d->arch.paging.vttbl_total_pages > pages) {
-            /* Need to return memory to domheap */
+            /* Need to return memory to hyposheap */
             pg = page_list_remove_head(&d->arch.paging.vttbl_freelist);
             if(pg) {
                 ACCESS_ONCE(d->arch.paging.vttbl_total_pages) =
@@ -154,10 +154,10 @@ void dump_vttbl_lookup(struct hypos *d, paddr_t addr)
 {
     struct vttbl_hypos *vttbl = vttbl_get_hostvttbl(d);
 
-    MSGH("dom%d IPA 0x%"PRIpaddr"\n", d->hypos_id, addr);
+    MSGH("hypos%d IPA 0x%"PRIpaddr"\n", d->hypos_id, addr);
 
-    MSGH("VTTBL @ %p pfn:%#"PRI_pfn"\n",
-           vttbl->root, pfn_x(page_to_pfn(vttbl->root)));
+    MSGH("VTTBL @ %p hfn:%#"PRI_hfn"\n",
+           vttbl->root, hfn_x(page_to_hfn(vttbl->root)));
 
     dump_pt_walk(page_to_maddr(vttbl->root), addr,
                  VTTBL_ROOT_LEVEL, VTTBL_ROOT_PAGES);
@@ -168,7 +168,7 @@ void vttbl_save_state(struct vcpu *p)
     p->arch.sctlr = READ_SYSREG(SCTLR_EL1);
 
     if (cpus_have_const_cap(ARM64_WORKAROUND_AT_SPECULATE)) {
-        WRITE_SYSREG64(generate_vttbr(INVALID_VMID, empty_root_pfn),
+        WRITE_SYSREG64(generate_vttbr(INVALID_VMID, empty_root_hfn),
                 VTTBR_EL2);
         isb();
     }
@@ -214,7 +214,7 @@ void vttbl_force_tlb_flush_sync(struct vttbl_hypos *vttbl)
         if (!cpus_have_const_cap(ARM64_WORKAROUND_AT_SPECULATE))
             vttbr = vttbl->vttbr;
         else
-            vttbr = generate_vttbr(vttbl->vmid, empty_root_pfn);
+            vttbr = generate_vttbr(vttbl->vmid, empty_root_hfn);
 
         WRITE_SYSREG64(vttbr, VTTBR_EL2);
 
@@ -295,7 +295,7 @@ static int vttbl_next_level(struct vttbl_hypos *vttbl, bool read_only,
 {
     ttbl_t *entry;
     int ret;
-    pfn_t pfn;
+    hfn_t hfn;
 
     entry = *table + offset;
 
@@ -313,15 +313,15 @@ static int vttbl_next_level(struct vttbl_hypos *vttbl, bool read_only,
     if (vttbl_is_mapping(*entry, level))
         return GUEST_TABLE_SUPER_PAGE;
 
-    pfn = ttbl_get_pfn(*entry);
+    hfn = ttbl_get_hfn(*entry);
 
     unmap_hypos_page(*table);
-    *table = map_hypos_page(pfn);
+    *table = map_hypos_page(hfn);
 
     return GUEST_TABLE_NORMAL_PAGE;
 }
 
-pfn_t vttbl_get_entry(struct vttbl_hypos *vttbl, gfn_t gfn,
+hfn_t vttbl_get_entry(struct vttbl_hypos *vttbl, gfn_t gfn,
                     vttbl_type_t *t, vttbl_access_t *a,
                     unsigned int *page_order,
                     bool *valid)
@@ -330,7 +330,7 @@ pfn_t vttbl_get_entry(struct vttbl_hypos *vttbl, gfn_t gfn,
     unsigned int level = 0;
     ttbl_t entry, *table;
     int rc;
-    pfn_t pfn = INVALID_MFN;
+    hfn_t hfn = INVALID_MFN;
     vttbl_type_t _t;
     DECLARE_OFFSETS(offsets, addr);
 
@@ -378,9 +378,9 @@ pfn_t vttbl_get_entry(struct vttbl_hypos *vttbl, gfn_t gfn,
         if (a)
             *a = vttbl_mem_access_radix_get(vttbl, gfn);
 
-        pfn = ttbl_get_pfn(entry);
+        hfn = ttbl_get_hfn(entry);
 
-        pfn = pfn_add(pfn,
+        hfn = hfn_add(hfn,
                       gfn_x(gfn) & ((1UL << XEN_PT_LEVEL_ORDER(level)) - 1));
 
         if (valid)
@@ -394,7 +394,7 @@ out:
     if (page_order)
         *page_order = XEN_PT_LEVEL_ORDER(level);
 
-    return pfn;
+    return hfn;
 }
 
 static void vttbl_set_permission(ttbl_t *e, vttbl_type_t t, vttbl_access_t a)
@@ -468,7 +468,7 @@ static void vttbl_set_permission(ttbl_t *e, vttbl_type_t t, vttbl_access_t a)
     }
 }
 
-static ttbl_t pfn_to_vttbl_entry(pfn_t pfn, vttbl_type_t t, vttbl_access_t a)
+static ttbl_t hfn_to_vttbl_entry(hfn_t hfn, vttbl_type_t t, vttbl_access_t a)
 {
     ttbl_t e = (ttbl_t) {
         .vttbl.af = 1,
@@ -501,9 +501,9 @@ static ttbl_t pfn_to_vttbl_entry(pfn_t pfn, vttbl_type_t t, vttbl_access_t a)
 
     vttbl_set_permission(&e, t, a);
 
-    ASSERT(!(pfn_to_maddr(pfn) & ~PADDR_MASK));
+    ASSERT(!(hfn_to_maddr(hfn) & ~PADDR_MASK));
 
-    ttbl_set_pfn(e, pfn);
+    ttbl_set_hfn(e, hfn);
 
     return e;
 }
@@ -511,7 +511,7 @@ static ttbl_t pfn_to_vttbl_entry(pfn_t pfn, vttbl_type_t t, vttbl_access_t a)
 /* Generate table entry with correct attributes. */
 static ttbl_t page_to_vttbl_table(struct page *page)
 {
-    return pfn_to_vttbl_entry(page_to_pfn(page),
+    return hfn_to_vttbl_entry(page_to_hfn(page),
             vttbl_ram_rw, vttbl_access_rwx);
 }
 
@@ -588,15 +588,15 @@ static int vttbl_mem_access_radix_set(struct vttbl_hypos *vttbl, gfn_t gfn,
 
 static void vttbl_put_l3_page(const ttbl_t pte)
 {
-    pfn_t pfn = ttbl_get_pfn(pte);
+    hfn_t hfn = ttbl_get_hfn(pte);
 
     ASSERT(vttbl_is_valid(pte));
 
     if (vttbl_is_foreign(pte.vttbl.type)) {
-        ASSERT(pfn_valid(pfn));
-        put_page(pfn_to_page(pfn));
-    } else if (vttbl_is_ram(pte.vttbl.type) && is_xen_heap_pfn(pfn))
-        page_set_xenheap_gfn(pfn_to_page(pfn), INVALID_GFN);
+        ASSERT(hfn_valid(hfn));
+        put_page(hfn_to_page(hfn));
+    } else if (vttbl_is_ram(pte.vttbl.type) && is_xen_heap_hfn(hfn))
+        page_set_xenheap_gfn(hfn_to_page(hfn), INVALID_GFN);
 }
 
 /* Free ttbl sub-tree behind an entry */
@@ -605,7 +605,7 @@ static void vttbl_free_entry(struct vttbl_hypos *vttbl,
 {
     unsigned int i;
     ttbl_t *table;
-    pfn_t pfn;
+    hfn_t hfn;
     struct page *pg;
 
     /* Nothing to do if the entry is invalid. */
@@ -620,7 +620,7 @@ static void vttbl_free_entry(struct vttbl_hypos *vttbl,
         return;
     }
 
-    table = map_hypos_page(ttbl_get_pfn(entry));
+    table = map_hypos_page(ttbl_get_hfn(entry));
     for (i = 0; i < XEN_PT_LPAE_ENTRIES; i++)
         vttbl_free_entry(vttbl, *(table + i), level + 1);
 
@@ -628,10 +628,10 @@ static void vttbl_free_entry(struct vttbl_hypos *vttbl,
 
     vttbl_tlb_flush_sync(vttbl);
 
-    pfn = ttbl_get_pfn(entry);
-    ASSERT(pfn_valid(pfn));
+    hfn = ttbl_get_hfn(entry);
+    ASSERT(hfn_valid(hfn));
 
-    pg = pfn_to_page(pfn);
+    pg = hfn_to_page(hfn);
 
     page_list_del(pg, &vttbl->pages);
     vttbl_free_page(vttbl->hypos, pg);
@@ -649,7 +649,7 @@ static bool vttbl_split_superpage(struct vttbl_hypos *vttbl,
     bool rv = true;
 
     /* Convenience aliases */
-    pfn_t pfn = ttbl_get_pfn(*entry);
+    hfn_t hfn = ttbl_get_hfn(*entry);
     unsigned int next_level = level + 1;
     unsigned int level_order = XEN_PT_LEVEL_ORDER(next_level);
 
@@ -657,7 +657,7 @@ static bool vttbl_split_superpage(struct vttbl_hypos *vttbl,
     ASSERT(vttbl_is_superpage(*entry, level));
 
     page = vttbl_alloc_page(vttbl->hypos);
-    if ( !page )
+    if (!page)
         return false;
 
     page_list_add(page, &vttbl->pages);
@@ -667,7 +667,7 @@ static bool vttbl_split_superpage(struct vttbl_hypos *vttbl,
         ttbl_t *new_entry = table + i;
 
         pte = *entry;
-        ttbl_set_pfn(pte, pfn_add(pfn, i << level_order));
+        ttbl_set_hfn(pte, hfn_add(hfn, i << level_order));
 
         pte.vttbl.table = (next_level == 3);
 
@@ -696,7 +696,7 @@ static bool vttbl_split_superpage(struct vttbl_hypos *vttbl,
 static int __vttbl_set_entry(struct vttbl_hypos *vttbl,
                            gfn_t sgfn,
                            unsigned int page_order,
-                           pfn_t spfn,
+                           hfn_t shfn,
                            vttbl_type_t t,
                            vttbl_access_t a)
 {
@@ -705,7 +705,7 @@ static int __vttbl_set_entry(struct vttbl_hypos *vttbl,
     ttbl_t *entry, *table, orig_pte;
     int rc;
     /* A mapping is removed if the MFN is invalid. */
-    bool removing_mapping = pfn_eq(spfn, INVALID_MFN);
+    bool removing_mapping = hfn_eq(shfn, INVALID_MFN);
     DECLARE_OFFSETS(offsets, gfn_to_gaddr(sgfn));
 
     ASSERT(vttbl_is_write_locked(vttbl));
@@ -770,7 +770,7 @@ static int __vttbl_set_entry(struct vttbl_hypos *vttbl,
     ASSERT(!vttbl->mem_access_enabled || page_order == 0 ||
            vttbl->hypos->is_dying);
 
-    ASSERT(!pfn_eq(INVALID_MFN, spfn) || (a == vttbl_access_rwx));
+    ASSERT(!hfn_eq(INVALID_MFN, shfn) || (a == vttbl_access_rwx));
 
     rc = vttbl_mem_access_radix_set(vttbl, sgfn, a);
     if (rc)
@@ -783,7 +783,7 @@ static int __vttbl_set_entry(struct vttbl_hypos *vttbl,
         /* Flush can be deferred if the entry is removed */
         vttbl->need_flush |= !!ttbl_is_valid(orig_pte);
     else {
-        ttbl_t pte = pfn_to_vttbl_entry(spfn, t, a);
+        ttbl_t pte = hfn_to_vttbl_entry(shfn, t, a);
 
         if (level < 3)
             pte.vttbl.table = 0; /* Superpage entry */
@@ -820,7 +820,7 @@ static int __vttbl_set_entry(struct vttbl_hypos *vttbl,
         rc = 0;
 
     if (vttbl_is_valid(orig_pte) &&
-        !pfn_eq(ttbl_get_pfn(*entry), ttbl_get_pfn(orig_pte)))
+        !hfn_eq(ttbl_get_hfn(*entry), ttbl_get_hfn(orig_pte)))
         vttbl_free_entry(vttbl, orig_pte, level);
 
 out:
@@ -832,7 +832,7 @@ out:
 int vttbl_set_entry(struct vttbl_hypos *vttbl,
                   gfn_t sgfn,
                   unsigned long nr,
-                  pfn_t spfn,
+                  hfn_t shfn,
                   vttbl_type_t t,
                   vttbl_access_t a)
 {
@@ -845,7 +845,7 @@ int vttbl_set_entry(struct vttbl_hypos *vttbl,
         unsigned long mask;
         unsigned long order;
 
-        mask = !pfn_eq(spfn, INVALID_MFN) ? pfn_x(spfn) : 0;
+        mask = !hfn_eq(shfn, INVALID_MFN) ? hfn_x(shfn) : 0;
         mask |= gfn_x(sgfn) | nr;
 
         /* Always map 4k by 4k when memaccess is enabled */
@@ -858,13 +858,13 @@ int vttbl_set_entry(struct vttbl_hypos *vttbl,
         else
             order = THIRD_ORDER;
 
-        rc = __vttbl_set_entry(vttbl, sgfn, order, spfn, t, a);
+        rc = __vttbl_set_entry(vttbl, sgfn, order, shfn, t, a);
         if (rc)
             break;
 
         sgfn = gfn_add(sgfn, (1 << order));
-        if (!pfn_eq(spfn, INVALID_MFN))
-           spfn = pfn_add(spfn, (1 << order));
+        if (!hfn_eq(shfn, INVALID_MFN))
+           shfn = hfn_add(shfn, (1 << order));
 
         nr -= (1 << order);
     }
@@ -874,14 +874,14 @@ int vttbl_set_entry(struct vttbl_hypos *vttbl,
 
 /* Invalidate all entries in the table. The vttbl should be write locked. */
 static void vttbl_invalidate_table(struct vttbl_hypos *vttbl,
-                                   pfn_t pfn)
+                                   hfn_t hfn)
 {
     ttbl_t *table;
     unsigned int i;
 
     ASSERT(vttbl_is_write_locked(vttbl));
 
-    table = map_hypos_page(pfn);
+    table = map_hypos_page(hfn);
 
     for (i = 0; i < XEN_PT_LPAE_ENTRIES; i++) {
         ttbl_t pte = table[i];
@@ -922,7 +922,7 @@ static void vttbl_invalidate_root(struct vttbl_hypos *vttbl)
     vttbl_write_lock(vttbl);
 
     for (i = 0; i < VTTBL_ROOT_LEVEL; i++)
-        vttbl_invalidate_table(vttbl, page_to_pfn(vttbl->root + i));
+        vttbl_invalidate_table(vttbl, page_to_hfn(vttbl->root + i));
 
     vttbl_write_unlock(vttbl);
 }
@@ -944,7 +944,7 @@ bool vttbl_resolve_translation_fault(struct hypos *d, gfn_t gfn)
 
     vttbl_write_lock(vttbl);
 
-    if ( gfn_x(gfn) > gfn_x(vttbl->max_mapped_gfn) )
+    if (gfn_x(gfn) > gfn_x(vttbl->max_mapped_gfn))
         goto out;
 
     table = vttbl_get_root_pointer(vttbl, gfn);
@@ -982,7 +982,7 @@ bool vttbl_resolve_translation_fault(struct hypos *d, gfn_t gfn)
         goto out_unmap;
 
     if (ttbl_is_table(entry, level))
-        vttbl_invalidate_table(vttbl, ttbl_get_pfn(entry));
+        vttbl_invalidate_table(vttbl, ttbl_get_hfn(entry));
 
     resolved = true;
     entry.vttbl.valid = 1;
@@ -1003,7 +1003,7 @@ static struct page *vttbl_allocate_root(void)
     struct page *page;
     unsigned int i;
 
-    page = alloc_domheap_pages(NULL, VTTBL_ROOT_ORDER, 0);
+    page = alloc_pages(VTTBL_ROOT_ORDER, 0);
     if (page == NULL)
         return NULL;
 
@@ -1022,7 +1022,7 @@ static int vttbl_alloc_table(struct hypos *d)
         return -ENOMEM;
 
     vttbl->vttbr = generate_vttbr(vttbl->vmid,
-                                  page_to_pfn(vttbl->root));
+                                  page_to_hfn(vttbl->root));
 
     vttbl_write_lock(vttbl);
     vttbl_force_tlb_flush_sync(vttbl);
@@ -1140,7 +1140,7 @@ int relinquish_vttbl_mapping(struct hypos *d)
 
     for ( ; gfn_x(start) < gfn_x(end);
           start = gfn_next_boundary(start, order)) {
-        pfn_t pfn = vttbl_get_entry(vttbl, start, &t, NULL, &order, NULL);
+        hfn_t hfn = vttbl_get_entry(vttbl, start, &t, NULL, &order, NULL);
 
         count++;
 
@@ -1149,7 +1149,7 @@ int relinquish_vttbl_mapping(struct hypos *d)
             break;
         }
 
-        if (!pfn_eq(pfn, INVALID_MFN)) {
+        if (!hfn_eq(hfn, INVALID_MFN)) {
             rc = __vttbl_set_entry(vttbl, start, order, INVALID_MFN,
                                  vttbl_invalid, vttbl_access_rwx);
             if (unlikely(rc)) {
@@ -1200,7 +1200,7 @@ static void setup_virt_paging_one(void *data)
     WRITE_SYSREG(vtcr, VTCR_EL2);
 
     if (cpus_have_cap(ARM64_WORKAROUND_AT_SPECULATE)) {
-        WRITE_SYSREG64(generate_vttbr(INVALID_VMID, empty_root_pfn),
+        WRITE_SYSREG64(generate_vttbr(INVALID_VMID, empty_root_hfn),
                 VTTBR_EL2);
         WRITE_SYSREG(READ_SYSREG(HCR_EL2) | HCR_VM, HCR_EL2);
         isb();
@@ -1290,7 +1290,7 @@ void __init setup_virt_paging(void)
             exec_panic("Unable to allocate root table for "
                        "ARM64_WORKAROUND_AT_SPECULATE\n");
 
-        empty_root_pfn = page_to_pfn(root);
+        empty_root_hfn = page_to_hfn(root);
     }
 
     setup_virt_paging_one(NULL);
@@ -1324,6 +1324,5 @@ static int __init cpu_virt_paging_init(void)
     return 0;
 }
 __bootcall(cpu_virt_paging_init);
-
-#endif
 // --------------------------------------------------------------
+#endif

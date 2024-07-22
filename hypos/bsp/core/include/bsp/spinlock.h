@@ -16,15 +16,6 @@
 
 #define SPINLOCK_CPU_BITS    16
 
-/*
- * Head                   Tail
- * |◀-------- 16 --------▶|◀-------- 16 --------▶|
- *
- * When first got spinlock, head + 1 atomically.
- * compare the <tail> to <head>:
- * (a) if equals, continue on executing.
- * (b) if not equals, loop until lock been released.
- */
 typedef union {
     u32 head_tail;
     struct {

@@ -88,6 +88,13 @@
  * to the interrupt controller removes the requirement for a
  * dedicated signal per interrupt source.
  *
+ * XXX: A message-based interrupt is an interrupt that is
+ *      asserted because of a memory write access to an
+ *      assigned address. Physical interrupts can be converted
+ *      to message-based interrupts. Message-based interrupts
+ *      can support either level-sensitive or edge-triggered
+ *      behavior, although LPIs are always edge-triggered.
+ *
  * --------------------------------------------------------------
  * Interrupt Type        Registers
  * --------------------------------------------------------------
@@ -1540,12 +1547,12 @@ static void __bootfunc gicv3_ioremap_distributor(hpa_t dist_paddr)
 static int gicv3_iomem_deny_access(struct hypos *d)
 {
     int rc, i;
-    unsigned long pfn, nr;
+    unsigned long hfn, nr;
 
-    pfn = dbase >> PAGE_SHIFT;
+    hfn = dbase >> PAGE_SHIFT;
     nr = PFN_UP(KB(64));
 
-    rc = iomem_deny_access(d, pfn, pfn + nr);
+    rc = iomem_deny_access(d, hfn, hfn + nr);
     if (rc)
         return rc;
 
@@ -1554,28 +1561,28 @@ static int gicv3_iomem_deny_access(struct hypos *d)
         return rc;
 
     for (i = 0; i < gicv3.rdist_count; i++) {
-        pfn = gicv3.rdist_regions[i].base >> PAGE_SHIFT;
+        hfn = gicv3.rdist_regions[i].base >> PAGE_SHIFT;
         nr = PFN_UP(gicv3.rdist_regions[i].size);
 
-        rc = iomem_deny_access(d, pfn, pfn + nr);
+        rc = iomem_deny_access(d, hfn, hfn + nr);
         if (rc)
             return rc;
     }
 
     if (cbase != INVALID_PADDR) {
-        pfn = cbase >> PAGE_SHIFT;
+        hfn = cbase >> PAGE_SHIFT;
         nr = PFN_UP(csize);
 
-        rc = iomem_deny_access(d, pfn, pfn + nr);
+        rc = iomem_deny_access(d, hfn, hfn + nr);
         if (rc)
             return rc;
     }
 
     if (vbase != INVALID_PADDR) {
-        pfn = vbase >> PAGE_SHIFT;
+        hfn = vbase >> PAGE_SHIFT;
         nr = PFN_UP(csize);
 
-        return iomem_deny_access(d, pfn, pfn + nr);
+        return iomem_deny_access(d, hfn, hfn + nr);
     }
 
     return 0;
@@ -2453,17 +2460,17 @@ struct pending_irq *gicv3_assign_guest_event(struct hypos *d,
 int gicv3_its_deny_access(struct hypos *d)
 {
     int rc = 0;
-    unsigned long pfn, nr;
+    unsigned long hfn, nr;
     const struct host_its *its_data;
 
     list_for_each_entry(its_data, &host_its_list, entry) {
-        pfn = __pa_to_pfn(its_data->addr);
+        hfn = __pa_to_hfn(its_data->addr);
         nr = PFN_UP(its_data->size);
 
-        rc = iomem_deny_access(d, pfn, pfn + nr);
+        rc = iomem_deny_access(d, hfn, hfn + nr);
         if (rc) {
             MSGH("iomem_deny_access failed for %lx:%lx \r\n",
-                    pfn, nr);
+                    hfn, nr);
             break;
         }
     }

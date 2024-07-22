@@ -9,10 +9,19 @@
 // --------------------------------------------------------------
 #include <bsp/config.h>
 
-/* XXX: SMMUv3 Only
- *      SMMU translates addresses for DMA requests from system I/O
- *      devices before the requests are passed into the system
- *      interconnect.
+/* --------------------------------------------------------------
+ * XXX: System Memory Management Unit
+ *
+ * A System Memory Management Unit (SMMU) performs a task that is
+ * analogous to that of an MMU in a PE, translating addresses for
+ * DMA requests from system I/O devices before the requests are
+ * passed into the system interconnect. It is active for DMA only.
+ * Traffic in the other direction, from the system or PE to the
+ * device, is managed by other means – for example, the PE MMUs.
+ *
+ * --------------------------------------------------------------
+ *
+ * XXX: SMMUv3 Only
  *
  *   +--------------+               (a) Translation
  *   |    Device    |               (b) Protection
@@ -27,6 +36,8 @@
  *   +--------------------+   +--------+
  *   |    Interconnect    |--▶| Memory |
  *   +--------------------+   +--------+
+ *
+ * --------------------------------------------------------------
  */
 
 #if IS_IMPLEMENTED(__SMMUV3_IMPL)
@@ -844,26 +855,6 @@ arm_smmu_atc_inv_to_cmd(int ssid, unsigned long iova, size_t size,
 	page_start	= iova >> inval_grain_shift;
 	page_end	= (iova + size - 1) >> inval_grain_shift;
 
-	/*
-	 * In an ATS Invalidate Request, the address must be aligned on the
-	 * range size, which must be a power of two number of page sizes. We
-	 * thus have to choose between grossly over-invalidating the region, or
-	 * splitting the invalidation into multiple commands. For simplicity
-	 * we'll go with the first solution, but should refine it in the future
-	 * if multiple commands are shown to be more efficient.
-	 *
-	 * Find the smallest power of two that covers the range. The most
-	 * significant differing bit between the start and end addresses,
-	 * fls(start ^ end), indicates the required span. For example:
-	 *
-	 * We want to invalidate pages [8; 11]. This is already the ideal range:
-	 *		x = 0b1000 ^ 0b1011 = 0b11
-	 *		span = 1 << fls(x) = 4
-	 *
-	 * To invalidate pages [7; 10], we need to invalidate [0; 15]:
-	 *		x = 0b0111 ^ 0b1010 = 0b1101
-	 *		span = 1 << fls(x) = 16
-	 */
 	log2_span	= fls_long(page_start ^ page_end);
 	span_mask	= (1ULL << log2_span) - 1;
 
@@ -900,19 +891,6 @@ static int arm_smmu_atc_inv_domain(struct arm_smmu_domain *smmu_domain,
 	if (!(smmu_domain->smmu->features & ARM_SMMU_FEAT_ATS))
 		return 0;
 
-	/*
-	 * Ensure that we've completed prior invalidation of the main TLBs
-	 * before we read 'nr_ats_masters' in case of a concurrent call to
-	 * arm_smmu_enable_ats():
-	 *
-	 *	--- unmap() ---                 --- arm_smmu_enable_ats() ---
-	 *	TLBI+SYNC                       atomic_inc(&nr_ats_masters);
-	 *	smp_mb();                       [...]
-	 *	atomic_read(&nr_ats_masters);   pci_enable_ats() (see writel())
-	 *
-	 * Ensures that we always see the incremented 'nr_ats_masters' count if
-	 * ATS was enabled at the PCI device before completion of the TLBI.
-	 */
 	smp_mb();
 	if (!atomic_read(&smmu_domain->nr_ats_masters))
 		return 0;
@@ -2182,28 +2160,6 @@ static inline int arm_smmu_device_acpi_probe(struct platform_device *pdev,
 }
 #endif
 
-static int arm_smmu_device_dt_probe(struct platform_device *pdev,
-				    struct arm_smmu_device *smmu)
-{
-	struct device *dev = pdev;
-	u32 cells;
-	int ret = -EINVAL;
-
-	if (!dt_property_read_u32(dev->of_node, "#iommu-cells", &cells))
-		dev_err(dev, "missing #iommu-cells property\n");
-	else if (cells != 1)
-		dev_err(dev, "invalid #iommu-cells value (%d)\n", cells);
-	else
-		ret = 0;
-
-	parse_driver_options(smmu);
-
-	if (dt_get_property(dev->of_node, "dma-coherent", NULL))
-		smmu->features |= ARM_SMMU_FEAT_COHERENCY;
-
-	return ret;
-}
-
 static unsigned long arm_smmu_resource_size(struct arm_smmu_device *smmu)
 {
 	if (smmu->options & ARM_SMMU_OPT_PAGE0_REGS_ONLY)
@@ -2348,7 +2304,7 @@ out_free_smmu:
 
 static uint32_t __ro_after_init platform_features = ARM_SMMU_FEAT_COHERENCY;
 
-static int __must_check arm_smmu_iotlb_flush_all(struct domain *d)
+static int __must_check arm_smmu_iotlb_flush_all(struct hypos *d)
 {
 	struct arm_smmu_xen_domain *xen_domain = dom_iommu(d)->arch.priv;
 	struct iommu_domain *io_domain;
@@ -2372,7 +2328,7 @@ static int __must_check arm_smmu_iotlb_flush_all(struct domain *d)
 	return 0;
 }
 
-static int __must_check arm_smmu_iotlb_flush(struct domain *d, dfn_t dfn,
+static int __must_check arm_smmu_iotlb_flush(struct hypos *d, dfn_t dfn,
 				unsigned long page_count, unsigned int flush_flags)
 {
 	return arm_smmu_iotlb_flush_all(d);
@@ -2396,7 +2352,7 @@ static struct arm_smmu_device *arm_smmu_get_by_dev(const struct device *dev)
 	return NULL;
 }
 
-static struct iommu_domain *arm_smmu_get_domain(struct domain *d,
+static struct iommu_domain *arm_smmu_get_domain(struct hypos *d,
 				struct device *dev)
 {
 	struct iommu_domain *io_domain;
@@ -2426,7 +2382,7 @@ static void arm_smmu_destroy_iommu_domain(struct iommu_domain *io_domain)
 	arm_smmu_domain_free(io_domain);
 }
 
-static int arm_smmu_assign_dev(struct domain *d, u8 devfn,
+static int arm_smmu_assign_dev(struct hypos *d, u8 devfn,
 		struct device *dev, u32 flag)
 {
 	int ret = 0;
@@ -2467,7 +2423,7 @@ out:
 	return ret;
 }
 
-static int arm_smmu_deassign_dev(struct domain *d, struct device *dev)
+static int arm_smmu_deassign_dev(struct hypos *d, struct device *dev)
 {
 	struct iommu_domain *io_domain = arm_smmu_get_domain(d, dev);
 	struct arm_smmu_xen_domain *xen_domain = dom_iommu(d)->arch.priv;
@@ -2492,7 +2448,7 @@ static int arm_smmu_deassign_dev(struct domain *d, struct device *dev)
 	return 0;
 }
 
-static int arm_smmu_reassign_dev(struct domain *s, struct domain *t,
+static int arm_smmu_reassign_dev(struct hypos *s, struct hypos *t,
 				u8 devfn,  struct device *dev)
 {
 	int ret = 0;
@@ -2518,7 +2474,7 @@ static int arm_smmu_reassign_dev(struct domain *s, struct domain *t,
 	return 0;
 }
 
-static int arm_smmu_iommu_xen_domain_init(struct domain *d)
+static int arm_smmu_iommu_xen_domain_init(struct hypos *d)
 {
 	struct arm_smmu_xen_domain *xen_domain;
 
@@ -2538,7 +2494,7 @@ static int arm_smmu_iommu_xen_domain_init(struct domain *d)
 	return 0;
 }
 
-static void arm_smmu_iommu_xen_domain_teardown(struct domain *d)
+static void arm_smmu_iommu_xen_domain_teardown(struct hypos *d)
 {
 	struct arm_smmu_xen_domain *xen_domain = dom_iommu(d)->arch.priv;
 
@@ -2547,17 +2503,17 @@ static void arm_smmu_iommu_xen_domain_teardown(struct domain *d)
 }
 
 static const struct iommu_ops arm_smmu_iommu_ops = {
-	.page_sizes		= PAGE_SIZE_4K,
-	.init			= arm_smmu_iommu_xen_domain_init,
-	.hwdom_init		= arch_iommu_hwdom_init,
-	.teardown		= arm_smmu_iommu_xen_domain_teardown,
-	.iotlb_flush		= arm_smmu_iotlb_flush,
-	.assign_device		= arm_smmu_assign_dev,
-	.reassign_device	= arm_smmu_reassign_dev,
-	.map_page		= arm_iommu_map_page,
-	.unmap_page		= arm_iommu_unmap_page,
-	.dt_xlate		= arm_smmu_dt_xlate,
-	.add_device		= arm_smmu_add_device,
+	.page_sizes		 = PAGE_SIZE,
+	.init			 = arm_smmu_iommu_xen_domain_init,
+	.hwdom_init		 = arch_iommu_hwdom_init,
+	.teardown		 = arm_smmu_iommu_xen_domain_teardown,
+	.iotlb_flush	 = arm_smmu_iotlb_flush,
+	.assign_device	 = arm_smmu_assign_dev,
+	.reassign_device = arm_smmu_reassign_dev,
+	.map_page		 = arm_iommu_map_page,
+	.unmap_page		 = arm_iommu_unmap_page,
+	.dt_xlate		 = arm_smmu_dt_xlate,
+	.add_device		 = arm_smmu_add_device,
 };
 
 static __bootfunc int arm_smmu_dt_init(struct dt_device_node *dev,
@@ -2566,10 +2522,6 @@ static __bootfunc int arm_smmu_dt_init(struct dt_device_node *dev,
 	int rc;
 	const struct arm_smmu_device *smmu;
 
-	/*
-	 * Even if the device can't be initialized, we don't want to
-	 * give the SMMU device to dom0.
-	 */
 	dt_device_set_used_by(dev, DOMID_XEN);
 
 	rc = arm_smmu_device_probe(dt_to_dev(dev));
@@ -2578,10 +2530,8 @@ static __bootfunc int arm_smmu_dt_init(struct dt_device_node *dev,
 
 	iommu_set_ops(&arm_smmu_iommu_ops);
 
-	/* Find the just added SMMU and retrieve its features. */
 	smmu = arm_smmu_get_by_dev(dt_to_dev(dev));
 
-	/* It would be a bug not to find the SMMU we just added. */
 	BUG_ON(!smmu);
 
 	platform_features &= smmu->features;

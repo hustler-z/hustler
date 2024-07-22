@@ -25,7 +25,7 @@ static DEFINE_SPINLOCK(heap_lock);
 
 #define bits_to_zone(b) (((b) < (PAGE_SHIFT + 1)) ? 1U : ((b) - PAGE_SHIFT))
 #define page_to_zone(pg) (is_xen_heap_page(pg) ? HYPOS_MEMZONE :  \
-                          (flsl(pfn_get(page_to_pfn(pg))) ? : 1))
+                          (flsl(hfn_get(page_to_hfn(pg))) ? : 1))
 
 typedef struct page_list_head heap_by_zone_and_order_t[NR_ZONES][MAX_ORDER+1];
 static heap_by_zone_and_order_t *_heap[MAX_NUMNODES];
@@ -36,7 +36,7 @@ static unsigned long node_need_scrub[MAX_NUMNODES];
 static unsigned long *avail[MAX_NUMNODES];
 static long total_avail_pages;
 
-static unsigned long init_node(int node, unsigned long pfn,
+static unsigned long init_node(int node, unsigned long hfn,
                                     unsigned long nr, bool *use_tail)
 {
     /* First node to be discovered has its heap metadata statically alloced. */
@@ -55,21 +55,21 @@ static unsigned long init_node(int node, unsigned long pfn,
         needed = 0;
     }
     else if ( *use_tail && nr >= needed &&
-              arch_pfns_in_directmap(pfn + nr - needed, needed) &&
+              arch_hfns_in_directmap(hfn + nr - needed, needed) &&
               (!xenheap_bits ||
-               !((pfn + nr - 1) >> (xenheap_bits - PAGE_SHIFT))) )
+               !((hfn + nr - 1) >> (xenheap_bits - PAGE_SHIFT))) )
     {
-        _heap[node] = pfn_to_virt(pfn + nr - needed);
-        avail[node] = pfn_to_virt(pfn + nr - 1) +
+        _heap[node] = hfn_to_virt(hfn + nr - needed);
+        avail[node] = hfn_to_virt(hfn + nr - 1) +
                       PAGE_SIZE - sizeof(**avail) * NR_ZONES;
     }
     else if ( nr >= needed &&
-              arch_pfns_in_directmap(pfn, needed) &&
+              arch_hfns_in_directmap(hfn, needed) &&
               (!xenheap_bits ||
-               !((pfn + needed - 1) >> (xenheap_bits - PAGE_SHIFT))) )
+               !((hfn + needed - 1) >> (xenheap_bits - PAGE_SHIFT))) )
     {
-        _heap[node] = pfn_to_virt(pfn);
-        avail[node] = pfn_to_virt(pfn + needed - 1) +
+        _heap[node] = hfn_to_virt(hfn);
+        avail[node] = hfn_to_virt(hfn + needed - 1) +
                       PAGE_SIZE - sizeof(**avail) * NR_ZONES;
         *use_tail = false;
     }
@@ -279,7 +279,7 @@ static struct page *alloc_pages(
     bool need_tlbflush = false;
     uint32_t tlbflush_timestamp = 0;
     unsigned int dirty_cnt = 0;
-    pfn_t pfn;
+    hfn_t hfn;
 
     /* Make sure there are enough bits in memflags for nodeID. */
     BUILD_BUG_ON((_MEMF_bits - _MEMF_node) < (8 * sizeof(nodeid_t)));
@@ -357,8 +357,8 @@ static struct page *alloc_pages(
         if ( (pg[i].count_info & ~PGC_need_scrub) != PGC_state_free )
         {
             printk(XENLOG_ERR
-                   "pg[%u] MFN %"PRI_pfn" c=%#lx o=%u v=%#lx t=%#x\n",
-                   i, pfn_get(page_to_pfn(pg + i)),
+                   "pg[%u] MFN %"PRI_hfn" c=%#lx o=%u v=%#lx t=%#x\n",
+                   i, hfn_get(page_to_hfn(pg + i)),
                    pg[i].count_info, pg[i].v.free.order,
                    pg[i].u.free.val, pg[i].tlbflush_timestamp);
             BUG();
@@ -410,9 +410,9 @@ static struct page *alloc_pages(
      * Ensure cache and RAM are consistent for platforms where the guest
      * can control its own visibility of/through the cache.
      */
-    pfn = page_to_pfn(pg);
+    hfn = page_to_hfn(pg);
     for ( i = 0; i < (1U << order); i++ )
-        flush_page_to_ram(pfn_get(pfn) + i, !(memflags & MEMF_no_icache_flush));
+        flush_page_to_ram(hfn_get(hfn) + i, !(memflags & MEMF_no_icache_flush));
 
     return pg;
 }
@@ -736,11 +736,11 @@ bool scrub_free_pages(void)
     return node_to_scrub(false) != NUMA_NO_NODE;
 }
 
-static bool mark_page_free(struct page *pg, pfn_t pfn)
+static bool mark_page_free(struct page *pg, hfn_t hfn)
 {
     bool pg_offlined = false;
 
-    ASSERT(pfn_get(pfn) == pfn_get(page_to_pfn(pg)));
+    ASSERT(hfn_get(hfn) == hfn_get(page_to_hfn(pg)));
 
     switch ( pg->count_info & PGC_state )
     {
@@ -757,8 +757,8 @@ static bool mark_page_free(struct page *pg, pfn_t pfn)
 
     default:
         printk(XENLOG_ERR
-               "pg MFN %"PRI_pfn" c=%#lx o=%u v=%#lx t=%#x\n",
-               pfn_get(pfn),
+               "pg MFN %"PRI_hfn" c=%#lx o=%u v=%#lx t=%#x\n",
+               hfn_get(hfn),
                pg->count_info, pg->v.free.order,
                pg->u.free.val, pg->tlbflush_timestamp);
         BUG();
@@ -770,8 +770,8 @@ static bool mark_page_free(struct page *pg, pfn_t pfn)
         page_set_tlbflush_timestamp(pg);
 
     /* This page is not a guest frame any more. */
-    page_set_owner(pg, NULL); /* set_gpfn_from_pfn snoops pg owner */
-    set_gpfn_from_pfn(pfn_get(pfn), INVALID_M2P_ENTRY);
+    page_set_owner(pg, NULL); /* set_ghfn_from_hfn snoops pg owner */
+    set_ghfn_from_hfn(hfn_get(hfn), INVALID_M2P_ENTRY);
 
     return pg_offlined;
 }
@@ -781,8 +781,8 @@ static void free_pages(
     struct page *pg, unsigned int order, bool need_scrub)
 {
     unsigned long mask;
-    pfn_t pfn = page_to_pfn(pg);
-    unsigned int i, node = pfn_to_nid(pfn);
+    hfn_t hfn = page_to_hfn(pg);
+    unsigned int i, node = hfn_to_nid(hfn);
     unsigned int zone = page_to_zone(pg);
     bool pg_offlined = false;
 
@@ -792,7 +792,7 @@ static void free_pages(
 
     for ( i = 0; i < (1 << order); i++ )
     {
-        if ( mark_page_free(&pg[i], pfn_add(pfn, i)) )
+        if ( mark_page_free(&pg[i], hfn_add(hfn, i)) )
             pg_offlined = true;
 
         if ( need_scrub )
@@ -817,12 +817,12 @@ static void free_pages(
     {
         mask = 1UL << order;
 
-        if ( (pfn_get(page_to_pfn(pg)) & mask) )
+        if ( (hfn_get(page_to_hfn(pg)) & mask) )
         {
             struct page *predecessor = pg - mask;
 
             /* Merge with predecessor block? */
-            if ( !pfn_valid(page_to_pfn(predecessor)) ||
+            if ( !hfn_valid(page_to_hfn(predecessor)) ||
                  !page_state_is(predecessor, free) ||
                  (predecessor->count_info & PGC_no_buddy_merge) ||
                  (PFN_ORDER(predecessor) != order) ||
@@ -846,7 +846,7 @@ static void free_pages(
             struct page *successor = pg + mask;
 
             /* Merge with successor block? */
-            if ( !pfn_valid(page_to_pfn(successor)) ||
+            if ( !hfn_valid(page_to_hfn(successor)) ||
                  !page_state_is(successor, free) ||
                  (successor->count_info & PGC_no_buddy_merge) ||
                  (PFN_ORDER(successor) != order) ||
@@ -879,7 +879,7 @@ static unsigned long mark_page_offline(struct page *pg, int broken)
 {
     unsigned long nx, x, y = pg->count_info;
 
-    ASSERT(page_is_ram_type(pfn_get(page_to_pfn(pg)), RAM_TYPE_CONVENTIONAL));
+    ASSERT(page_is_ram_type(hfn_get(page_to_hfn(pg)), RAM_TYPE_CONVENTIONAL));
     ASSERT(spin_is_locked(&heap_lock));
 
     do {
@@ -928,23 +928,23 @@ static int reserve_heap_page(struct page *pg)
 
 }
 
-int offline_page(pfn_t pfn, int broken, uint32_t *status)
+int offline_page(hfn_t hfn, int broken, uint32_t *status)
 {
     unsigned long old_info = 0;
     struct domain *owner;
     struct page *pg;
 
-    if ( !pfn_valid(pfn) )
+    if ( !hfn_valid(hfn) )
     {
         dprintk(XENLOG_WARNING,
-                "try to offline out of range page %"PRI_pfn"\n", pfn_get(pfn));
+                "try to offline out of range page %"PRI_hfn"\n", hfn_get(hfn));
         return -EINVAL;
     }
 
     *status = 0;
-    pg = pfn_to_page(pfn);
+    pg = hfn_to_page(hfn);
 
-    if ( is_xen_fixed_pfn(pfn) )
+    if ( is_xen_fixed_hfn(hfn) )
     {
         *status = PG_OFFLINE_XENPAGE | PG_OFFLINE_FAILED |
           (DOMID_XEN << PG_OFFLINE_OWNER_SHIFT);
@@ -955,7 +955,7 @@ int offline_page(pfn_t pfn, int broken, uint32_t *status)
      * N.B. xen's txt in x86_64 is marked reserved and handled already.
      * Also kexec range is reserved.
      */
-    if ( !page_is_ram_type(pfn_get(pfn), RAM_TYPE_CONVENTIONAL) )
+    if ( !page_is_ram_type(hfn_get(hfn), RAM_TYPE_CONVENTIONAL) )
     {
         *status = PG_OFFLINE_FAILED | PG_OFFLINE_NOT_CONV_RAM;
         return -EINVAL;
@@ -1034,22 +1034,22 @@ int offline_page(pfn_t pfn, int broken, uint32_t *status)
 
 /*
  * Online the memory.
- *   The caller should make sure end_pfn <= max_page,
+ *   The caller should make sure end_hfn <= max_page,
  *   if not, expand_pages() should be called prior to online_page().
  */
-unsigned int online_page(pfn_t pfn, uint32_t *status)
+unsigned int online_page(hfn_t hfn, uint32_t *status)
 {
     unsigned long x, nx, y;
     struct page *pg;
     int ret;
 
-    if ( !pfn_valid(pfn) )
+    if ( !hfn_valid(hfn) )
     {
         dprintk(XENLOG_WARNING, "call expand_pages() first\n");
         return -EINVAL;
     }
 
-    pg = pfn_to_page(pfn);
+    pg = hfn_to_page(hfn);
 
     spin_lock(&heap_lock);
 
@@ -1090,11 +1090,11 @@ unsigned int online_page(pfn_t pfn, uint32_t *status)
     return ret;
 }
 
-int query_page_offline(pfn_t pfn, uint32_t *status)
+int query_page_offline(hfn_t hfn, uint32_t *status)
 {
     struct page *pg;
 
-    if ( !pfn_valid(pfn) || !page_is_ram_type(pfn_get(pfn), RAM_TYPE_CONVENTIONAL) )
+    if ( !hfn_valid(hfn) || !page_is_ram_type(hfn_get(hfn), RAM_TYPE_CONVENTIONAL) )
     {
         dprintk(XENLOG_WARNING, "call expand_pages() first\n");
         return -EINVAL;
@@ -1103,7 +1103,7 @@ int query_page_offline(pfn_t pfn, uint32_t *status)
     *status = 0;
     spin_lock(&heap_lock);
 
-    pg = pfn_to_page(pfn);
+    pg = hfn_to_page(hfn);
 
     if ( page_state_is(pg, offlining) )
         *status |= PG_OFFLINE_STATUS_OFFLINE_PENDING;
@@ -1124,8 +1124,8 @@ static void __pages_setup(const struct page *pg,
     unsigned long s, e;
     unsigned int nid = page_to_nid(pg);
 
-    s = pfn_get(page_to_pfn(pg));
-    e = pfn_get(pfn_add(page_to_pfn(pg + nr_pages - 1), 1));
+    s = hfn_get(page_to_hfn(pg));
+    e = hfn_get(hfn_add(page_to_hfn(pg + nr_pages - 1), 1));
     if ( unlikely(!avail[nid]) )
     {
         bool use_tail = IS_ALIGNED(s, 1UL << MAX_ORDER) &&
@@ -1146,7 +1146,7 @@ static void __pages_setup(const struct page *pg,
 
         if ( s )
             inc_order = min(inc_order, ffsl(s) - 1U);
-        free_pages(pfn_to_page(_pfn(s)), inc_order, need_scrub);
+        free_pages(hfn_to_page(_hfn(s)), inc_order, need_scrub);
         s += (1UL << inc_order);
     }
 }
@@ -1161,7 +1161,7 @@ static void _pages_setup(
      * Keep MFN 0 away from the buddy allocator to avoid crossing zone
      * boundary when merging two buddies.
      */
-    if ( !pfn_get(page_to_pfn(pg)) )
+    if ( !hfn_get(page_to_hfn(pg)) )
     {
         if ( nr_pages-- <= 1 )
             return;
@@ -1173,10 +1173,10 @@ static void _pages_setup(
      * Some pages may not go through the boot allocator (e.g reserved
      * memory at boot but released just after --- kernel, initramfs,
      * etc.).
-     * Update first_valid_pfn to ensure those regions are covered.
+     * Update first_valid_hfn to ensure those regions are covered.
      */
     spin_lock(&heap_lock);
-    first_valid_pfn = pfn_min(page_to_pfn(pg), first_valid_pfn);
+    first_valid_hfn = hfn_min(page_to_hfn(pg), first_valid_hfn);
     spin_unlock(&heap_lock);
 
     if ( system_state < SYS_STATE_active && opt_bootscrub == BOOTSCRUB_IDLE )
@@ -1219,8 +1219,8 @@ int __init end_boot_allocator(void)
     for (i = 0; i < nr_memchunks; i++) {
         struct memchunks *r = &memchunks_list[i];
         if ((mc->start < mc->end) &&
-            (pfn_to_nid(_pfn(mc->start)) == cpu_to_node(0))) {
-            pages_setup(pfn_to_page(_pfn(mc->start)), mc->end - mc->start);
+            (hfn_to_nid(_hfn(mc->start)) == cpu_to_node(0))) {
+            pages_setup(hfn_to_page(_hfn(mc->start)), mc->end - mc->start);
             mc->end = mc->start;
             break;
         }
@@ -1228,7 +1228,7 @@ int __init end_boot_allocator(void)
     for (i = nr_memchunks; i-- > 0; ) {
         struct memchunks *r = &memchunks_list[i];
         if (mc->start < mc->end)
-            pages_setup(pfn_to_page(_pfn(mc->start)), mc->end - mc->start)
+            pages_setup(hfn_to_page(_hfn(mc->start)), mc->end - mc->start)
     }
 
     nr_memchunks = 0;
@@ -1268,9 +1268,9 @@ void pages_setup(hpa_t ps, hpa_t pe)
     if (pe <= ps)
         return;
 
-    if (ps && !is_heap_pfn(pfn_add(pa_to_pfn(ps), -1)))
+    if (ps && !is_heap_hfn(hfn_add(pa_to_hfn(ps), -1)))
         ps += PAGE_SIZE;
-    if (!is_heap_pfn(pa_to_pfn(pe)))
+    if (!is_heap_hfn(pa_to_hfn(pe)))
         pe -= PAGE_SIZE;
 
     _pages_setup(pa_to_page(ps), (pe - ps) >> PAGE_SHIFT);
@@ -1375,8 +1375,8 @@ int __bootfunc hypmem_setup(void)
     for (i = 0; i < nr_memchunks; i++) {
         struct memchunk *mc = &memchunks_list[i];
         if ((mc->start < mc->end) &&
-            (pfn_to_nid(pfn_set(mc->start)) == cpu_to_node(0))) {
-            _pages_setup(pfn_to_page(pfn_set(mc->start)),
+            (hfn_to_nid(hfn_set(mc->start)) == cpu_to_node(0))) {
+            _pages_setup(hfn_to_page(hfn_set(mc->start)),
                     mc->end - mc->start);
             mc->end = mc->start;
             break;
@@ -1386,7 +1386,7 @@ int __bootfunc hypmem_setup(void)
     for (i = nr_memchunks; i-- > 0; ) {
         struct memchunk *mc = &memchunks_list[i];
         if (mc->start < mc->end)
-            _pages_setup(pfn_to_page(pfn_set(mc->start)),
+            _pages_setup(hfn_to_page(hfn_set(mc->start)),
                     mc->end - mc->start);
     }
 

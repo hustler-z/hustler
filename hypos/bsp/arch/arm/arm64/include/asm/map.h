@@ -15,18 +15,18 @@
 #include <bsp/debug.h>
 
 int map_pages(unsigned long va,
-              pfn_t pfn,
-              unsigned long nr_pfns,
+              hfn_t hfn,
+              unsigned long nr_hfns,
               unsigned int flags);
 int remove_maps(unsigned long start,
                 unsigned long end);
 void update_idmap(unsigned int ok);
-ttbl_t *map_table(pfn_t pfn);
+ttbl_t *map_table(hfn_t hfn);
 void unmap_table(const ttbl_t *table);
 
 int populate_ttbl_range(unsigned long va,
-                        unsigned long nr_pfns);
-void set_fixmap(unsigned int map, pfn_t pfn,
+                        unsigned long nr_hfns);
+void set_fixmap(unsigned int map, hfn_t hfn,
                 unsigned int flags);
 void clear_fixmap(unsigned int map);
 
@@ -38,21 +38,21 @@ enum mapping_code {
 
 extern ttbl_t hypos_fixmap[PGTBL_TTBL_ENTRIES];
 
-static inline void arch_pfn_map(unsigned int slot, pfn_t pfn)
+static inline void arch_hfn_map(unsigned int slot, hfn_t hfn)
 {
     ttbl_t *entry = &hypos_fixmap[slot];
     ttbl_t pte;
 
     ASSERT(!pte_is_valid(*entry));
 
-    pte = pfn_to_entry(pfn, PAGE_HYPOS_RW);
+    pte = hfn_to_entry(hfn, PAGE_HYPOS_RW);
     pte.ttbl.table = 1;
     write_pte(entry, pte);
 
     isb();
 }
 
-static inline void arch_pfn_unmap(unsigned int slot)
+static inline void arch_hfn_unmap(unsigned int slot)
 {
     ttbl_t pte;
 

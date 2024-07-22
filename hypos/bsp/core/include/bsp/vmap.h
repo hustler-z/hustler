@@ -23,10 +23,10 @@ enum vmap_region {
 
 void vm_init_type(enum vmap_region type, void *start, void *end);
 
-void *__vmap(const pfn_t *pfn, unsigned int granularity, unsigned int nr,
+void *__vmap(const hfn_t *hfn, unsigned int granularity, unsigned int nr,
              unsigned int align, unsigned int flags, enum vmap_region type);
-void *vmap(const pfn_t *pfn, unsigned int nr);
-void *vmap_contig(pfn_t pfn, unsigned int nr);
+void *vmap(const hfn_t *hfn, unsigned int nr);
+void *vmap_contig(hfn_t hfn, unsigned int nr);
 void vunmap(const void *va);
 
 void *vmalloc(size_t size);

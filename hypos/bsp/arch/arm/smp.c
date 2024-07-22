@@ -413,7 +413,7 @@ void cpu_hotplug_done(void)
 static void set_smp_cpu_up(unsigned long mpidr)
 {
 
-    void *ptr = map_hypos_page(va_to_pfn(&smpboot_cpu));
+    void *ptr = map_hypos_page(va_to_hfn(&smpboot_cpu));
 
     ptr += PAGE_OFFSET(&smpboot_cpu);
 

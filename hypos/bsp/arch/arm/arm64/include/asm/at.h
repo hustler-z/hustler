@@ -183,43 +183,46 @@ static inline bool pte_is_mapped(ttbl_t pte, unsigned int level)
         return !pte.walk.table;
 }
 
-/*
- * VFN -> IFN -> PFN (GPA -> IPA -> HPA)
- * vfn_t   -  Virtual Page Frame Number
- * ifn_t   -  Immediate Physical Page Frame Number
- * pfn_t   -  Physical Page Frame Number
+/* --------------------------------------------------------------
+ * XXX: HPA ◀---▶ HVA ◀---▶ GPA ◀---▶ GVA
+ *       |         |         |
+ *       ▼         ▼         ▼
+ *      hfn_t     vfn_t     gpn_t
+ *        \        |         /
+ *         (managed by hypos)
+ * --------------------------------------------------------------
  */
-TYPE_SAFE(unsigned long, pfn);
+TYPE_SAFE(unsigned long, hfn);
 
-#define pte_get_pfn(pte)      (pfn_set((pte).walk.base))
-#define pte_set_pfn(pte, pfn) \
-    (pte).walk.base = pfn_get(pfn)
+#define pte_get_hfn(pte)      (hfn_set((pte).walk.base))
+#define pte_set_hfn(pte, hfn) \
+    (pte).walk.base = hfn_get(hfn)
 
 #define INVALID_PFN_RAW   (~0UL)
-#define INVALID_PFN       pfn_set(INVALID_PFN_RAW)
+#define INVALID_PFN       hfn_set(INVALID_PFN_RAW)
 #define INVALID_PFN_INIT  { INVALID_PFN_RAW }
 
-static inline pfn_t pfn_max(pfn_t x, pfn_t y)
+static inline hfn_t hfn_max(hfn_t x, hfn_t y)
 {
-    return pfn_set(max(pfn_get(x), pfn_get(y)));
+    return hfn_set(max(hfn_get(x), hfn_get(y)));
 }
 
-static inline pfn_t pfn_min(pfn_t x, pfn_t y)
+static inline hfn_t hfn_min(hfn_t x, hfn_t y)
 {
-    return pfn_set(min(pfn_get(x), pfn_get(y)));
+    return hfn_set(min(hfn_get(x), hfn_get(y)));
 }
 
-static inline bool pfn_eq(pfn_t x, pfn_t y)
+static inline bool hfn_eq(hfn_t x, hfn_t y)
 {
-    return pfn_get(x) == pfn_get(y);
+    return hfn_get(x) == hfn_get(y);
 }
 
-static inline pfn_t pfn_add(pfn_t x, long i)
+static inline hfn_t hfn_add(hfn_t x, long i)
 {
-    return pfn_set(pfn_get(x) + i);
+    return hfn_set(hfn_get(x) + i);
 }
 
-ttbl_t pfn_to_entry(pfn_t pfn, unsigned int attr);
+ttbl_t hfn_to_entry(hfn_t hfn, unsigned int attr);
 // --------------------------------------------------------------
 
 /* AT => Ask mmu to do <address translation>
@@ -271,48 +274,48 @@ static inline hpa_t _va_to_pa(hva_t va) {
 }
 
 #define va_to_pa(va)     _va_to_pa((hva_t)(va))
-#define va_to_pfn(va)    pfn_set((va_to_pa((hva_t)va) >> PAGE_SHIFT))
+#define va_to_hfn(va)    hfn_set((va_to_pa((hva_t)va) >> PAGE_SHIFT))
 
-#define __pa_to_pfn(pa)  ((unsigned long)(pa) >> PAGE_SHIFT)
-#define pa_to_pfn(pa)    pfn_set(__pa_to_pfn(pa))
+#define __pa_to_hfn(pa)  ((unsigned long)(pa) >> PAGE_SHIFT)
+#define pa_to_hfn(pa)    hfn_set(__pa_to_hfn(pa))
 
 #define pa_to_directmapoff(x) (x)
 #define directmapoff_to_pa(x) (x)
 
-#define __pfn_to_idx(x)  (x)
-#define __idx_to_pfn(x)  (x)
-#define pfn_to_idx(pfn)  __pfn_to_idx(pfn_get(pfn))
-#define idx_to_pfn(idx)  pfn_set(__idx_to_pfn(idx))
+#define __hfn_to_idx(x)  (x)
+#define __idx_to_hfn(x)  (x)
+#define hfn_to_idx(hfn)  __hfn_to_idx(hfn_get(hfn))
+#define idx_to_hfn(idx)  hfn_set(__idx_to_hfn(idx))
 // --------------------------------------------------------------
 extern unsigned long page_frame_table_base_idx;
 extern unsigned long page_frame_table_va_end;
 // --------------------------------------------------------------
-#define pfn_to_page(pfn) \
-    (page_frame_table + (pfn_to_idx(pfn) - page_frame_table_base_idx))
+#define hfn_to_page(hfn) \
+    (page_frame_table + (hfn_to_idx(hfn) - page_frame_table_base_idx))
 
-#define page_to_pfn(pg) \
-    (idx_to_pfn((unsigned long)((pg) - page_frame_table) \
+#define page_to_hfn(pg) \
+    (idx_to_hfn((unsigned long)((pg) - page_frame_table) \
                 + page_frame_table_base_idx))
 
-#define vmap_to_pfn(va)  pa_to_pfn(va_to_pa((hva_t)(va)))
-#define vmap_to_page(va) pfn_to_page(vmap_to_pfn(va))
+#define vmap_to_hfn(va)  pa_to_hfn(va_to_pa((hva_t)(va)))
+#define vmap_to_page(va) hfn_to_page(vmap_to_hfn(va))
 // --------------------------------------------------------------
 extern unsigned long directmap_va_start;
 extern unsigned long directmap_va_end;
-extern pfn_t directmap_pfn_start;
-extern pfn_t directmap_pfn_end;
+extern hfn_t directmap_hfn_start;
+extern hfn_t directmap_hfn_end;
 extern unsigned long directmap_base_idx;
 // --------------------------------------------------------------
 
-#define is_heap_pfn(pfn) ({                  \
-    unsigned long _pfn = pfn_get(pfn);       \
-    (_pfn >= pfn_get(directmap_pfn_start) && \
-     _pfn < pfn_get(directmap_pfn_end));     \
+#define is_heap_hfn(hfn) ({                  \
+    unsigned long _hfn = hfn_get(hfn);       \
+    (_hfn >= hfn_get(directmap_hfn_start) && \
+     _hfn < hfn_get(directmap_hfn_end));     \
 })
 
 static inline void *pa_to_va(hpa_t pa)
 {
-    ASSERT((pfn_to_idx(pa_to_pfn(pa)) - directmap_base_idx)
+    ASSERT((hfn_to_idx(pa_to_hfn(pa)) - directmap_base_idx)
            < (HVM_DMAP_SIZE >> PAGE_SHIFT));
 
     return (void *)(HYPOS_HEAP_VIRT_START -
@@ -321,13 +324,13 @@ static inline void *pa_to_va(hpa_t pa)
 }
 
 #define __va(x)          (pa_to_va(x))
-#define pfn_to_va(pfn)   (pa_to_va(pfn_get(pfn) << PAGE_SHIFT))
-#define __va_to_pfn(va)  (va_to_pa(va) >> PAGE_SHIFT)
-#define __pfn_to_va(pfn) (pa_to_va((hpa_t)(pfn) << PAGE_SHIFT))
+#define hfn_to_va(hfn)   (pa_to_va(hfn_get(hfn) << PAGE_SHIFT))
+#define __va_to_hfn(va)  (va_to_pa(va) >> PAGE_SHIFT)
+#define __hfn_to_va(hfn) (pa_to_va((hpa_t)(hfn) << PAGE_SHIFT))
 
 #define __pa(x)          (va_to_pa(x))
-#define pfn_to_pa(pfn)   ((hpa_t)(pfn_get(pfn) << PAGE_SHIFT))
-#define __pfn_to_pa(pfn) ((hpa_t)((pfn) << PAGE_SHIFT))
+#define hfn_to_pa(hfn)   ((hpa_t)(hfn_get(hfn) << PAGE_SHIFT))
+#define __hfn_to_pa(hfn) ((hpa_t)((hfn) << PAGE_SHIFT))
 // --------------------------------------------------------------
 TYPE_SAFE(unsigned long, ifn);
 
@@ -397,8 +400,8 @@ struct pglist_head {
 #define page_to_idx(pg)         ((pg) - page_frame_table)
 #define idx_to_page(idx)        (page_frame_table + (idx))
 
-#define pa_to_page(pa)          pfn_to_page(pa_to_pfn(pa))
-#define page_to_pa(pg)          (pfn_to_pa(page_to_pfn(pg)))
+#define pa_to_page(pa)          hfn_to_page(pa_to_hfn(pa))
+#define page_to_pa(pg)          (hfn_to_pa(page_to_hfn(pg)))
 
 #define NR_PAGEFRAME            (HYPOS_PAGE_FRAME_SIZE / sizeof(*page_frame_table))
 
@@ -411,14 +414,14 @@ static inline struct page *va_to_page(const void *v)
     ASSERT(va < directmap_va_end);
 
     idx = (va - HYPOS_HEAP_VIRT_START) >> PAGE_SHIFT;
-    idx += pfn_to_idx(directmap_pfn_start);
+    idx += hfn_to_idx(directmap_hfn_start);
 
     return page_frame_table + idx - directmap_base_idx;
 }
 
 static inline void *page_to_va(const struct page *pg)
 {
-    return pfn_to_va(page_to_pfn(pg));
+    return hfn_to_va(page_to_hfn(pg));
 }
 
 #define PGLIST_HEAD_INIT(name)  { NULL, NULL }

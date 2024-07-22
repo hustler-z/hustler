@@ -24,14 +24,14 @@
 // --------------------------------------------------------------
 static __initdata DECLARE_BITMAP(inuse, NUM_FIX_PFNMAP);
 
-__bootfunc void *map_pfn(pfn_t pfn)
+__bootfunc void *map_hfn(hfn_t hfn)
 {
     unsigned int bit, slot;
 
     bit = find_first_zero_bit(inuse, NUM_FIX_PFNMAP);
 
     if (bit == NUM_FIX_PFNMAP)
-        exec_panic("Out of pfn map slots\n");
+        exec_panic("Out of hfn map slots\n");
 
     set_bit(bit, inuse);
     slot = bit + FIX_PFNMAP_START;
@@ -39,12 +39,12 @@ __bootfunc void *map_pfn(pfn_t pfn)
     ASSERT(slot >= FIX_PFNMAP_START &&
             slot <= FIX_PFNMAP_END);
 
-    arch_pfn_map(slot, pfn);
+    arch_hfn_map(slot, hfn);
 
     return fix_to_va(slot);
 }
 
-void __bootfunc unmap_pfn(const void *vp)
+void __bootfunc unmap_hfn(const void *vp)
 {
     unsigned int bit;
     unsigned int slot = va_to_fix((unsigned long)vp);
@@ -54,13 +54,13 @@ void __bootfunc unmap_pfn(const void *vp)
 
     bit = slot - FIX_PFNMAP_START;
     clear_bit(bit, inuse);
-    arch_pfn_unmap(slot);
+    arch_hfn_unmap(slot);
 }
 
-ttbl_t *map_table(pfn_t pfn)
+ttbl_t *map_table(hfn_t hfn)
 {
     if (hypos_get(hypos_status) == HYPOS_EARLY_BOOT_STAGE)
-        return map_pfn(pfn);
+        return map_hfn(hfn);
     else {
         MSGH("Not Implemented yet.\n");
         return NULL;
@@ -70,27 +70,27 @@ ttbl_t *map_table(pfn_t pfn)
 void unmap_table(const ttbl_t *table)
 {
     if (hypos_get(hypos_status) == HYPOS_EARLY_BOOT_STAGE)
-        unmap_pfn(table);
+        unmap_hfn(table);
     else
         MSGH("Not Implemented yet.\n");
 }
 
 static int create_ttbl(ttbl_t *entry)
 {
-    pfn_t pfn;
+    hfn_t hfn;
     void *ptr;
     ttbl_t pte;
 
     if (hypos_get(hypos_status) != HYPOS_EARLY_BOOT_STAGE) {
         MSGH("Not Implemented yet\n");
     } else
-        pfn = get_memchunks(1, 1);
+        hfn = get_memchunks(1, 1);
 
-    ptr = map_table(pfn);
+    ptr = map_table(hfn);
     zero_page(ptr);
     unmap_table(ptr);
 
-    pte = pfn_to_entry(pfn, MT_NORMAL);
+    pte = hfn_to_entry(hfn, MT_NORMAL);
     pte.ttbl.table = 1;
     write_pte(entry, pte);
 
@@ -104,7 +104,7 @@ static int ttbl_next_level(bool read_only,
 {
     ttbl_t *entry;
     int ret;
-    pfn_t pfn;
+    hfn_t hfn;
 
     entry = *table + offset;
 
@@ -124,19 +124,19 @@ static int ttbl_next_level(bool read_only,
     if (pte_is_mapped(*entry, level))
         return MAP_SPAGE;
 
-    pfn = pte_get_pfn(*entry);
+    hfn = pte_get_hfn(*entry);
     unmap_table(*table);
-    *table = map_table(pfn);
+    *table = map_table(hfn);
 
     return MAP_NORMAL;
 }
 
 static bool ttbl_check_entry(ttbl_t entry,
-                             pfn_t pfn,
+                             hfn_t hfn,
                              unsigned int level,
                              unsigned int flags)
 {
-    if ((flags & _PAGE_PRESENT) && pfn_eq(pfn, INVALID_PFN)) {
+    if ((flags & _PAGE_PRESENT) && hfn_eq(hfn, INVALID_PFN)) {
         if (!pte_is_valid(entry)) {
             MSGH("Unable to modify the invalid entry.\n");
             return false;
@@ -157,7 +157,7 @@ static bool ttbl_check_entry(ttbl_t entry,
             return false;
         }
     } else if (flags & _PAGE_PRESENT) {
-        ASSERT(!pfn_eq(pfn, INVALID_PFN));
+        ASSERT(!hfn_eq(hfn, INVALID_PFN));
 
         if (pte_is_valid(entry)) {
             if (pte_is_mapped(entry, level))
@@ -167,7 +167,7 @@ static bool ttbl_check_entry(ttbl_t entry,
             return false;
         }
     } else if (!(flags & (_PAGE_PRESENT|_PAGE_POPULATE))) {
-        ASSERT(pfn_eq(pfn, INVALID_PFN));
+        ASSERT(hfn_eq(hfn, INVALID_PFN));
 
         if (pte_is_table(entry, level)) {
             MSGH("Uable to remove a table.\n");
@@ -180,7 +180,7 @@ static bool ttbl_check_entry(ttbl_t entry,
         }
     } else {
         ASSERT(flags & _PAGE_POPULATE);
-        ASSERT(pfn_eq(pfn, INVALID_PFN));
+        ASSERT(hfn_eq(hfn, INVALID_PFN));
     }
 
     return true;
@@ -188,16 +188,16 @@ static bool ttbl_check_entry(ttbl_t entry,
 
 /* Update an entry at the level @target
  */
-static int ttbl_update_entry(pfn_t root,
+static int ttbl_update_entry(hfn_t root,
                              unsigned long va,
-                             pfn_t pfn,
+                             hfn_t hfn,
                              unsigned int target,
                              unsigned int flags)
 {
     int ret;
     unsigned int level;
     ttbl_t *table;
-    bool read_only = pfn_eq(pfn, INVALID_PFN)
+    bool read_only = hfn_eq(hfn, INVALID_PFN)
             && !(flags & _PAGE_POPULATE);
     ttbl_t pte, *entry;
 
@@ -235,7 +235,7 @@ static int ttbl_update_entry(pfn_t root,
 
     ret = -EINVAL;
 
-    if (!ttbl_check_entry(*entry, pfn, level, flags))
+    if (!ttbl_check_entry(*entry, hfn, level, flags))
         goto out;
 
     ret = 0;
@@ -246,8 +246,8 @@ static int ttbl_update_entry(pfn_t root,
     if (!(flags & _PAGE_PRESENT))
         memset(&pte, 0x00, sizeof(pte));
     else {
-        if (!pfn_eq(pfn, INVALID_PFN)) {
-            pte = pfn_to_entry(pfn, PAGE_AI_MASK(flags));
+        if (!hfn_eq(hfn, INVALID_PFN)) {
+            pte = hfn_to_entry(hfn, PAGE_AI_MASK(flags));
             pte.ttbl.table = (level == 3);
         } else
             pte = *entry;
@@ -268,14 +268,14 @@ out:
 }
 
 static int ttbl_mapping_level(unsigned long vfn,
-                              pfn_t pfn,
+                              hfn_t hfn,
                               unsigned long nr,
                               unsigned int flags)
 {
     unsigned int level;
     unsigned long mask;
 
-    mask = !pfn_eq(pfn, INVALID_PFN) ? pfn_get(pfn) : 0;
+    mask = !hfn_eq(hfn, INVALID_PFN) ? hfn_get(hfn) : 0;
     mask |= vfn;
 
     if (likely(!(flags & _PAGE_BLOCK)))
@@ -295,7 +295,7 @@ static int ttbl_mapping_level(unsigned long vfn,
 #define TTBL_4K_NR_CONTIG   16
 
 static unsigned int ttbl_check_contig(unsigned long vfn,
-                                      pfn_t pfn,
+                                      hfn_t hfn,
                                       unsigned int level,
                                       unsigned long left,
                                       unsigned int flags)
@@ -305,12 +305,12 @@ static unsigned int ttbl_check_contig(unsigned long vfn,
     if (!(flags & _PAGE_BLOCK))
         return 1;
 
-    if (pfn_eq(pfn, INVALID_PFN))
+    if (hfn_eq(hfn, INVALID_PFN))
         return 1;
 
     nr_contig = BIT(PGTBL_LEVEL_ORDER(level), UL) * TTBL_4K_NR_CONTIG;
 
-    if ((left < nr_contig) || ((pfn_get(pfn) | vfn) & (nr_contig - 1)))
+    if ((left < nr_contig) || ((hfn_get(hfn) | vfn) & (nr_contig - 1)))
         return 1;
 
     return TTBL_4K_NR_CONTIG;
@@ -319,15 +319,15 @@ static unsigned int ttbl_check_contig(unsigned long vfn,
 static DEFINE_SPINLOCK(ttbl_lock);
 
 static int ttbl_update(unsigned long va,
-                       pfn_t pfn,
-                       const unsigned long nr_pfns,
+                       hfn_t hfn,
+                       const unsigned long nr_hfns,
                        unsigned int flags)
 {
     int ret = 0;
     unsigned long vfn = va >> PAGE_SHIFT;
-    unsigned long left = nr_pfns;
+    unsigned long left = nr_hfns;
     unsigned int order, level, nr_contig, new_flags;
-    const pfn_t root = pa_to_pfn(READ_SYSREG(TTBR0_EL2));
+    const hfn_t root = pa_to_hfn(READ_SYSREG(TTBR0_EL2));
 
     if ((flags & _PAGE_PRESENT) && !PAGE_IS_RO(flags) &&
         !PAGE_XN_MASK(flags)) {
@@ -348,24 +348,24 @@ static int ttbl_update(unsigned long va,
     spin_lock(&ttbl_lock);
 
     while (left) {
-        level = ttbl_mapping_level(vfn, pfn, left, flags);
+        level = ttbl_mapping_level(vfn, hfn, left, flags);
         order = PGTBL_LEVEL_ORDER(level);
 
         ASSERT(left >= BIT(order, UL));
 
-        nr_contig = ttbl_check_contig(vfn, pfn, level, left, flags);
+        nr_contig = ttbl_check_contig(vfn, hfn, level, left, flags);
         new_flags = flags | ((nr_contig > 1) ? _PAGE_CONTIG : 0);
 
         for (; nr_contig > 0; nr_contig--) {
-            ret = ttbl_update_entry(root, vfn << PAGE_SHIFT, pfn, level,
+            ret = ttbl_update_entry(root, vfn << PAGE_SHIFT, hfn, level,
                                     new_flags);
             if (ret)
                 break;
 
             vfn += 1U << order;
 
-            if (!pfn_eq(pfn, INVALID_PFN))
-                pfn = pfn_add(pfn, 1U << order);
+            if (!hfn_eq(hfn, INVALID_PFN))
+                hfn = hfn_add(hfn, 1U << order);
 
             left -= (1U << order);
         }
@@ -374,8 +374,8 @@ static int ttbl_update(unsigned long va,
             break;
     }
 
-    if (!((flags & _PAGE_PRESENT) && !pfn_eq(pfn, INVALID_PFN)))
-        flush_tlb_range_va(va, PAGE_SIZE * nr_pfns);
+    if (!((flags & _PAGE_PRESENT) && !hfn_eq(hfn, INVALID_PFN)))
+        flush_tlb_range_va(va, PAGE_SIZE * nr_hfns);
     else
         isb();
 
@@ -385,11 +385,11 @@ static int ttbl_update(unsigned long va,
 }
 
 int map_pages(unsigned long va,
-              pfn_t pfn,
-              unsigned long nr_pfns,
+              hfn_t hfn,
+              unsigned long nr_hfns,
               unsigned int flags)
 {
-    return ttbl_update(va, pfn, nr_pfns, flags);
+    return ttbl_update(va, hfn, nr_hfns, flags);
 }
 
 int remove_maps(unsigned long start,
@@ -400,18 +400,18 @@ int remove_maps(unsigned long start,
 }
 
 int __bootfunc populate_ttbl_range(unsigned long va,
-                                   unsigned long nr_pfns)
+                                   unsigned long nr_hfns)
 {
-    return ttbl_update(va, INVALID_PFN, nr_pfns,
+    return ttbl_update(va, INVALID_PFN, nr_hfns,
             _PAGE_POPULATE);
 }
 
-void set_fixmap(unsigned int map, pfn_t pfn,
+void set_fixmap(unsigned int map, hfn_t hfn,
                 unsigned int flags)
 {
     int ret;
 
-    ret = map_pages(HYPOS_FIXMAP_ADDR(map), pfn, 1, flags);
+    ret = map_pages(HYPOS_FIXMAP_ADDR(map), hfn, 1, flags);
 
     BUG_ON(ret != 0);
 }
