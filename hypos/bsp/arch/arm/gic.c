@@ -2264,7 +2264,7 @@ int gicv3_its_map_guest_device(struct hypos *d,
 
             if (valid) {
                 MSGH("d%d tried to remap guest ITS device 0x%x to host device 0x%x\n",
-                        d->hypos_id, guest_devid, host_devid);
+                        d->hid, guest_devid, host_devid);
                 return -EBUSY;
             }
 
@@ -2387,7 +2387,7 @@ static struct its_device *get_its_device(struct hypos *d,
 }
 
 static struct pending_irq *
-get_event_pending_irq(struct hypos *d,
+get_event_pending_irq(struct hypos *h,
                       hpa_t vdoorbell_address,
                       u32 vdevid,
                       u32 eventid,
@@ -2396,26 +2396,26 @@ get_event_pending_irq(struct hypos *d,
     struct its_device *dev;
     struct pending_irq *pirq = NULL;
 
-    spin_lock(&d->arch.vgic.its_devices_lock);
-    dev = get_its_device(d, vdoorbell_address, vdevid);
+    spin_lock(&h->arch.vgic.its_devices_lock);
+    dev = get_its_device(h, vdoorbell_address, vdevid);
     if (dev && eventid < dev->eventids) {
         pirq = &dev->pend_irqs[eventid];
         if (host_lpi)
             *host_lpi = dev->host_lpi_blocks[eventid / LPI_BLOCK] +
                         (eventid % LPI_BLOCK);
     }
-    spin_unlock(&d->arch.vgic.its_devices_lock);
+    spin_unlock(&h->arch.vgic.its_devices_lock);
 
     return pirq;
 }
 
 struct pending_irq *
-gicv3_its_get_event_pending_irq(struct hypos *d,
+gicv3_its_get_event_pending_irq(struct hypos *h,
                                 hpa_t vdoorbell_address,
                                 u32 vdevid,
                                 u32 eventid)
 {
-    return get_event_pending_irq(d, vdoorbell_address, vdevid,
+    return get_event_pending_irq(h, vdoorbell_address, vdevid,
                                  eventid, NULL);
 }
 
@@ -2432,7 +2432,7 @@ int gicv3_remove_guest_event(struct hypos *d,
     if (host_lpi == INVALID_LPI)
         return -EINVAL;
 
-    gicv3_lpi_update_host_entry(host_lpi, d->hypos_id, INVALID_LPI);
+    gicv3_lpi_update_host_entry(host_lpi, d->hid, INVALID_LPI);
 
     return 0;
 }
@@ -2452,7 +2452,7 @@ struct pending_irq *gicv3_assign_guest_event(struct hypos *d,
     if (!pirq)
         return NULL;
 
-    gicv3_lpi_update_host_entry(host_lpi, d->hypos_id, virt_lpi);
+    gicv3_lpi_update_host_entry(host_lpi, d->hid, virt_lpi);
 
     return pirq;
 }
@@ -2498,7 +2498,7 @@ union host_lpi {
     u64 data;
     struct {
         u32 virt_lpi;
-        u16 hypos_id;
+        u16 hid;
         u16 pad;
     };
 };
@@ -2564,25 +2564,24 @@ u64 gicv3_get_redist_address(unsigned int cpu, bool use_pta)
         return percpu(lpi_redist, cpu).redist_id << 16;
 }
 
-void vgic_vcpu_inject_lpi(struct hypos *d, unsigned int virq)
+void vgic_vcpu_inject_lpi(struct hypos *h, unsigned int virq)
 {
-    struct pending_irq *p = irq_to_pending(d->vcpu[0], virq);
+    struct pending_irq *p = irq_to_pending(h->vcpu[0], virq);
     unsigned int vcpu_id;
 
     if (!p)
         return;
 
     vcpu_id = ACCESS_ONCE(p->lpi_vcpu_id);
-    if (vcpu_id >= d->max_vcpus)
+    if (vcpu_id >= h->max_vcpus)
           return;
-#if IS_IMPLEMENTED(__VGIC_IMPL)
-    vgic_inject_irq(d, d->vcpu[vcpu_id], virq, true);
-#endif
+
+    vgic_inject_irq(h, h->vcpu[vcpu_id], virq, true);
 }
 
 void gicv3_do_lpi(unsigned int lpi)
 {
-    struct hypos *d;
+    struct hypos *h;
     union host_lpi *hlpip, hlpi;
 
     irq_enter();
@@ -2598,21 +2597,18 @@ void gicv3_do_lpi(unsigned int lpi)
     if (hlpi.virt_lpi == INVALID_LPI)
         goto out;
 
-#if IS_IMPLEMENTED(__VGIC_IMPL)
-    d = rcu_lock_hypos_by_id(hlpi.hypos_id);
-    if (!d)
+    h = rcu_lock_hypos_by_id(hlpi.hid);
+    if (!h)
         goto out;
 
-    vgic_vcpu_inject_lpi(d, hlpi.virt_lpi);
+    vgic_vcpu_inject_lpi(h, hlpi.virt_lpi);
 
-    rcu_unlock_hypos(d);
-#endif
-
+    rcu_unlock_hypos(h);
 out:
     irq_exit();
 }
 
-void gicv3_lpi_update_host_entry(u32 host_lpi, int hypos_id,
+void gicv3_lpi_update_host_entry(u32 host_lpi, int hid,
                                  u32 virt_lpi)
 {
     union host_lpi *hlpip, hlpi;
@@ -2625,7 +2621,7 @@ void gicv3_lpi_update_host_entry(u32 host_lpi, int hypos_id,
             HOST_LPIS_PER_PAGE][host_lpi % HOST_LPIS_PER_PAGE];
 
     hlpi.virt_lpi = virt_lpi;
-    hlpi.hypos_id = hypos_id;
+    hlpi.hid = hid;
 
     write_u64_atomic(&hlpip->data, hlpi.data);
 }
@@ -2823,7 +2819,7 @@ static int find_unused_host_lpi(u32 start, u32 *index)
         }
 
         for ( ; i < HOST_LPIS_PER_PAGE; i += LPI_BLOCK) {
-            if (lpi_data.host_lpis[chunk][i].hypos_id == HYPOS_INVALID) {
+            if (lpi_data.host_lpis[chunk][i].hid == HYPOS_INVALID) {
                 *index = i;
                 return chunk;
             }
@@ -2857,7 +2853,6 @@ int gicv3_ate_host_lpi_block(struct hypos *d, u32 *first_lpi)
     if (!lpi_data.host_lpis[chunk]) {
         union host_lpi *new_chunk;
 
-        /* TODO: NUMA locality for quicker IRQ path? */
         new_chunk = alloc_page(0);
         if (!new_chunk) {
             spin_unlock(&lpi_data.host_lpis_lock);
@@ -2865,7 +2860,7 @@ int gicv3_ate_host_lpi_block(struct hypos *d, u32 *first_lpi)
         }
 
         for (i = 0; i < HOST_LPIS_PER_PAGE; i += LPI_BLOCK)
-            new_chunk[i].hypos_id = HYPOS_INVALID;
+            new_chunk[i].hid = HYPOS_INVALID;
 
         smp_wmb();
 
@@ -2879,7 +2874,7 @@ int gicv3_ate_host_lpi_block(struct hypos *d, u32 *first_lpi)
         union host_lpi hlpi;
 
         hlpi.virt_lpi = INVALID_LPI;
-        hlpi.hypos_id = d->hypos_id;
+        hlpi.hid = d->hid;
         write_u64_atomic(&lpi_data.host_lpis[chunk][lpi_idx + i].data,
                          hlpi.data);
 
@@ -2901,7 +2896,7 @@ int gicv3_ate_host_lpi_block(struct hypos *d, u32 *first_lpi)
 
 void gicv3_free_host_lpi_block(u32 first_lpi)
 {
-    union host_lpi *hlpi, empty_lpi = { .hypos_id = HYPOS_INVALID };
+    union host_lpi *hlpi, empty_lpi = { .hid = HYPOS_INVALID };
     int i;
 
     ASSERT((first_lpi % LPI_BLOCK) == 0);

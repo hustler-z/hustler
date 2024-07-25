@@ -77,6 +77,10 @@ struct arch_vcpu {
     register_t hcr_el2;
     register_t mdcr_el2;
 
+    /* CP 15 */
+    u32 csselr;
+    register_t vmpidr;
+
     /* XXX: Physical GIC Data */
     union gic_state_data gic;
     u64        lr_mask;

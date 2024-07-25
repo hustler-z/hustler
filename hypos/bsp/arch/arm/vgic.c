@@ -6,8 +6,15 @@
  * Usage:
  */
 
-#include <org/vcpu.h>
+#include <asm/esr.h>
+#include <org/irq.h>
+#include <org/virq.h>
+#include <org/vttbl.h>
+#include <org/membank.h>
+#include <bsp/irq.h>
 #include <bsp/config.h>
+#include <bsp/errno.h>
+#include <bsp/hypmem.h>
 #include <asm/barrier.h>
 
 /* --------------------------------------------------------------
@@ -165,6 +172,7 @@
  *      table entry that describes the Redistributor that is
  *      currently hosting the target vPE to which the interrupt
  *      is routed.
+ *
  * --------------------------------------------------------------
  */
 
@@ -172,7 +180,7 @@
 // --------------------------------------------------------------
 
 struct virt_its {
-    struct hypos *d;
+    struct hypos *h;
     struct list_head vits_list;
     hpa_t doorbell_address;
     unsigned int devid_bits;
@@ -190,8 +198,7 @@ struct virt_its {
     bool enabled;
 };
 
-struct vits_itte
-{
+struct vits_itte {
     u32 vlpi;
     u16 collection;
     u16 pad;
@@ -223,14 +230,14 @@ static int its_set_collection(struct virt_its *its, u16 collid,
 {
     hpa_t addr = get_baser_phys_addr(its->baser_coll);
 
-    BUILD_BUG_ON(BIT(sizeof(coll_table_entry_t) * 8, UL) < MAX_VIRT_CPUS);
+    BUILD_BUG_ON(BIT(sizeof(coll_table_entry_t) * 8, UL) < MAX_VCPUS);
 
     ASSERT(spin_is_locked(&its->its_lock));
 
     if (collid >= its->max_collections)
         return -ENOENT;
 
-    return access_guest_memory_by_gpa(its->d,
+    return access_guest_memory_by_gpa(its->h,
                                       addr + collid * sizeof(coll_table_entry_t),
                                       &vcpu_id, sizeof(vcpu_id), true);
 }
@@ -247,16 +254,16 @@ static struct vcpu *get_vcpu_from_collection(struct virt_its *its,
     if (collid >= its->max_collections)
         return NULL;
 
-    ret = access_guest_memory_by_gpa(its->d,
+    ret = access_guest_memory_by_gpa(its->h,
                                      addr + collid * sizeof(coll_table_entry_t),
                                      &vcpu_id, sizeof(coll_table_entry_t), false);
     if (ret)
         return NULL;
 
-    if (vcpu_id == UNMAPPED_COLLECTION || vcpu_id >= its->d->max_vcpus)
+    if (vcpu_id == UNMAPPED_COLLECTION || vcpu_id >= its->h->max_vcpus)
         return NULL;
 
-    return its->d->vcpu[vcpu_id];
+    return its->h->vcpu[vcpu_id];
 }
 
 static int its_set_itt_address(struct virt_its *its, u32 devid,
@@ -268,7 +275,7 @@ static int its_set_itt_address(struct virt_its *its, u32 devid,
     if (devid >= its->max_devices)
         return -ENOENT;
 
-    return access_guest_memory_by_gpa(its->d,
+    return access_guest_memory_by_gpa(its->h,
                                       addr + devid * sizeof(dev_table_entry_t),
                                       &itt_entry, sizeof(itt_entry), true);
 }
@@ -281,7 +288,7 @@ static int its_get_itt(struct virt_its *its, u32 devid,
     if (devid >= its->max_devices)
         return -EINVAL;
 
-    return access_guest_memory_by_gpa(its->d,
+    return access_guest_memory_by_gpa(its->h,
                                       addr + devid * sizeof(dev_table_entry_t),
                                       itt, sizeof(*itt), false);
 }
@@ -303,8 +310,10 @@ static hpa_t its_get_itte_address(struct virt_its *its,
     return DEV_TABLE_ITT_ADDR(itt) + evid * sizeof(struct vits_itte);
 }
 
-static bool read_itte(struct virt_its *its, u32 devid, u32 evid,
-                      struct vcpu **vcpu_ptr, u32 *vlpi_ptr)
+static bool read_itte(struct virt_its *its,
+                      u32 devid, u32 evid,
+                      struct vcpu **vcpu_ptr,
+                      u32 *vlpi_ptr)
 {
     hpa_t addr;
     struct vits_itte itte;
@@ -316,7 +325,7 @@ static bool read_itte(struct virt_its *its, u32 devid, u32 evid,
     if (addr == INVALID_PADDR)
         return false;
 
-    if (access_guest_memory_by_gpa(its->d, addr,
+    if (access_guest_memory_by_gpa(its->h, addr,
                                    &itte, sizeof(itte), false))
         return false;
 
@@ -344,18 +353,50 @@ static bool write_itte(struct virt_its *its, u32 devid,
     itte.collection = collid;
     itte.vlpi = vlpi;
 
-    if (access_guest_memory_by_gpa(its->d, addr, &itte, sizeof(itte), true))
+    if (access_guest_memory_by_gpa(its->h, addr, &itte,
+                                   sizeof(itte), true))
         return false;
 
     return true;
 }
 
 static u64 its_cmd_mask_field(u64 *its_cmd, unsigned int word,
-                                   unsigned int shift, unsigned int size)
+                                   unsigned int shift,
+                                   unsigned int size)
 {
     return (its_cmd[word] >> shift) & GENMASK(size - 1, 0);
 }
 
+// --------------------------------------------------------------
+static inline unsigned int vaffinity_to_vcpuid(register_t vaff)
+{
+    unsigned int vcpuid;
+
+    vaff &= MPIDR_HWID_MASK;
+
+    vcpuid = MPIDR_AFFINITY_LEVEL(vaff, 0);
+    vcpuid |= MPIDR_AFFINITY_LEVEL(vaff, 1) << 4;
+
+    return vcpuid;
+}
+
+static inline register_t vcpuid_to_vaffinity(unsigned int vcpuid)
+{
+    register_t vaff;
+
+    /*
+     * Right now only AFF0 and AFF1 are supported in virtual affinity.
+     * Since only the first 4 bits in AFF0 are used in GICv3, the
+     * available bits are 12 (4+8).
+     */
+    BUILD_BUG_ON(!(MAX_VCPUS < ((1 << 12))));
+
+    vaff = (vcpuid & 0x0F) << MPIDR_LEVEL_SHIFT(0);
+    vaff |= ((vcpuid >> 4) & MPIDR_LEVEL_MASK) << MPIDR_LEVEL_SHIFT(1);
+
+    return vaff;
+}
+// --------------------------------------------------------------
 #define its_cmd_get_command(cmd)        its_cmd_mask_field(cmd, 0,  0,  8)
 #define its_cmd_get_deviceid(cmd)       its_cmd_mask_field(cmd, 0, 32, 32)
 #define its_cmd_get_size(cmd)           its_cmd_mask_field(cmd, 1,  0,  5)
@@ -383,7 +424,7 @@ static int its_handle_int(struct virt_its *its, u64 *cmdptr)
     if (vlpi == INVALID_LPI)
         return -1;
 
-    vgic_vcpu_inject_lpi(its->d, vlpi);
+    vgic_vcpu_inject_lpi(its->h, vlpi);
 
     return 0;
 }
@@ -396,7 +437,7 @@ static int its_handle_mapc(struct virt_its *its, u64 *cmdptr)
     if (collid >= its->max_collections)
         return -1;
 
-    if (rdbase >= its->d->max_vcpus)
+    if (rdbase >= its->h->max_vcpus)
         return -1;
 
     spin_lock(&its->its_lock);
@@ -426,7 +467,8 @@ static int its_handle_clear(struct virt_its *its, u64 *cmdptr)
     if (!read_itte(its, devid, eventid, &vcpu, &vlpi))
         goto out_unlock;
 
-    p = gicv3_its_get_event_pending_irq(its->d, its->doorbell_address,
+    p = gicv3_its_get_event_pending_irq(its->h,
+                                        its->doorbell_address,
                                         devid, eventid);
     if (unlikely(!p))
         goto out_unlock;
@@ -445,18 +487,18 @@ out_unlock:
     return ret;
 }
 
-static int update_lpi_property(struct hypos *d, struct pending_irq *p)
+static int update_lpi_property(struct hypos *h, struct pending_irq *p)
 {
     hpa_t addr;
-    uint8_t property;
+    u8 property;
     int ret;
 
-    if (!d->arch.vgic.rdists_enabled)
+    if (!h->arch.vgic.rdists_enabled)
         return 0;
 
-    addr = d->arch.vgic.rdist_propbase & GENMASK(51, 12);
+    addr = h->arch.vgic.rdist_propbase & GENMASK(51, 12);
 
-    ret = access_guest_memory_by_gpa(d, addr + p->irq - LPI_OFFSET,
+    ret = access_guest_memory_by_gpa(h, addr + p->irq - LPI_OFFSET,
                                      &property, sizeof(property), false);
     if (ret)
         return ret;
@@ -486,7 +528,7 @@ static void update_lpi_vgic_status(struct vcpu *v, struct pending_irq *p)
 
 static int its_handle_inv(struct virt_its *its, u64 *cmdptr)
 {
-    struct hypos *d = its->d;
+    struct hypos *d = its->h;
     u32 devid = its_cmd_get_deviceid(cmdptr);
     u32 eventid = its_cmd_get_id(cmdptr);
     struct pending_irq *p;
@@ -539,9 +581,9 @@ static int its_handle_invall(struct virt_its *its, u64 *cmdptr)
     unsigned long flags;
     int ret = 0;
 
-    ASSERT(is_hardware_hypos(its->d));
+    ASSERT(is_hardware_hypos(its->h));
 
-    if (!its->d->arch.vgic.rdists_enabled)
+    if (!its->h->arch.vgic.rdists_enabled)
         return 0;
 
     spin_lock(&its->its_lock);
@@ -549,30 +591,31 @@ static int its_handle_invall(struct virt_its *its, u64 *cmdptr)
     spin_unlock(&its->its_lock);
 
     spin_lock_irqsave(&vcpu->arch.vgic.lock, flags);
-    read_lock(&its->d->arch.vgic.pend_lpi_tree_lock);
+    read_lock(&its->h->arch.vgic.pend_lpi_tree_lock);
 
     do {
         int err;
 
-        nr_lpis = radix_tree_gang_lookup(&its->d->arch.vgic.pend_lpi_tree,
-                                         (void **)pirqs, vlpi,
-                                         ARRAY_SIZE(pirqs));
+        nr_lpis =
+            radix_tree_gang_lookup(&its->h->arch.vgic.pend_lpi_tree,
+                                   (void **)pirqs, vlpi,
+                                   ARRAY_SIZE(pirqs));
 
         for (i = 0; i < nr_lpis; i++) {
-            if (pirqs[i]->lpi_vcpu_id != vcpu->vcpu_id)
+            if (pirqs[i]->lpi_vcpu_id != vcpu->vcpuid)
                 continue;
 
             vlpi = pirqs[i]->irq;
-            err = update_lpi_property(its->d, pirqs[i]);
+            err = update_lpi_property(its->h, pirqs[i]);
             if (!err)
                 update_lpi_vgic_status(vcpu, pirqs[i]);
             else
                 ret = err;
         }
-    } while ((++vlpi < its->d->arch.vgic.nr_lpis) &&
+    } while ((++vlpi < its->h->arch.vgic.nr_lpis) &&
              (nr_lpis == ARRAY_SIZE(pirqs)));
 
-    read_unlock(&its->d->arch.vgic.pend_lpi_tree_lock);
+    read_unlock(&its->h->arch.vgic.pend_lpi_tree_lock);
     spin_unlock_irqrestore(&vcpu->arch.vgic.lock, flags);
 
     return ret;
@@ -596,9 +639,9 @@ static int its_discard_event(struct virt_its *its,
 
     spin_lock_irqsave(&vcpu->arch.vgic.lock, flags);
 
-    write_lock(&its->d->arch.vgic.pend_lpi_tree_lock);
-    p = radix_tree_delete(&its->d->arch.vgic.pend_lpi_tree, vlpi);
-    write_unlock(&its->d->arch.vgic.pend_lpi_tree_lock);
+    write_lock(&its->h->arch.vgic.pend_lpi_tree_lock);
+    p = radix_tree_delete(&its->h->arch.vgic.pend_lpi_tree, vlpi);
+    write_unlock(&its->h->arch.vgic.pend_lpi_tree_lock);
 
     if (!p) {
         spin_unlock_irqrestore(&vcpu->arch.vgic.lock, flags);
@@ -611,7 +654,8 @@ static int its_discard_event(struct virt_its *its,
 
     spin_unlock_irqrestore(&vcpu->arch.vgic.lock, flags);
 
-    return gicv3_remove_guest_event(its->d, its->doorbell_address,
+    return gicv3_remove_guest_event(its->h,
+                                    its->doorbell_address,
                                     vdevid, vevid);
 }
 
@@ -625,7 +669,7 @@ static void its_unmap_device(struct virt_its *its, u32 devid)
     if (its_get_itt(its, devid, &itt))
         goto out;
 
-    ASSERT(is_hardware_hypos(its->d));
+    ASSERT(is_hardware_hypos(its->h));
 
     for (evid = 0; evid < DEV_TABLE_ITT_SIZE(itt); evid++)
         its_discard_event(its, devid, evid);
@@ -648,8 +692,8 @@ static int its_handle_mapd(struct virt_its *its, u64 *cmdptr)
     if (!valid)
         its_unmap_device(its, devid);
 
-    if (is_hardware_hypos(its->d)) {
-        ret = gicv3_its_map_guest_device(its->d,
+    if (is_hardware_hypos(its->h)) {
+        ret = gicv3_its_map_guest_device(its->h,
                                          its->doorbell_address,
                                          devid,
                                          its->doorbell_address,
@@ -693,7 +737,7 @@ static int its_handle_mapti(struct virt_its *its, u64 *cmdptr)
     }
 
     vcpu = get_vcpu_from_collection(its, collid);
-    if (!vcpu || intid >= its->d->arch.vgic.nr_lpis) {
+    if (!vcpu || intid >= its->h->arch.vgic.nr_lpis) {
         spin_unlock(&its->its_lock);
         return -1;
     }
@@ -705,30 +749,30 @@ static int its_handle_mapti(struct virt_its *its, u64 *cmdptr)
 
     spin_unlock(&its->its_lock);
 
-    pirq = gicv3_assign_guest_event(its->d, its->doorbell_address,
+    pirq = gicv3_assign_guest_event(its->h, its->doorbell_address,
                                     devid, eventid, intid);
     if (!pirq)
         goto out_remove_mapping;
 
     vgic_init_pending_irq(pirq, intid);
 
-    ret = update_lpi_property(its->d, pirq);
+    ret = update_lpi_property(its->h, pirq);
     if (ret)
         goto out_remove_host_entry;
 
-    pirq->lpi_vcpu_id = vcpu->vcpu_id;
+    pirq->lpi_vcpu_id = vcpu->vcpuid;
 
     set_bit(GIC_IRQ_GUEST_PRISTINE_LPI, &pirq->status);
 
-    write_lock(&its->d->arch.vgic.pend_lpi_tree_lock);
-    ret = radix_tree_insert(&its->d->arch.vgic.pend_lpi_tree, intid, pirq);
-    write_unlock(&its->d->arch.vgic.pend_lpi_tree_lock);
+    write_lock(&its->h->arch.vgic.pend_lpi_tree_lock);
+    ret = radix_tree_insert(&its->h->arch.vgic.pend_lpi_tree, intid, pirq);
+    write_unlock(&its->h->arch.vgic.pend_lpi_tree_lock);
 
     if (!ret)
         return 0;
 
 out_remove_host_entry:
-    gicv3_remove_guest_event(its->d, its->doorbell_address, devid, eventid);
+    gicv3_remove_guest_event(its->h, its->doorbell_address, devid, eventid);
 
 out_remove_mapping:
     spin_lock(&its->its_lock);
@@ -760,14 +804,14 @@ static int its_handle_movi(struct virt_its *its, u64 *cmdptr)
     if (!nvcpu)
         goto out_unlock;
 
-    p = gicv3_its_get_event_pending_irq(its->d, its->doorbell_address,
+    p = gicv3_its_get_event_pending_irq(its->h, its->doorbell_address,
                                         devid, eventid);
     if (unlikely(!p))
         goto out_unlock;
 
     spin_lock_irqsave(&ovcpu->arch.vgic.lock, flags);
 
-    p->lpi_vcpu_id = nvcpu->vcpu_id;
+    p->lpi_vcpu_id = nvcpu->vcpuid;
 
     spin_unlock_irqrestore(&ovcpu->arch.vgic.lock, flags);
 
@@ -901,7 +945,7 @@ static int vgic_v3_its_mmio_read(struct vcpu *v,
     {
         bool have_cmd_lock;
 
-        if (info->dabt.size != DABT_WORD)
+        if (info->dabt.sas != DABT_WORD)
             goto bad_width;
 
         have_cmd_lock = spin_trylock(&its->vcmd_lock);
@@ -917,7 +961,7 @@ static int vgic_v3_its_mmio_read(struct vcpu *v,
         break;
     }
     case VREG32(GITS_IIDR):
-        if (info->dabt.size != DABT_WORD)
+        if (info->dabt.sas != DABT_WORD)
             goto bad_width;
         *r = vreg_reg32_extract(GITS_IIDR_VALUE, info);
         break;
@@ -984,7 +1028,7 @@ static int vgic_v3_its_mmio_read(struct vcpu *v,
     case VRANGE32(0xFFD0, 0xFFE4):
         goto read_impl_defined;
     case VREG32(GITS_PIDR2):
-        if (info->dabt.size != DABT_WORD)
+        if (info->dabt.sas != DABT_WORD)
             goto bad_width;
         *r = vreg_reg32_extract(GIC_PIDR2_ARCH_GICv3, info);
         break;
@@ -992,7 +1036,7 @@ static int vgic_v3_its_mmio_read(struct vcpu *v,
         goto read_impl_defined;
     default:
         MSGH("%pv: vGITS: unhandled read r%d offset %#04lx\n",
-             v, info->dabt.reg, (unsigned long)info->gpa & 0xFFFF);
+             v, info->dabt.srt, (unsigned long)info->gpa & 0xFFFF);
         return 0;
     }
 
@@ -1019,7 +1063,7 @@ read_reserved:
 
 bad_width:
     MSGH("vGITS: bad read width %d r%d offset %#04lx\n",
-         info->dabt.size, info->dabt.reg,
+         info->dabt.sas, info->dabt.srt,
          (unsigned long)info->gpa & 0xFFFF);
 
     return 0;
@@ -1051,12 +1095,13 @@ static bool vgic_v3_verify_its_status(struct virt_its *its, bool status)
     if (!(its->cbaser & GITS_VALID_BIT) ||
         !(its->baser_dev & GITS_VALID_BIT) ||
         !(its->baser_coll & GITS_VALID_BIT)) {
-        MSGH("d%d tried to enable ITS without having the tables configured.\n",
-               its->d->hypos_id);
+        MSGH("hypos <%d> tried to enable ITS without "
+             "having the tables configured.\n",
+             its->h->hid);
         return false;
     }
 
-    ASSERT(is_hardware_hypos(its->d));
+    ASSERT(is_hardware_hypos(its->h));
 
     return true;
 }
@@ -1112,7 +1157,7 @@ static int vgic_v3_its_mmio_write(struct vcpu *v,
     {
         u32 ctlr;
 
-        if (info->dabt.size != DABT_WORD)
+        if (info->dabt.sas != DABT_WORD)
             goto bad_width;
 
         spin_lock(&its->vcmd_lock);
@@ -1186,7 +1231,7 @@ static int vgic_v3_its_mmio_write(struct vcpu *v,
 
         if (its->enabled) {
             spin_unlock(&its->its_lock);
-            MSGH(XENLOG_WARNING, "vGITS: tried to change BASER with the ITS enabled.\n");
+            MSGH("vGITS: tried to change BASER with the ITS enabled.\n");
 
             return 1;
         }
@@ -1249,7 +1294,7 @@ static int vgic_v3_its_mmio_write(struct vcpu *v,
         goto write_impl_defined;
     default:
         MSGH("%pv: vGITS: unhandled write r%d offset %#04lx\n",
-             v, info->dabt.reg, (unsigned long)info->gpa & 0xFFFF);
+             v, info->dabt.srt, (unsigned long)info->gpa & 0xFFFF);
         return 0;
     }
 
@@ -1262,7 +1307,7 @@ write_ignore_64:
     return 1;
 
 write_ignore_32:
-    if (info->dabt.size != DABT_WORD)
+    if (info->dabt.sas != DABT_WORD)
         goto bad_width;
     return 1;
 
@@ -1278,7 +1323,7 @@ write_reserved:
 
 bad_width:
     MSGH("vGITS: bad write width %d r%d offset %#08lx\n",
-         info->dabt.size, info->dabt.reg, (unsigned long)info->gpa & 0xffff);
+         info->dabt.sas, info->dabt.srt, (unsigned long)info->gpa & 0xffff);
 
     return 0;
 }
@@ -1295,7 +1340,7 @@ static int vgic_v3_its_init_virtual(struct hypos *d, hpa_t guest_addr,
     struct virt_its *its;
     u64 base_attr;
 
-    its = xzalloc(struct virt_its);
+    its = _zalloc(struct virt_its);
     if ( !its )
         return -ENOMEM;
 
@@ -1313,7 +1358,7 @@ static int vgic_v3_its_init_virtual(struct hypos *d, hpa_t guest_addr,
     its->baser_coll |= (sizeof(coll_table_entry_t) - 1) <<
                        GITS_BASER_ENTRY_SIZE_SHIFT;
     its->baser_coll |= base_attr;
-    its->d = d;
+    its->h = d;
     its->doorbell_address = guest_addr + ITS_DOORBELL_OFFSET;
     its->devid_bits = devid_bits;
     its->evid_bits  = evid_bits;
@@ -1462,7 +1507,7 @@ static void vgic_store_irouter(struct hypos *d,
 
     if (new_vcpu != old_vcpu) {
         if (vgic_migrate_irq(old_vcpu, new_vcpu, virq))
-            write_atomic(&rank->vcpu[offset], new_vcpu->vcpu_id);
+            write_atomic(&rank->vcpu[offset], new_vcpu->vcpuid);
     }
 }
 
@@ -1471,7 +1516,7 @@ static int __vgic_v3_rdistr_rd_mmio_read(struct vcpu *v,
                                          u32 gicr_reg,
                                          register_t *r)
 {
-    struct hsr_dabt dabt = info->dabt;
+    struct hcpu_dabt dabt = info->dabt;
 
     switch (gicr_reg) {
     case VREG32(GICR_CTLR):
@@ -1480,7 +1525,7 @@ static int __vgic_v3_rdistr_rd_mmio_read(struct vcpu *v,
 
         if (!v->hypos->arch.vgic.has_its)
             goto read_as_zero_32;
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
 
         spin_lock_irqsave(&v->arch.vgic.lock, flags);
@@ -1491,7 +1536,7 @@ static int __vgic_v3_rdistr_rd_mmio_read(struct vcpu *v,
         return 1;
     }
     case VREG32(GICR_IIDR):
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
         *r = vreg_reg32_extract(GICV3_GICR_IIDR_VAL, info);
         return 1;
@@ -1507,7 +1552,7 @@ static int __vgic_v3_rdistr_rd_mmio_read(struct vcpu *v,
                MPIDR_AFFINITY_LEVEL(vmpidr, 0) << 32);
 
         typer = aff;
-        typer |= v->vcpu_id << GICR_TYPER_PROC_NUM_SHIFT;
+        typer |= v->vcpuid << GICR_TYPER_PROC_NUM_SHIFT;
 
         if (v->arch.vgic.flags & VGIC_V3_RDIST_LAST)
             typer |= GICR_TYPER_LAST;
@@ -1569,7 +1614,7 @@ static int __vgic_v3_rdistr_rd_mmio_read(struct vcpu *v,
     case 0x00B8:
         goto read_reserved;
     case VREG32(GICR_SYNCR):
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
         *r = vreg_reg32_extract(GICR_SYNCR_NOT_BUSY, info);
         return 1;
@@ -1588,7 +1633,7 @@ static int __vgic_v3_rdistr_rd_mmio_read(struct vcpu *v,
     case 0xFFD0 ... 0xFFE4:
         goto read_impl_defined;
     case VREG32(GICR_PIDR2):
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
         *r = vreg_reg32_extract(GICV3_GICR_PIDR2, info);
         return 1;
@@ -1596,12 +1641,12 @@ static int __vgic_v3_rdistr_rd_mmio_read(struct vcpu *v,
          goto read_impl_defined;
     default:
         MSGH("%pv: vGICR: unhandled read r%d offset %#08x\n",
-             v, dabt.reg, gicr_reg);
+             v, dabt.srt, gicr_reg);
         goto read_as_zero;
     }
 bad_width:
     MSGH("%pv vGICR: bad read width %d r%d offset %#08x\n",
-         v, dabt.size, dabt.reg, gicr_reg);
+         v, dabt.sas, dabt.srt, gicr_reg);
     return 0;
 
 read_as_zero_64:
@@ -1611,7 +1656,7 @@ read_as_zero_64:
     return 1;
 
 read_as_zero_32:
-    if (dabt.size != DABT_WORD)
+    if (dabt.sas != DABT_WORD)
         goto bad_width;
     *r = 0;
     return 1;
@@ -1744,7 +1789,7 @@ static int __vgic_v3_rdistr_rd_mmio_write(struct vcpu *v,
                                           u32 gicr_reg,
                                           register_t r)
 {
-    struct hsr_dabt dabt = info->dabt;
+    struct hcpu_dabt dabt = info->dabt;
     u64 reg;
 
     switch (gicr_reg) {
@@ -1754,7 +1799,7 @@ static int __vgic_v3_rdistr_rd_mmio_write(struct vcpu *v,
 
         if (!v->hypos->arch.vgic.has_its)
             goto write_ignore_32;
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
 
         vgic_lock(v);
@@ -1860,12 +1905,12 @@ static int __vgic_v3_rdistr_rd_mmio_write(struct vcpu *v,
         goto write_impl_defined;
     default:
         MSGH("%pv: vGICR: unhandled write r%d offset %#08x\n",
-             v, dabt.reg, gicr_reg);
+             v, dabt.srt, gicr_reg);
         goto write_ignore;
     }
 bad_width:
     MSGH("%pv: vGICR: bad write width %d r%d=%016lx offset %#08x\n",
-         v, dabt.size, dabt.reg, r, gicr_reg);
+         v, dabt.sas, dabt.srt, r, gicr_reg);
     return 0;
 
 write_ignore_64:
@@ -1874,7 +1919,7 @@ write_ignore_64:
     return 1;
 
 write_ignore_32:
-    if (dabt.size != DABT_WORD)
+    if (dabt.sas != DABT_WORD)
         goto bad_width;
     return 1;
 
@@ -1896,7 +1941,7 @@ static int __vgic_v3_distr_common_mmio_read(const char *name, struct vcpu *v,
                                             mmio_info_t *info, u32 reg,
                                             register_t *r)
 {
-    struct hsr_dabt dabt = info->dabt;
+    struct hcpu_dabt dabt = info->dabt;
     struct vgic_irq_rank *rank;
     unsigned long flags;
 
@@ -1904,12 +1949,12 @@ static int __vgic_v3_distr_common_mmio_read(const char *name, struct vcpu *v,
     case VRANGE32(GICD_IGROUPR, GICD_IGROUPRN):
     case VRANGE32(GICD_IGRPMODR, GICD_IGRPMODRN):
         /* We do not implement security extensions for guests, read zero */
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
         goto read_as_zero;
 
     case VRANGE32(GICD_ISENABLER, GICD_ISENABLERN):
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
         rank = vgic_rank_offset(v, 1, reg - GICD_ISENABLER, DABT_WORD);
         if (rank == NULL)
@@ -1919,7 +1964,7 @@ static int __vgic_v3_distr_common_mmio_read(const char *name, struct vcpu *v,
         vgic_unlock_rank(v, rank, flags);
         return 1;
     case VRANGE32(GICD_ICENABLER, GICD_ICENABLERN):
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
         rank = vgic_rank_offset(v, 1, reg - GICD_ICENABLER, DABT_WORD);
         if (rank == NULL)
@@ -1937,9 +1982,9 @@ static int __vgic_v3_distr_common_mmio_read(const char *name, struct vcpu *v,
     case VRANGE32(GICD_IPRIORITYR, GICD_IPRIORITYRN):
     {
         u32 ipriorityr;
-        uint8_t rank_index;
+        u8 rank_index;
 
-        if (dabt.size != DABT_BYTE && dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_BYTE && dabt.sas != DABT_WORD)
             goto bad_width;
         rank = vgic_rank_offset(v, 8, reg - GICD_IPRIORITYR, DABT_WORD);
         if (rank == NULL)
@@ -1959,7 +2004,7 @@ static int __vgic_v3_distr_common_mmio_read(const char *name, struct vcpu *v,
     {
         u32 icfgr;
 
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
         rank = vgic_rank_offset(v, 2, reg - GICD_ICFGR, DABT_WORD);
         if (rank == NULL)
@@ -1975,13 +2020,13 @@ static int __vgic_v3_distr_common_mmio_read(const char *name, struct vcpu *v,
 
     default:
         MSGH("%pv: %s: unhandled read r%d offset %#08x\n",
-             v, name, dabt.reg, reg);
+             v, name, dabt.srt, reg);
         return 0;
     }
 
 bad_width:
     MSGH("%pv: %s: bad read width %d r%d offset %#08x\n",
-         v, name, dabt.size, dabt.reg, reg);
+         v, name, dabt.sas, dabt.srt, reg);
     return 0;
 
 read_as_zero:
@@ -1995,7 +2040,7 @@ static int __vgic_v3_distr_common_mmio_write(const char *name,
                                              u32 reg,
                                              register_t r)
 {
-    struct hsr_dabt dabt = info->dabt;
+    struct hcpu_dabt dabt = info->dabt;
     struct vgic_irq_rank *rank;
     u32 tr;
     unsigned long flags;
@@ -2006,7 +2051,7 @@ static int __vgic_v3_distr_common_mmio_write(const char *name,
         goto write_ignore_32;
 
     case VRANGE32(GICD_ISENABLER, GICD_ISENABLERN):
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
         rank = vgic_rank_offset(v, 1, reg - GICD_ISENABLER, DABT_WORD);
         if (rank == NULL)
@@ -2019,7 +2064,7 @@ static int __vgic_v3_distr_common_mmio_write(const char *name,
         return 1;
 
     case VRANGE32(GICD_ICENABLER, GICD_ICENABLERN):
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
 
         rank = vgic_rank_offset(v, 1, reg - GICD_ICENABLER, DABT_WORD);
@@ -2034,7 +2079,7 @@ static int __vgic_v3_distr_common_mmio_write(const char *name,
         return 1;
 
     case VRANGE32(GICD_ISPENDR, GICD_ISPENDRN):
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
         rank = vgic_rank_offset(v, 1, reg - GICD_ISPENDR, DABT_WORD);
         if (rank == NULL)
@@ -2045,7 +2090,7 @@ static int __vgic_v3_distr_common_mmio_write(const char *name,
         return 1;
 
     case VRANGE32(GICD_ICPENDR, GICD_ICPENDRN):
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
         rank = vgic_rank_offset(v, 1, reg - GICD_ICPENDR, DABT_WORD);
         if (rank == NULL)
@@ -2056,7 +2101,7 @@ static int __vgic_v3_distr_common_mmio_write(const char *name,
         goto write_ignore;
 
     case VRANGE32(GICD_ISACTIVER, GICD_ISACTIVERN):
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
         MSGH("%pv: %s: unhandled word write %#016lx to ISACTIVER%d\n",
              v, name, r, reg - GICD_ISACTIVER);
@@ -2071,7 +2116,7 @@ static int __vgic_v3_distr_common_mmio_write(const char *name,
     {
         u32 *ipriorityr, priority;
 
-        if (dabt.size != DABT_BYTE && dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_BYTE && dabt.sas != DABT_WORD)
             goto bad_width;
         rank = vgic_rank_offset(v, 8, reg - GICD_IPRIORITYR, DABT_WORD);
         if (rank == NULL)
@@ -2090,7 +2135,7 @@ static int __vgic_v3_distr_common_mmio_write(const char *name,
         goto write_ignore_32;
 
     case VRANGE32(GICD_ICFGR + 4, GICD_ICFGRN):
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
 
         rank = vgic_rank_offset(v, 2, reg - GICD_ICFGR, DABT_WORD);
@@ -2106,17 +2151,17 @@ static int __vgic_v3_distr_common_mmio_write(const char *name,
 
     default:
         MSGH("%pv: %s: unhandled write r%d=%016lx offset %#08x\n",
-             v, name, dabt.reg, r, reg);
+             v, name, dabt.srt, r, reg);
         return 0;
     }
 
 bad_width:
     MSGH("%pv: %s: bad write width %d r%d=%016lx offset %#08x\n",
-         v, name, dabt.size, dabt.reg, r, reg);
+         v, name, dabt.sas, dabt.srt, r, reg);
     return 0;
 
 write_ignore_32:
-    if ( dabt.size != DABT_WORD ) goto bad_width;
+    if ( dabt.sas != DABT_WORD ) goto bad_width;
 write_ignore:
     return 1;
 }
@@ -2124,7 +2169,7 @@ write_ignore:
 static int vgic_v3_rdistr_sgi_mmio_read(struct vcpu *v, mmio_info_t *info,
                                         u32 gicr_reg, register_t *r)
 {
-    struct hsr_dabt dabt = info->dabt;
+    struct hcpu_dabt dabt = info->dabt;
 
     switch (gicr_reg) {
     case VREG32(GICR_IGROUPR0):
@@ -2158,16 +2203,16 @@ static int vgic_v3_rdistr_sgi_mmio_read(struct vcpu *v, mmio_info_t *info,
 
     default:
         MSGH("%pv: vGICR: SGI: unhandled read r%d offset %#08x\n",
-             v, dabt.reg, gicr_reg);
+             v, dabt.srt, gicr_reg);
         goto read_as_zero;
     }
 bad_width:
     MSGH("%pv: vGICR: SGI: bad read width %d r%d offset %#08x\n",
-         v, dabt.size, dabt.reg, gicr_reg);
+         v, dabt.sas, dabt.srt, gicr_reg);
     return 0;
 
 read_as_zero_32:
-    if (dabt.size != DABT_WORD)
+    if (dabt.sas != DABT_WORD)
         goto bad_width;
 read_as_zero:
     *r = 0;
@@ -2190,7 +2235,7 @@ read_reserved:
 static int vgic_v3_rdistr_sgi_mmio_write(struct vcpu *v, mmio_info_t *info,
                                          u32 gicr_reg, register_t r)
 {
-    struct hsr_dabt dabt = info->dabt;
+    struct hcpu_dabt dabt = info->dabt;
 
     switch (gicr_reg) {
     case VREG32(GICR_IGROUPR0):
@@ -2217,17 +2262,17 @@ static int vgic_v3_rdistr_sgi_mmio_write(struct vcpu *v, mmio_info_t *info,
 
     default:
         MSGH("%pv: vGICR: SGI: unhandled write r%d offset %#08x\n",
-             v, dabt.reg, gicr_reg);
+             v, dabt.srt, gicr_reg);
         goto write_ignore;
     }
 
 bad_width:
     MSGH("%pv: vGICR: SGI: bad write width %d r%d=%016lx offset %#08x\n",
-         v, dabt.size, dabt.reg, r, gicr_reg);
+         v, dabt.sas, dabt.srt, r, gicr_reg);
     return 0;
 
 write_ignore_32:
-    if (dabt.size != DABT_WORD)
+    if (dabt.sas != DABT_WORD)
         goto bad_width;
     return 1;
 
@@ -2258,8 +2303,6 @@ static int vgic_v3_rdistr_mmio_read(struct vcpu *v, mmio_info_t *info,
 {
     u32 offset;
     const struct vgic_rdist_region *region = priv;
-
-    perfc_incr(vgicr_reads);
 
     v = get_vcpu_from_rdist(v->hypos, region, info->gpa, &offset);
     if (unlikely(!v))
@@ -2300,14 +2343,14 @@ static int vgic_v3_rdistr_mmio_write(struct vcpu *v, mmio_info_t *info,
 static int vgic_v3_distr_mmio_read(struct vcpu *v, mmio_info_t *info,
                                    register_t *r, void *priv)
 {
-    struct hsr_dabt dabt = info->dabt;
+    struct hcpu_dabt dabt = info->dabt;
     struct vgic_irq_rank *rank;
     unsigned long flags;
     int gicd_reg = (int)(info->gpa - v->hypos->arch.vgic.dbase);
 
     switch (gicd_reg) {
     case VREG32(GICD_CTLR):
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
         vgic_lock(v);
         *r = vreg_reg32_extract(v->hypos->arch.vgic.ctlr, info);
@@ -2318,7 +2361,7 @@ static int vgic_v3_distr_mmio_read(struct vcpu *v, mmio_info_t *info,
         unsigned int ncpus = min_t(unsigned int, v->hypos->max_vcpus, 8);
         u32 typer;
 
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
 
         typer = ((ncpus - 1) << GICD_TYPE_CPUS_SHIFT |
@@ -2334,7 +2377,7 @@ static int vgic_v3_distr_mmio_read(struct vcpu *v, mmio_info_t *info,
         return 1;
     }
     case VREG32(GICD_IIDR):
-        if ( dabt.size != DABT_WORD ) goto bad_width;
+        if ( dabt.sas != DABT_WORD ) goto bad_width;
         *r = vreg_reg32_extract(GICV3_GICD_IIDR_VAL, info);
         return 1;
     case VREG32(0x000C):
@@ -2419,7 +2462,7 @@ static int vgic_v3_distr_mmio_read(struct vcpu *v, mmio_info_t *info,
     case VRANGE32(0xFFD0, 0xFFE4):
         goto read_impl_defined;
     case VREG32(GICD_PIDR2):
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
         *r = vreg_reg32_extract(GICV3_GICD_PIDR2, info);
         return 1;
@@ -2427,17 +2470,17 @@ static int vgic_v3_distr_mmio_read(struct vcpu *v, mmio_info_t *info,
         goto read_impl_defined;
     default:
         MSGH("%pv: vGICD: unhandled read r%d offset %#08x\n",
-             v, dabt.reg, gicd_reg);
+             v, dabt.srt, gicd_reg);
         goto read_as_zero;
     }
 
 bad_width:
     MSGH("%pv: vGICD: bad read width %d r%d offset %#08x\n",
-         v, dabt.size, dabt.reg, gicd_reg);
+         v, dabt.sas, dabt.srt, gicd_reg);
     return 0;
 
 read_as_zero_32:
-    if ( dabt.size != DABT_WORD ) goto bad_width;
+    if ( dabt.sas != DABT_WORD ) goto bad_width;
     *r = 0;
     return 1;
 
@@ -2461,7 +2504,7 @@ read_reserved:
 static int vgic_v3_distr_mmio_write(struct vcpu *v, mmio_info_t *info,
                                     register_t r, void *priv)
 {
-    struct hsr_dabt dabt = info->dabt;
+    struct hcpu_dabt dabt = info->dabt;
     struct vgic_irq_rank *rank;
     unsigned long flags;
     int gicd_reg = (int)(info->gpa - v->hypos->arch.vgic.dbase);
@@ -2471,7 +2514,7 @@ static int vgic_v3_distr_mmio_write(struct vcpu *v, mmio_info_t *info,
     {
         u32 ctlr = 0;
 
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
 
         vgic_lock(v);
@@ -2531,11 +2574,11 @@ static int vgic_v3_distr_mmio_write(struct vcpu *v, mmio_info_t *info,
     case VREG32(GICD_SGIR):
         goto write_ignore_32;
     case VRANGE32(GICD_CPENDSGIR, GICD_CPENDSGIRN):
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
         return 0;
     case VRANGE32(GICD_SPENDSGIR, GICD_SPENDSGIRN):
-        if (dabt.size != DABT_WORD)
+        if (dabt.sas != DABT_WORD)
             goto bad_width;
         return 0;
     case VRANGE32(0x0F30, 0x60FC):
@@ -2572,17 +2615,17 @@ static int vgic_v3_distr_mmio_write(struct vcpu *v, mmio_info_t *info,
 
     default:
         MSGH("%pv: vGICD: unhandled write r%d=%016lx offset %#08x\n",
-             v, dabt.reg, r, gicd_reg);
+             v, dabt.srt, r, gicd_reg);
         goto write_ignore;
     }
 
 bad_width:
     MSGH("%pv: vGICD: bad write width %d r%d=%016lx offset %#08x\n",
-         v, dabt.size, dabt.reg, r, gicd_reg);
+         v, dabt.sas, dabt.srt, r, gicd_reg);
     return 0;
 
 write_ignore_32:
-    if (dabt.size != DABT_WORD)
+    if (dabt.sas != DABT_WORD)
         goto bad_width;
     return 1;
 
@@ -2630,7 +2673,7 @@ static bool vgic_v3_to_sgi(struct vcpu *v, u64 sgir)
     return vgic_to_sgi(v, sgir, sgi_mode, virq, &target);
 }
 
-static bool vgic_v3_emulate_sgi1r(struct cpu_user_regs *regs, u64 *r,
+static bool vgic_v3_emulate_sgi1r(struct hcpu_regs *regs, u64 *r,
                                   bool read)
 {
     /* WO */
@@ -2642,14 +2685,14 @@ static bool vgic_v3_emulate_sgi1r(struct cpu_user_regs *regs, u64 *r,
     }
 }
 
-static bool vgic_v3_emulate_sysreg(struct cpu_user_regs *regs, union hsr hsr)
+static bool vgic_v3_emulate_sysreg(struct hcpu_regs *regs, union hcpu_esr hsr)
 {
-    struct hsr_sysreg sysreg = hsr.sysreg;
+    struct hcpu_sysreg sysreg = hsr.sysreg;
 
-    ASSERT (hsr.ec == HSR_EC_SYSREG);
+    ASSERT (hsr.ec == ESR_EC_SYSREG);
 
-    switch (hsr.bits & HSR_SYSREG_REGS_MASK) {
-    case HSR_SYSREG_ICC_SGI1R_EL1:
+    switch (hsr.bits & ESR_SYSREG_REGS_MASK) {
+    case ESR_SYSREG_ICC_SGI1R_EL1:
         return vreg_emulate_sysreg(regs, hsr, vgic_v3_emulate_sgi1r);
 
     default:
@@ -2657,23 +2700,24 @@ static bool vgic_v3_emulate_sysreg(struct cpu_user_regs *regs, union hsr hsr)
     }
 }
 
-static bool vgic_v3_emulate_cp64(struct cpu_user_regs *regs, union hsr hsr)
+static bool vgic_v3_emulate_cp64(struct hcpu_regs *regs, union hcpu_esr hsr)
 {
 
-    switch (hsr.bits & HSR_CP64_REGS_MASK) {
-    case HSR_CPREG64(ICC_SGI1R):
+    switch (hsr.bits & ESR_CP64_REGS_MASK) {
+    case ESR_CPREG64(ICC_SGI1R):
         return vreg_emulate_cp64(regs, hsr, vgic_v3_emulate_sgi1r);
     default:
         return false;
     }
 }
 
-static bool vgic_v3_emulate_reg(struct cpu_user_regs *regs, union hsr hsr)
+static bool vgic_v3_emulate_reg(struct hcpu_regs *regs,
+                        union hcpu_esr hsr)
 {
     switch (hsr.ec) {
-    case HSR_EC_SYSREG:
+    case ESR_EC_SYSREG:
         return vgic_v3_emulate_sysreg(regs, hsr);
-    case HSR_EC_CP15_64:
+    case ESR_EC_CP15_64:
         return vgic_v3_emulate_cp64(regs, hsr);
     default:
         return false;
@@ -2700,132 +2744,129 @@ static int vgic_v3_vcpu_init(struct vcpu *v)
     struct hypos *d = v->hypos;
 
     for (i = 1; i < d->arch.vgic.nr_regions; i++) {
-        if (v->vcpu_id < d->arch.vgic.rdist_regions[i].first_cpu)
+        if (v->vcpuid < d->arch.vgic.rdist_regions[i].first_cpu)
             break;
     }
 
     region = &d->arch.vgic.rdist_regions[i - 1];
 
     rdist_base = region->base;
-    rdist_base += (v->vcpu_id - region->first_cpu) * GICV3_GICR_SIZE;
+    rdist_base += (v->vcpuid - region->first_cpu) * GICV3_GICR_SIZE;
 
     if ((rdist_base < region->base) ||
         ((rdist_base + GICV3_GICR_SIZE)
          > (region->base + region->size))) {
         MSGH("d%u: Unable to find a re-distributor for VCPU %u\n",
-             d->hypos_id, v->vcpu_id);
+             d->hid, v->vcpuid);
         return -EINVAL;
     }
 
     v->arch.vgic.rdist_base = rdist_base;
     last_cpu = (region->size / GICV3_GICR_SIZE) + region->first_cpu - 1;
 
-    if ( v->vcpu_id == last_cpu || (v->vcpu_id == (d->max_vcpus - 1)) )
+    if ( v->vcpuid == last_cpu || (v->vcpuid == (d->max_vcpus - 1)) )
         v->arch.vgic.flags |= VGIC_V3_RDIST_LAST;
 
     return 0;
 }
 
-static inline unsigned int vgic_v3_max_rdist_count(struct hypos *d)
+static inline unsigned int vgic_v3_max_rdist_count(struct hypos *h)
 {
-    return hypos_use_host_layout(d) ? vgic_v3_hw.nr_rdist_regions :
-                                       GUEST_GICV3_RDIST_REGIONS;
+    return is_hardware_hypos(h) ? vgic_v3_hw.nr_rdist_regions : 1;
 }
 
-static int vgic_v3_hypos_init(struct hypos *d)
+static int vgic_v3_hypos_init(struct hypos *h)
 {
     struct vgic_rdist_region *rdist_regions;
     int rdist_count, i, ret;
 
-    rdist_count = vgic_v3_max_rdist_count(d);
+    rdist_count = vgic_v3_max_rdist_count(h);
 
-    rdist_regions = xzalloc_array(struct vgic_rdist_region, rdist_count);
+    rdist_regions = _zalloc_array(struct vgic_rdist_region, rdist_count);
     if (!rdist_regions)
         return -ENOMEM;
 
-    d->arch.vgic.nr_regions = rdist_count;
-    d->arch.vgic.rdist_regions = rdist_regions;
+    h->arch.vgic.nr_regions = rdist_count;
+    h->arch.vgic.rdist_regions = rdist_regions;
 
-    rwlock_init(&d->arch.vgic.pend_lpi_tree_lock);
-    radix_tree_init(&d->arch.vgic.pend_lpi_tree);
+    rwlock_init(&h->arch.vgic.pend_lpi_tree_lock);
+    radix_tree_init(&h->arch.vgic.pend_lpi_tree);
 
-    if (hypos_use_host_layout(d)) {
+    if (is_hardware_hypos(h)) {
         unsigned int first_cpu = 0;
 
-        d->arch.vgic.dbase = vgic_v3_hw.dbase;
+        h->arch.vgic.dbase = vgic_v3_hw.dbase;
 
         for (i = 0; i < vgic_v3_hw.nr_rdist_regions; i++) {
             hpa_t size = vgic_v3_hw.regions[i].size;
 
-            d->arch.vgic.rdist_regions[i].base = vgic_v3_hw.regions[i].base;
-            d->arch.vgic.rdist_regions[i].size = size;
+            h->arch.vgic.rdist_regions[i].base = vgic_v3_hw.regions[i].base;
+            h->arch.vgic.rdist_regions[i].size = size;
 
             /* Set the first CPU handled by this region */
-            d->arch.vgic.rdist_regions[i].first_cpu = first_cpu;
+            h->arch.vgic.rdist_regions[i].first_cpu = first_cpu;
 
             first_cpu += size / GICV3_GICR_SIZE;
 
-            if ( first_cpu >= d->max_vcpus )
+            if (first_cpu >= h->max_vcpus)
                 break;
         }
 
-        d->arch.vgic.nr_regions = i + 1;
+        h->arch.vgic.nr_regions = i + 1;
 
-        d->arch.vgic.intid_bits = vgic_v3_hw.intid_bits;
+        h->arch.vgic.intid_bits = vgic_v3_hw.intid_bits;
     } else {
-        d->arch.vgic.dbase = GUEST_GICV3_GICD_BASE;
+        h->arch.vgic.dbase = GUEST_GICV3_GICD_BASE;
 
-        BUILD_BUG_ON(GUEST_GICV3_RDIST_REGIONS != 1);
-
-        BUILD_BUG_ON((GUEST_GICV3_GICR0_SIZE / GICV3_GICR_SIZE) < MAX_VIRT_CPUS);
-        d->arch.vgic.rdist_regions[0].base = GUEST_GICV3_GICR0_BASE;
-        d->arch.vgic.rdist_regions[0].size = GUEST_GICV3_GICR0_SIZE;
-        d->arch.vgic.rdist_regions[0].first_cpu = 0;
-        d->arch.vgic.intid_bits = 10;
+        BUILD_BUG_ON((GUEST_GICV3_GICR0_SIZE / GICV3_GICR_SIZE) < MAX_VCPUS);
+        h->arch.vgic.rdist_regions[0].base = GUEST_GICV3_GICR0_BASE;
+        h->arch.vgic.rdist_regions[0].size = GUEST_GICV3_GICR0_SIZE;
+        h->arch.vgic.rdist_regions[0].first_cpu = 0;
+        h->arch.vgic.intid_bits = 10;
     }
 
-    ret = vgic_v3_its_init_hypos(d);
+    ret = vgic_v3_its_init_hypos(h);
     if (ret)
         return ret;
 
-    register_mmio_handler(d, &vgic_distr_mmio_handler, d->arch.vgic.dbase,
+    register_mmio_handler(h, &vgic_distr_mmio_handler, h->arch.vgic.dbase,
                           KB(64), NULL);
 
-    for (i = 0; i < d->arch.vgic.nr_regions; i++) {
-        struct vgic_rdist_region *region = &d->arch.vgic.rdist_regions[i];
+    for (i = 0; i < h->arch.vgic.nr_regions; i++) {
+        struct vgic_rdist_region *region = &h->arch.vgic.rdist_regions[i];
 
-        register_mmio_handler(d, &vgic_rdistr_mmio_handler,
+        register_mmio_handler(h, &vgic_rdistr_mmio_handler,
                               region->base, region->size, region);
     }
 
-    d->arch.vgic.ctlr = VGICD_CTLR_DEFAULT;
+    h->arch.vgic.ctlr = VGICD_CTLR_DEFAULT;
 
     return 0;
 }
 
-static void vgic_v3_hypos_free(struct hypos *d)
+static void vgic_v3_hypos_free(struct hypos *h)
 {
-    vgic_v3_its_free_hypos(d);
+    vgic_v3_its_free_hypos(h);
 
-    radix_tree_destroy(&d->arch.vgic.pend_lpi_tree, NULL);
-    free(d->arch.vgic.rdist_regions);
+    radix_tree_destroy(&h->arch.vgic.pend_lpi_tree, NULL);
+    free(h->arch.vgic.rdist_regions);
 }
 
-static struct pending_irq *vgic_v3_lpi_to_pending(struct hypos *d,
+static struct pending_irq *vgic_v3_lpi_to_pending(struct hypos *h,
                                                   unsigned int lpi)
 {
     struct pending_irq *pirq;
 
-    read_lock(&d->arch.vgic.pend_lpi_tree_lock);
-    pirq = radix_tree_lookup(&d->arch.vgic.pend_lpi_tree, lpi);
-    read_unlock(&d->arch.vgic.pend_lpi_tree_lock);
+    read_lock(&h->arch.vgic.pend_lpi_tree_lock);
+    pirq = radix_tree_lookup(&h->arch.vgic.pend_lpi_tree, lpi);
+    read_unlock(&h->arch.vgic.pend_lpi_tree_lock);
 
     return pirq;
 }
 
-static int vgic_v3_lpi_get_priority(struct hypos *d, u32 vlpi)
+static int vgic_v3_lpi_get_priority(struct hypos *h, u32 vlpi)
 {
-    struct pending_irq *p = vgic_v3_lpi_to_pending(d, vlpi);
+    struct pending_irq *p = vgic_v3_lpi_to_pending(h, vlpi);
 
     ASSERT(p);
 
@@ -2845,7 +2886,7 @@ int vgic_v3_init(struct hypos *d, unsigned int *mmio_count)
 {
     if (!vgic_v3_hw.enabled) {
         MSGH("d%d: vGICv3 is not supported on this platform.\n",
-             d->hypos_id);
+             d->hid);
         return -ENODEV;
     }
 
@@ -2865,7 +2906,7 @@ static inline struct vgic_irq_rank *vgic_get_rank(struct vcpu *v,
 {
     if (rank == 0)
         return v->arch.vgic.private_irqs;
-    else if (rank <= DOMAIN_NR_RANKS(v->hypos))
+    else if (rank <= HYPOS_NR_RANKS(v->hypos))
         return &v->hypos->arch.vgic.shared_irqs[rank - 1];
     else
         return NULL;
@@ -2888,7 +2929,7 @@ struct vgic_irq_rank *vgic_rank_irq(struct vcpu *v, unsigned int irq)
 
 void vgic_init_pending_irq(struct pending_irq *p, unsigned int virq)
 {
-    BUILD_BUG_ON(BIT(sizeof(p->lpi_vcpu_id) * 8, UL) < MAX_VIRT_CPUS);
+    BUILD_BUG_ON(BIT(sizeof(p->lpi_vcpu_id) * 8, UL) < MAX_VCPUS);
 
     memset(p, 0, sizeof(*p));
     INIT_LIST_HEAD(&p->inflight);
@@ -2897,12 +2938,12 @@ void vgic_init_pending_irq(struct pending_irq *p, unsigned int virq)
     p->lpi_vcpu_id = INVALID_VCPU_ID;
 }
 
-static void vgic_rank_init(struct vgic_irq_rank *rank, uint8_t index,
+static void vgic_rank_init(struct vgic_irq_rank *rank, u8 index,
                            unsigned int vcpu)
 {
     unsigned int i;
 
-    BUILD_BUG_ON((1 << (sizeof(rank->vcpu[0]) * 8)) < MAX_VIRT_CPUS);
+    BUILD_BUG_ON((1 << (sizeof(rank->vcpu[0]) * 8)) < MAX_VCPUS);
 
     spin_lock_init(&rank->lock);
 
@@ -2921,7 +2962,7 @@ int hypos_vgic_register(struct hypos *d, unsigned int *mmio_count)
         break;
     default:
         MSGH("d%d: Unknown vGIC version %u\n",
-             d->hypos_id, d->arch.vgic.version);
+             d->hid, d->arch.vgic.version);
         return -ENODEV;
     }
 
@@ -2945,19 +2986,19 @@ int hypos_vgic_init(struct hypos *d, unsigned int nr_spis)
     spin_lock_init(&d->arch.vgic.lock);
 
     d->arch.vgic.shared_irqs =
-        xzalloc_array(struct vgic_irq_rank, DOMAIN_NR_RANKS(d));
+        _zalloc_array(struct vgic_irq_rank, HYPOS_NR_RANKS(d));
     if (d->arch.vgic.shared_irqs == NULL)
         return -ENOMEM;
 
     d->arch.vgic.pending_irqs =
-        xzalloc_array(struct pending_irq, d->arch.vgic.nr_spis);
+        _zalloc_array(struct pending_irq, d->arch.vgic.nr_spis);
     if (d->arch.vgic.pending_irqs == NULL)
         return -ENOMEM;
 
     for (i=0; i<d->arch.vgic.nr_spis; i++)
         vgic_init_pending_irq(&d->arch.vgic.pending_irqs[i], i + 32);
 
-    for (i = 0; i < DOMAIN_NR_RANKS(d); i++)
+    for (i = 0; i < HYPOS_NR_RANKS(d); i++)
         vgic_rank_init(&d->arch.vgic.shared_irqs[i], i + 1, 0);
 
     ret = d->arch.vgic.handler->hypos_init(d);
@@ -2965,7 +3006,7 @@ int hypos_vgic_init(struct hypos *d, unsigned int nr_spis)
         return ret;
 
     d->arch.vgic.allocated_irqs =
-        xzalloc_array(unsigned long, BITS_TO_LONGS(vgic_num_irqs(d)));
+        _zalloc_array(unsigned long, BITS_TO_LONGS(vgic_num_irqs(d)));
     if (!d->arch.vgic.allocated_irqs)
         return -ENOMEM;
 
@@ -2992,7 +3033,7 @@ void hypos_vgic_free(struct hypos *d)
             ret = release_guest_irq(d, p->irq);
             if (ret)
                 MSGH("d%u: Failed to release virq %u ret = %d\n",
-                        d->hypos_id, p->irq, ret);
+                        d->hid, p->irq, ret);
         }
     }
 
@@ -3007,12 +3048,12 @@ int vcpu_vgic_init(struct vcpu *v)
 {
     int i;
 
-    v->arch.vgic.private_irqs = xzalloc(struct vgic_irq_rank);
+    v->arch.vgic.private_irqs = _zalloc(struct vgic_irq_rank);
     if (v->arch.vgic.private_irqs == NULL)
       return -ENOMEM;
 
     /* SGIs/PPIs are always routed to this VCPU */
-    vgic_rank_init(v->arch.vgic.private_irqs, 0, v->vcpu_id);
+    vgic_rank_init(v->arch.vgic.private_irqs, 0, v->vcpuid);
 
     v->hypos->arch.vgic.handler->vcpu_init(v);
 
@@ -3074,14 +3115,14 @@ bool vgic_migrate_irq(struct vcpu *old, struct vcpu *new, unsigned int irq)
     }
 
     if (list_empty(&p->inflight)) {
-        irq_set_affinity(p->desc, cpumask_of(new->processor));
+        irq_set_affinity(p->desc, cpumask_of(new->hcpuid));
         spin_unlock_irqrestore(&old->arch.vgic.lock, flags);
         return true;
     }
 
     if (!list_empty(&p->lr_queue)) {
         vgic_remove_irq_from_queues(old, p);
-        irq_set_affinity(p->desc, cpumask_of(new->processor));
+        irq_set_affinity(p->desc, cpumask_of(new->hcpuid));
         spin_unlock_irqrestore(&old->arch.vgic.lock, flags);
         vgic_inject_irq(new->hypos, new, irq, true);
         return true;
@@ -3096,7 +3137,7 @@ bool vgic_migrate_irq(struct vcpu *old, struct vcpu *new, unsigned int irq)
 
 void arch_move_irqs(struct vcpu *v)
 {
-    const cpumask_t *cpu_mask = cpumask_of(v->processor);
+    const cpumask_t *cpu_mask = cpumask_of(v->hcpuid);
     struct hypos *d = v->hypos;
     struct pending_irq *p;
     struct vcpu *v_target;
@@ -3188,7 +3229,7 @@ void vgic_enable_irqs(struct vcpu *v, u32 r, unsigned int n)
         spin_unlock_irqrestore(&v_target->arch.vgic.lock, flags);
 
         if (p->desc != NULL) {
-            irq_set_affinity(p->desc, cpumask_of(v_target->processor));
+            irq_set_affinity(p->desc, cpumask_of(v_target->hcpuid));
             spin_lock_irqsave(&p->desc->lock, flags);
 
             ASSERT(irq >= 32);
@@ -3259,7 +3300,7 @@ bool vgic_to_sgi(struct vcpu *v, register_t sgir, enum gic_sgi_mode irqmode,
         break;
     case SGI_TARGET_OTHERS:
         for (i = 0; i < d->max_vcpus; i++) {
-            if (i != current->vcpu_id && d->vcpu[i] != NULL &&
+            if (i != current->vcpuid && d->vcpu[i] != NULL &&
                  is_vcpu_online(d->vcpu[i]))
                 vgic_inject_irq(d, d->vcpu[i], virq, true);
         }
@@ -3323,7 +3364,7 @@ void vgic_inject_irq(struct hypos *d, struct vcpu *v,
                      unsigned int virq,
                      bool level)
 {
-    uint8_t priority;
+    u8 priority;
     struct pending_irq *iter, *n;
     unsigned long flags;
 
@@ -3346,7 +3387,7 @@ void vgic_inject_irq(struct hypos *d, struct vcpu *v,
     }
 
     /* vcpu offline */
-    if (test_bit(_VPF_down, &v->pause_flags)) {
+    if (test_bit(_VPF_DOWN, &v->pause_flags)) {
         spin_unlock_irqrestore(&v->arch.vgic.lock, flags);
         return;
     }
@@ -3390,7 +3431,7 @@ bool vgic_evtchn_irq_pending(struct vcpu *v)
     return list_empty(&p->inflight);
 }
 
-bool vgic_emulate(struct cpu_user_regs *regs, union hsr hsr)
+bool vgic_emulate(struct hcpu_regs *regs, union hcpu_esr hsr)
 {
     struct vcpu *v = current;
 
@@ -3434,12 +3475,12 @@ void vgic_free_virq(struct hypos *d, unsigned int virq)
     clear_bit(virq, d->arch.vgic.allocated_irqs);
 }
 
-unsigned int vgic_max_vcpus(unsigned int domctl_vgic_version)
+unsigned int vgic_max_vcpus(unsigned int hypos_vgic_version)
 {
     switch (hypos_vgic_version) {
-    case HYPOS_CFG_GIC_V2:
+    case CFG_GIC_V2:
         return 8;
-    case HYPOS_CFG_GIC_V3:
+    case CFG_GIC_V3:
         return 4096;
     default:
         return 0;

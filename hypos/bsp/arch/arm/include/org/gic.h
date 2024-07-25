@@ -302,7 +302,7 @@
 #define GICR_PROPBASER_INNER_CACHEABILITY_MASK               \
         (7ULL << GICR_PROPBASER_INNER_CACHEABILITY_SHIFT)
 #define GICR_PROPBASER_RES0_MASK                             \
-        (GENMASK_ULL(63, 59) | GENMASK_ULL(55, 52) | GENMASK_ULL(6, 5))
+        (GENMASK(63, 59) | GENMASK(55, 52) | GENMASK(6, 5))
 
 #define GICR_PENDBASER_SHAREABILITY_SHIFT               10
 #define GICR_PENDBASER_INNER_CACHEABILITY_SHIFT         7
@@ -313,10 +313,10 @@
 	(7UL << GICR_PENDBASER_INNER_CACHEABILITY_SHIFT)
 #define GICR_PENDBASER_OUTER_CACHEABILITY_MASK               \
         (7ULL << GICR_PENDBASER_OUTER_CACHEABILITY_SHIFT)
-#define GICR_PENDBASER_PTZ           BIT(62, ULL)
-#define GICR_PENDBASER_RES0_MASK                             \
-        (BIT(63, ULL) | GENMASK_ULL(61, 59) | GENMASK_ULL(55, 52) |  \
-         GENMASK_ULL(15, 12) | GENMASK_ULL(6, 0))
+#define GICR_PENDBASER_PTZ           BIT(62, UL)
+#define GICR_PENDBASER_RES0_MASK                            \
+        (BIT(63, UL) | GENMASK(61, 59) | GENMASK(55, 52) |  \
+         GENMASK(15, 12) | GENMASK(6, 0))
 
 #define DEFAULT_PMR_VALUE            0xFF
 
@@ -692,6 +692,8 @@ void gic_route_irq_to_hypos(struct irq_desc *desc,
                             unsigned int priority);
 
 void gic_interrupt(struct hcpu_regs *regs, int is_fiq);
+void gic_clear_pending_irqs(struct vcpu *v);
+
 // --------------------------------------------------------------
 
 int  gicv3_lpi_init_host_lpis(unsigned int host_lpi_bits);
@@ -708,6 +710,31 @@ void gicv3_free_host_lpi_block(u32 first_lpi);
 int  gicv3_ate_host_lpi_block(struct hypos *d, u32 *first_lpi);
 void gicv3_lpi_update_host_entry(u32 host_lpi, int hypos_id,
                                  u32 virt_lpi);
+struct pending_irq *
+gicv3_its_get_event_pending_irq(struct hypos *h,
+                                hpa_t vdoorbell_address,
+                                u32 vdevid,
+                                u32 eventid);
+int gicv3_remove_guest_event(struct hypos *d,
+                             hpa_t vdoorbell_address,
+                             u32 vdevid, u32 eventid);
+int gicv3_its_map_guest_device(struct hypos *d,
+                               hpa_t host_doorbell,
+                               u32 host_devid,
+                               hpa_t guest_doorbell,
+                               u32 guest_devid,
+                               u64 nr_events, bool valid);
+struct pending_irq *gicv3_assign_guest_event(struct hypos *d,
+                                             hpa_t vdoorbell_address,
+                                             u32 vdevid, u32 eventid,
+                                             u32 virt_lpi);
+// --------------------------------------------------------------
+void gic_raise_guest_irq(struct vcpu *v, unsigned int virtual_irq,
+        unsigned int priority);
+
+void gic_raise_inflight_irq(struct vcpu *v, unsigned int virtual_irq);
+// --------------------------------------------------------------
+
 int  gic_setup(void);
 
 // --------------------------------------------------------------

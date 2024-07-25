@@ -184,6 +184,8 @@ void update_hypos_wallclock_time(struct hypos *h)
     spin_unlock(&wc_lock);
 }
 
+static DEFINE_RCU_READ_LOCK(time_lock);
+
 /* Set clock to <secs,usecs> after 00:00:00 UTC, 1 January, 1970. */
 void do_settime(u64 secs, unsigned int nsecs,
                           u64 system_time_base)
@@ -200,10 +202,10 @@ void do_settime(u64 secs, unsigned int nsecs,
     wc_nsec = y;
     spin_unlock(&wc_lock);
 
-    rcu_read_lock();
+    rcu_read_lock(&time_lock);
     for_each_hypos(h)
         update_hypos_wallclock_time(h);
-    rcu_read_unlock();
+    rcu_read_unlock(&time_lock);
 }
 
 /* Return secs after 00:00:00 localtime, 1 January, 1970. */

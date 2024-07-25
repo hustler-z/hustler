@@ -6,7 +6,7 @@
  * Usage:
  */
 
-#include <org/vcpu.h>
+#include <org/virq.h>
 #include <org/section.h>
 #include <bsp/percpu.h>
 #include <bsp/hypmem.h>
@@ -373,7 +373,7 @@ int setup_irq(unsigned int irq, unsigned int irqflags,
 
         spin_unlock_irqrestore(&desc->lock, flags);
         MSGE("IRQ %u is already in use by the hypos %u\n",
-               irq, h->hypos_id);
+               irq, h->hid);
         return -EBUSY;
     }
 
@@ -396,16 +396,16 @@ err:
     return rc;
 }
 
+bool irq_type_set_by_hypos(const struct hypos *h)
+{
+    return is_hardware_hypos(h);
+}
+
 #if IS_IMPLEMENTED(__ROUTE_IRQ_TO_GUEST)
 // --------------------------------------------------------------
 bool is_assignable_irq(unsigned int irq)
 {
     return (irq >= NR_LOCAL_IRQS) && (irq < gic_number_lines());
-}
-
-bool irq_type_set_by_hypos(const struct hypos *d)
-{
-    return is_hardware_hypos(d);
 }
 
 int route_irq_to_guest(struct hypos *h, unsigned int virq,
@@ -670,7 +670,7 @@ int route_irq_to_guest(struct hypos *h, unsigned int virq,
     return 0;
 }
 
-int release_guest_irq(struct hypos *d, unsigned int virq)
+int release_guest_irq(struct hypos *h, unsigned int virq)
 {
     return 0;
 }

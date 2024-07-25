@@ -11,10 +11,13 @@
 // --------------------------------------------------------------
 
 #include <org/esr.h>
+#include <org/vreg.h>
 #include <bsp/spinlock.h>
+#include <bsp/rwlock.h>
 #include <bsp/irq.h>
 #include <org/vcpu.h>
 #include <lib/rbtree.h>
+#include <lib/radix.h>
 
 #define GIC_IRQ_GUEST_QUEUED       0
 #define GIC_IRQ_GUEST_ACTIVE       1
@@ -23,6 +26,14 @@
 #define GIC_IRQ_GUEST_MIGRATING    4
 #define GIC_IRQ_GUEST_PRISTINE_LPI 5
 #define GIC_INVALID_LR             (u8)(~0)
+
+// --------------------------------------------------------------
+
+#define GUEST_GICV3_GICR0_BASE     0x03020000
+#define GUEST_GICV3_GICR0_SIZE     0x01000000
+
+#define GUEST_GICV3_GICD_BASE      0x03001000
+#define GUEST_GICV3_GICD_SIZE      0x00010000
 
 // --------------------------------------------------------------
 
@@ -90,6 +101,8 @@ struct vgic_dist {
     struct rb_root   its_devices; /* Devices mapped to an ITS */
     spinlock_t its_devices_lock;  /* Protects the its_devices tree */
     struct list_head vits_list;   /* List of virtual ITSes */
+    struct radix_tree_root pend_lpi_tree;
+    rwlock_t pend_lpi_tree_lock;
     unsigned int     intid_bits;
     bool rdists_enabled;          /* Is any redistributor enabled? */
     bool has_its;
@@ -123,10 +136,17 @@ static inline void sgi_target_init(struct sgi_target *sgi_target)
 }
 
 struct vgic_ops {
-    int  (*vcpu_setup)(struct vcpu *v);
+    int  (*vcpu_init)(struct vcpu *v);
+    int  (*hypos_init)(struct hypos *h);
+    void (*hypos_free)(struct hypos *h);
     bool (*emulate_reg)(struct hcpu_regs *regs,
                         union hcpu_esr hsr);
+    struct pending_irq *(*lpi_to_pending)(struct hypos *h,
+                                          unsigned int vlpi);
+    int (*lpi_get_priority)(struct hypos *h, u32 vlpi);
 };
+
+#define vgic_num_irqs(h)      ((h)->arch.vgic.nr_spis + 32)
 
 // --------------------------------------------------------------
 
@@ -152,6 +172,9 @@ static inline unsigned int REG_RANK_NR(unsigned int b, unsigned int n)
     case 1:  return n;
     default: BUG();
     }
+
+    /* Never reach here */
+    return 0;
 }
 
 static inline hpa_t vgic_cpu_base(const struct vgic_dist *vgic)
@@ -203,7 +226,7 @@ extern void vgic_check_inflight_irqs_pending(struct hypos *d,
                                              struct vcpu *v,
                                              unsigned int rank,
                                              u32 r);
-
+void vgic_vcpu_inject_lpi(struct hypos *h, unsigned int virq);
 // --------------------------------------------------------------
 
 int vgic_v3_init(struct hypos *d, unsigned int *mmio_count);
@@ -223,5 +246,11 @@ void vgic_v3_setup_hw(hpa_t dbase,
 #define VRANGE32(start, end) (start) ... ((end) + 3)
 #define VRANGE64(start, end) (start) ... ((end) + 7)
 
+static inline bool vgic_reg64_check_access(struct hcpu_dabt dabt)
+{
+    return (dabt.sas == DABT_DOUBLE_WORD || dabt.sas == DABT_WORD);
+}
+
+extern struct list_head host_its_list;
 // --------------------------------------------------------------
 #endif /* _ORG_VGIC_H */

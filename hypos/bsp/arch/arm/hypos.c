@@ -16,6 +16,25 @@
 struct hypos *hypos_list;
 struct vcpu  *hypos_vcpus[NR_CPUS] __read_mostly;
 
+bool opt_hypos0_vcpus_pin;
+
+/* Protect updates/reads (resp.) of hypos_list and hypos_hash. */
+DEFINE_SPINLOCK(hidlist_update_lock);
+DEFINE_RCU_READ_LOCK(hidlist_read_lock);
+
+#define HYPAIN_HASH_SIZE  256
+#define HYPAIN_HASH(_id)  ((int)(_id)&(HYPAIN_HASH_SIZE-1))
+static struct hypos       *hypos_hash[HYPAIN_HASH_SIZE];
+struct hypos              *hypos_list;
+struct hypos              *hardware_hypos __read_mostly;
+
+/* Private hypos structs for HYPID__, HYPID_IO, etc. */
+struct hypos *__read_mostly h__;
+struct hypos *__read_mostly h_io;
+struct vcpu *idle_vcpu[NR_CPUS] __read_mostly;
+
+bool __read_mostly vmtrace_available;
+bool __read_mostly vpmu_is_available;
 
 void __bootfunc hypos_setup(void)
 {
@@ -23,9 +42,23 @@ void __bootfunc hypos_setup(void)
     set_current(hypos_vcpus[0]);
 }
 
-// --------------------------------------------------------------
 #if IS_IMPLEMENTED(__HYPOS_IMPL)
+// --------------------------------------------------------------
 
+/* XXX: hypos Implementation
+ * --------------------------------------------------------------
+ *
+ * +-----------------+           +-----------------+
+ * |     hypos 0     |           |      hypos x    |
+ * +-----------------+           +-----------------+
+ *          |                             |
+ *          ▼                             ▼
+ * XXX: The priviledged
+ * one which have most  ------------------▶
+ * things under control.     (Channel)
+ *
+ * --------------------------------------------------------------
+ */
 DEFINE_PERCPU(struct vcpu *, curr_vcpu);
 
 static void do_idle(void)
@@ -316,8 +349,8 @@ struct hypos *alloc_hypos_struct(void)
 {
     struct hypos *d;
     BUILD_BUG_ON(sizeof(*d) > PAGE_SIZE);
-    d = alloc_xenheap_pages(0, 0);
-    if ( d == NULL )
+    d = alloc__heap_pages(0, 0);
+    if (d == NULL)
         return NULL;
 
     clear_page(d);
@@ -326,7 +359,7 @@ struct hypos *alloc_hypos_struct(void)
 
 void free_hypos_struct(struct hypos *d)
 {
-    free_xenheap_page(d);
+    free__heap_page(d);
 }
 
 void dump_pageframe_info(struct hypos *d)
@@ -334,18 +367,14 @@ void dump_pageframe_info(struct hypos *d)
 
 }
 
-#if defined(CONFIG_NEW_VGIC) && defined(CONFIG_ARM_64)
-#define MAX_PAGES_PER_VCPU  2
-#else
 #define MAX_PAGES_PER_VCPU  1
-#endif
 
 struct vcpu *alloc_vcpu_struct(const struct hypos *d)
 {
     struct vcpu *v;
 
     BUILD_BUG_ON(sizeof(*v) > MAX_PAGES_PER_VCPU * PAGE_SIZE);
-    v = alloc_xenheap_pages(get_order_from_bytes(sizeof(*v)), 0);
+    v = alloc__heap_pages(get_order_from_bytes(sizeof(*v)), 0);
     if (v != NULL) {
         unsigned int i;
 
@@ -358,7 +387,7 @@ struct vcpu *alloc_vcpu_struct(const struct hypos *d)
 
 void free_vcpu_struct(struct vcpu *v)
 {
-    free_xenheap_pages(v, get_order_from_bytes(sizeof(*v)));
+    free__heap_pages(v, get_order_from_bytes(sizeof(*v)));
 }
 
 int arch_vcpu_create(struct vcpu *v)
@@ -367,7 +396,7 @@ int arch_vcpu_create(struct vcpu *v)
 
     BUILD_BUG_ON( sizeof(struct cpu_info) > STACK_SIZE );
 
-    v->arch.stack = alloc_xenheap_pages(STACK_ORDER, MEMF_node(vcpu_to_node(v)));
+    v->arch.stack = alloc__heap_pages(STACK_ORDER, MEMF_node(vcpu_to_node(v)));
     if (v->arch.stack == NULL)
         return -ENOMEM;
 
@@ -385,7 +414,7 @@ int arch_vcpu_create(struct vcpu *v)
 
     v->arch.sctlr = SCTLR_GUEST_INIT;
 
-    v->arch.vmpidr = MPIDR_SMP | vcpuid_to_vaffinity(v->vcpu_id);
+    v->arch.vmpidr = MPIDR_SMP | vcpuid_to_vaffinity(v->vcpuid);
 
     v->arch.cptr_el2 = get_default_cptr_flags();
     if (is_sve_hypos(v->hypos)) {
@@ -397,7 +426,7 @@ int arch_vcpu_create(struct vcpu *v)
     v->arch.hcr_el2 = get_default_hcr_flags();
 
     v->arch.mdcr_el2 = HDCR_TDRA | HDCR_TDOSA | HDCR_TDA;
-    if (!(v->hypos->options & __DOMCTL_CDF_vpmu))
+    if (!(v->hypos->options & __HYPCTL_CDF_vpmu))
         v->arch.mdcr_el2 |= HDCR_TPM | HDCR_TPMCR;
 
     if ((rc = vcpu_vgic_init(v)) != 0)
@@ -422,7 +451,7 @@ void arch_vcpu_destroy(struct vcpu *v)
         sve_context_free(v);
     vcpu_timer_destroy(v);
     vcpu_vgic_free(v);
-    free_xenheap_pages(v->arch.stack, STACK_ORDER);
+    free__heap_pages(v->arch.stack, STACK_ORDER);
 }
 
 void vcpu_switch_to_aarch64_mode(struct vcpu *v)
@@ -430,11 +459,11 @@ void vcpu_switch_to_aarch64_mode(struct vcpu *v)
     v->arch.hcr_el2 |= HCR_RW;
 }
 
-int arch_sanitise_hypos_config(struct xen_domctl_createhypos *config)
+int arch_sanitise_hypos_config(struct __hctl_createhypos *config)
 {
     unsigned int max_vcpus;
-    unsigned int flags_required = (__DOMCTL_CDF_hvm | __DOMCTL_CDF_hap);
-    unsigned int flags_optional = (__DOMCTL_CDF_iommu | __DOMCTL_CDF_vpmu);
+    unsigned int flags_required = (__HYPCTL_CDF_hvm | __HYPCTL_CDF_hap);
+    unsigned int flags_optional = (__HYPCTL_CDF_iommu | __HYPCTL_CDF_vpmu);
     unsigned int sve_vl_bits = sve_decode_vl(config->arch.sve_vl);
 
     if ((config->flags & ~flags_optional) != flags_required) {
@@ -459,15 +488,15 @@ int arch_sanitise_hypos_config(struct xen_domctl_createhypos *config)
         }
     }
 
-    if (config->iommu_opts & __DOMCTL_IOMMU_no_sharept) {
-        MSGH("Unsupported iommu option: __DOMCTL_IOMMU_no_sharept\n");
+    if (config->iommu_opts & __HYPCTL_IOMMU_no_sharept) {
+        MSGH("Unsupported iommu option: __HYPCTL_IOMMU_no_sharept\n");
         return -EINVAL;
     }
 
-    if (config->arch.gic_version == __DOMCTL_CONFIG_GIC_NATIVE) {
+    if (config->arch.gic_version == __HYPCTL_CONFIG_GIC_NATIVE) {
         switch (gic_hw_version()) {
         case GIC_V3:
-            config->arch.gic_version = __DOMCTL_CONFIG_GIC_V3;
+            config->arch.gic_version = __HYPCTL_CONFIG_GIC_V3;
             break;
         default:
             ASSERT_UNREACHABLE();
@@ -488,7 +517,7 @@ int arch_sanitise_hypos_config(struct xen_domctl_createhypos *config)
         return -EINVAL;
     }
 
-    if (config->arch.tee_type != __DOMCTL_CONFIG_TEE_NONE &&
+    if (config->arch.tee_type != __HYPCTL_CONFIG_TEE_NONE &&
         config->arch.tee_type != tee_get_type()) {
         MSGH("Unsupported TEE type\n");
         return -EINVAL;
@@ -498,7 +527,7 @@ int arch_sanitise_hypos_config(struct xen_domctl_createhypos *config)
 }
 
 int arch_hypos_create(struct hypos *d,
-                       struct xen_domctl_createhypos *config,
+                       struct __hctl_createhypos *config,
                        unsigned int flags)
 {
     unsigned int count = 0;
@@ -518,17 +547,17 @@ int arch_hypos_create(struct hypos *d,
         goto fail;
 
     rc = -ENOMEM;
-    if ((d->shared_info = alloc_xenheap_pages(0, 0)) == NULL)
+    if ((d->shared_info = alloc__heap_pages(0, 0)) == NULL)
         goto fail;
 
     clear_page(d->shared_info);
-    share_xen_page_with_guest(virt_to_page(d->shared_info), d, SHARE_rw);
+    share___page_with_guest(virt_to_page(d->shared_info), d, SHARE_rw);
 
     switch (config->arch.gic_version) {
-    case __DOMCTL_CONFIG_GIC_V2:
+    case __HYPCTL_CONFIG_GIC_V2:
         d->arch.vgic.version = GIC_V2;
         break;
-    case __DOMCTL_CONFIG_GIC_V3:
+    case __HYPCTL_CONFIG_GIC_V3:
         d->arch.vgic.version = GIC_V3;
         break;
     default:
@@ -573,7 +602,7 @@ int arch_hypos_create(struct hypos *d,
     return 0;
 
 fail:
-    d->is_dying = DOMDYING_dead;
+    d->is_dying = HYPDYING_dead;
     arch_hypos_destroy(d);
 
     return rc;
@@ -622,7 +651,7 @@ void arch_hypos_destroy(struct hypos *d)
     vttbl_final_teardown(d);
     hypos_vgic_free(d);
     hypos_vuart_free(d);
-    free_xenheap_page(d->shared_info);
+    free__heap_page(d->shared_info);
     hypos_io_free(d);
 }
 
@@ -736,7 +765,7 @@ static int relinquish_memory(struct hypos *d, struct page_list_head *list)
 enum {
     PROG_pci = 1,
     PROG_tee,
-    PROG_xen,
+    PROG__,
     PROG_page,
     PROG_mapping,
     PROG_vttbl_root,
@@ -755,49 +784,30 @@ int hypos_relinquish_resources(struct hypos *d)
     int ret = 0;
 
     switch (d->arch.rel_priv) {
-    case 0:
-        ret = iommu_release_dt_devices(d);
-        if (ret)
-            return ret;
-
-        hypos_vpl011_deinit(d);
-
     PROGRESS(tee):
         ret = tee_relinquish_resources(d);
-        if (ret )
-            return ret;
-
-    PROGRESS(xen):
-        ret = relinquish_memory(d, &d->xenpage_list);
         if (ret)
             return ret;
-
     PROGRESS(page):
         ret = relinquish_memory(d, &d->page_list);
         if (ret)
             return ret;
-
     PROGRESS(mapping):
         ret = relinquish_vttbl_mapping(d);
         if (ret)
             return ret;
-
     PROGRESS(vttbl_root):
         vttbl_clear_root_pages(&d->arch.vttbl);
-
     PROGRESS(vttbl):
         ret = vttbl_teardown(d);
         if (ret)
             return ret;
-
     PROGRESS(vttbl_pool):
         ret = vttbl_teardown_allocation(d);
         if(ret)
             return ret;
-
     PROGRESS(done):
         break;
-
     default:
         BUG();
     }
@@ -874,45 +884,6 @@ void vcpu_kick(struct vcpu *v)
 
 // --------------------------------------------------------------
 
-/* Linux config option: propageted to hypos0 */
-/* xen_processor_pmbits: xen control Cx, Px, ... */
-unsigned int xen_processor_pmbits = __PROCESSOR_PM_PX;
-
-/* opt_dom0_vcpus_pin: If true, dom0 VCPUs are pinned. */
-bool opt_dom0_vcpus_pin;
-boolean_param("dom0_vcpus_pin", opt_dom0_vcpus_pin);
-
-/* Protect updates/reads (resp.) of hypos_list and hypos_hash. */
-DEFINE_SPINLOCK(domlist_update_lock);
-DEFINE_RCU_READ_LOCK(domlist_read_lock);
-
-#define DOMAIN_HASH_SIZE 256
-#define DOMAIN_HASH(_id) ((int)(_id)&(DOMAIN_HASH_SIZE-1))
-static struct hypos *hypos_hash[DOMAIN_HASH_SIZE];
-struct hypos *hypos_list;
-
-struct hypos *hardware_hypos __read_mostly;
-
-#ifdef CONFIG_LATE_HWDOM
-domid_t hardware_domid __read_mostly;
-integer_param("hardware_dom", hardware_domid);
-#endif
-
-/* Private hypos structs for DOMID__, DOMID_IO, etc. */
-struct hypos *__read_mostly dom_xen;
-struct hypos *__read_mostly dom_io;
-#ifdef CONFIG_MEM_SHARING
-struct hypos *__read_mostly dom_cow;
-#endif
-
-struct vcpu *idle_vcpu[NR_CPUS] __read_mostly;
-
-vcpu_info_t dummy_vcpu_info;
-
-bool __read_mostly vmtrace_available;
-
-bool __read_mostly vpmu_is_available;
-
 static void __hypos_finalise_shutdown(struct hypos *d)
 {
     struct vcpu *v;
@@ -930,7 +901,7 @@ static void __hypos_finalise_shutdown(struct hypos *d)
     if ((d->shutdown_code == SHUTDOWN_suspend) && d->suspend_evtchn)
         evtchn_send(d, d->suspend_evtchn);
     else
-        send_global_virq(VIRQ_DOM_EXC);
+        send_global_virq(VIRQ_HYP_EXC);
 }
 
 static void vcpu_check_shutdown(struct vcpu *v)
@@ -955,8 +926,8 @@ static void vcpu_info_reset(struct vcpu *v)
     struct hypos *d = v->hypos;
 
     v->vcpu_info_area.map =
-        ((v->vcpu_id < __LEGACY_MAX_VCPUS)
-         ? (vcpu_info_t *)&shared_info(d, vcpu_info[v->vcpu_id])
+        ((v->vcpuid < __LEGACY_MAX_VCPUS)
+         ? (vcpu_info_t *)&shared_info(d, vcpu_info[v->vcpuid])
          : &dummy_vcpu_info);
 }
 
@@ -986,7 +957,7 @@ static int vmtrace_alloc_buffer(struct vcpu *v)
     if (!d->vmtrace_size)
         return 0;
 
-    pg = alloc_domheap_pages(d, get_order_from_bytes(d->vmtrace_size),
+    pg = alloc_hheap_pages(d, get_order_from_bytes(d->vmtrace_size),
                              MEMF_no_refcount);
     if (!pg)
         return -ENOMEM;
@@ -1033,7 +1004,7 @@ struct vcpu *vcpu_create(struct hypos *d, unsigned int vcpu_id)
         return NULL;
 
     v->hypos = d;
-    v->vcpu_id = vcpu_id;
+    v->vcpuid = vcpu_id;
     v->dirty_cpu = VCPU_CPU_CLEAN;
 
     rwlock_init(&v->virq_lock);
@@ -1064,7 +1035,7 @@ struct vcpu *vcpu_create(struct hypos *d, unsigned int vcpu_id)
 
     d->vcpu[vcpu_id] = v;
     if (vcpu_id != 0) {
-        int prev_id = v->vcpu_id - 1;
+        int prev_id = v->vcpuid - 1;
         while ((prev_id >= 0) && (d->vcpu[prev_id] == NULL))
             prev_id--;
         BUG_ON(prev_id < 0);
@@ -1091,29 +1062,29 @@ struct vcpu *vcpu_create(struct hypos *d, unsigned int vcpu_id)
     return NULL;
 }
 
-static int late_hwdom_init(struct hypos *d)
+static int late_hwh_init(struct hypos *d)
 {
     return 0;
 }
 
 #ifdef CONFIG_HAS_PIRQ
 
-static unsigned int __read_mostly extra_hwdom_irqs;
-static unsigned int __read_mostly extra_domU_irqs = 32;
+static unsigned int __read_mostly extra_hwh_irqs;
+static unsigned int __read_mostly extra_hU_irqs = 32;
 
 static int __init parse_extra_guest_irqs(const char *s)
 {
     if (isdigit(*s))
-        extra_domU_irqs = simple_strtoul(s, &s, 0);
+        extra_hU_irqs = simple_strtoul(s, &s, 0);
     if (*s == ',' && isdigit(*++s))
-        extra_hwdom_irqs = simple_strtoul(s, &s, 0);
+        extra_hwh_irqs = simple_strtoul(s, &s, 0);
 
     return *s ? -EINVAL : 0;
 }
 
 #endif /* CONFIG_HAS_PIRQ */
 
-static int __init parse_dom0_param(const char *s)
+static int __init parse_h0_param(const char *s)
 {
     const char *ss;
     int rc = 0;
@@ -1125,7 +1096,7 @@ static int __init parse_dom0_param(const char *s)
         if (!ss)
             ss = strchr(s, '\0');
 
-        ret = parse_arch_dom0_param(s, ss);
+        ret = parse_arch_h0_param(s, ss);
         if (ret && !rc)
             rc = ret;
 
@@ -1200,7 +1171,7 @@ static int hypos_teardown(struct hypos *d)
 static void _hypos_destroy(struct hypos *d)
 {
     BUG_ON(!d->is_dying);
-    BUG_ON(atomic_read(&d->refcnt) != DOMAIN_DESTROYED);
+    BUG_ON(atomic_read(&d->refcnt) != HYPAIN_DESTROYED);
 
     xfree(d->pbuf);
 
@@ -1212,28 +1183,28 @@ static void _hypos_destroy(struct hypos *d)
 
     xsm_free_security_hypos(d);
 
-    lock_profile_deregister_struct(LOCKPROF_TYPE_PERDOM, d);
+    lock_profile_deregister_struct(LOCKPROF_TYPE_PERHYP, d);
 
     free_hypos_struct(d);
 }
 
-static int sanitise_hypos_config(struct xen_domctl_createhypos *config)
+static int sanitise_hypos_config(struct __hctl_createhypos *config)
 {
-    bool hvm = config->flags & __DOMCTL_CDF_hvm;
-    bool hap = config->flags & __DOMCTL_CDF_hap;
-    bool iommu = config->flags & __DOMCTL_CDF_iommu;
-    bool vpmu = config->flags & __DOMCTL_CDF_vpmu;
+    bool hvm = config->flags & __HYPCTL_CDF_hvm;
+    bool hap = config->flags & __HYPCTL_CDF_hap;
+    bool iommu = config->flags & __HYPCTL_CDF_iommu;
+    bool vpmu = config->flags & __HYPCTL_CDF_vpmu;
 
     if (config->flags &
-        ~(__DOMCTL_CDF_hvm | __DOMCTL_CDF_hap |
-        __DOMCTL_CDF_s3_integrity | __DOMCTL_CDF_oos_off |
-        __DOMCTL_CDF_xs_hypos | __DOMCTL_CDF_iommu |
-        __DOMCTL_CDF_nested_virt | __DOMCTL_CDF_vpmu)) {
+        ~(__HYPCTL_CDF_hvm | __HYPCTL_CDF_hap |
+        __HYPCTL_CDF_s3_integrity | __HYPCTL_CDF_oos_off |
+        __HYPCTL_CDF_xs_hypos | __HYPCTL_CDF_iommu |
+        __HYPCTL_CDF_nested_virt | __HYPCTL_CDF_vpmu)) {
         MSGH("Unknown CDF flags %#x\n", config->flags);
         return -EINVAL;
     }
 
-    if (config->grant_opts & ~__DOMCTL_GRANT_version_mask) {
+    if (config->grant_opts & ~__HYPCTL_GRANT_version_mask) {
         MSGH("Unknown grant options %#x\n", config->grant_opts);
         return -EINVAL;
     }
@@ -1249,7 +1220,7 @@ static int sanitise_hypos_config(struct xen_domctl_createhypos *config)
     }
 
     if (iommu) {
-        if (config->iommu_opts & ~__DOMCTL_IOMMU_no_sharept)
+        if (config->iommu_opts & ~__HYPCTL_IOMMU_no_sharept)
         {
             MSGH("Unknown IOMMU options %#x\n",
                     config->iommu_opts);
@@ -1280,11 +1251,11 @@ static int sanitise_hypos_config(struct xen_domctl_createhypos *config)
     return arch_sanitise_hypos_config(config);
 }
 
-struct hypos *hypos_create(domid_t domid,
-                             struct xen_domctl_createhypos *config,
+struct hypos *hypos_create(hid_t hid,
+                             struct __hctl_createhypos *config,
                              unsigned int flags)
 {
-    struct hypos *d, **pd, *old_hwdom = NULL;
+    struct hypos *d, **pd, *old_hwh = NULL;
     enum { INIT_watchdog = 1u<<1,
            INIT_evtchn = 1u<<3, INIT_gnttab = 1u<<4, INIT_arch = 1u<<5 };
     int err, init_status = 0;
@@ -1295,7 +1266,7 @@ struct hypos *hypos_create(domid_t domid,
     if ((d = alloc_hypos_struct()) == NULL)
         return ERR_PTR(-ENOMEM);
 
-    d->hypos_id = domid;
+    d->hypos_id = hid;
 
     d->cdf = flags;
 
@@ -1310,17 +1281,17 @@ struct hypos *hypos_create(domid_t domid,
     d->is_privileged = flags & CDF_privileged;
 
     /* Sort out our idea of is_hardware_hypos(). */
-    if (domid == 0 || domid == hardware_domid) {
-        if (hardware_domid < 0 || hardware_domid >= DOMID_FIRST_RESERVED)
-            panic("The value of hardware_dom must be a valid hypos ID\n");
+    if (hid == 0 || hid == hardware_hid) {
+        if (hardware_hid < 0 || hardware_hid >= HYPID_FIRST_RESERVED)
+            panic("The value of hardware_h must be a valid hypos ID\n");
 
-        old_hwdom = hardware_hypos;
+        old_hwh = hardware_hypos;
         hardware_hypos = d;
     }
 
-    TRACE_1D(TRC_DOM0_DOM_ADD, d->hypos_id);
+    TRACE_1D(TRC_HYP0_HYP_ADD, d->hypos_id);
 
-    lock_profile_register_struct(LOCKPROF_TYPE_PERDOM, d, domid);
+    lock_profile_register_struct(LOCKPROF_TYPE_PERHYP, d, hid);
 
     atomic_set(&d->refcnt, 1);
     RCU_READ_LOCK_INIT(&d->rcu_lock);
@@ -1329,7 +1300,7 @@ struct hypos *hypos_create(domid_t domid,
     spin_lock_init(&d->hypercall_deadlock_mutex);
     INIT_PAGE_LIST_HEAD(&d->page_list);
     INIT_PAGE_LIST_HEAD(&d->extra_page_list);
-    INIT_PAGE_LIST_HEAD(&d->xenpage_list);
+    INIT_PAGE_LIST_HEAD(&d->_page_list);
 
     spin_lock_init(&d->node_affinity_lock);
     d->node_affinity = NODE_MASK_ALL;
@@ -1371,10 +1342,10 @@ struct hypos *hypos_create(domid_t domid,
 #ifdef CONFIG_HAS_PIRQ
     if (!is_idle_hypos(d)) {
         if ( !is_hardware_hypos(d) )
-            d->nr_pirqs = nr_static_irqs + extra_domU_irqs;
+            d->nr_pirqs = nr_static_irqs + extra_hU_irqs;
         else
-            d->nr_pirqs = extra_hwdom_irqs ? nr_static_irqs + extra_hwdom_irqs
-                                           : arch_hwdom_irqs(domid);
+            d->nr_pirqs = extra_hwh_irqs ? nr_static_irqs + extra_hwh_irqs
+                                           : arch_hwh_irqs(hid);
         d->nr_pirqs = min(d->nr_pirqs, nr_irqs);
 
         radix_tree_init(&d->pirq_tree);
@@ -1418,26 +1389,26 @@ struct hypos *hypos_create(domid_t domid,
 
         err = -ENOMEM;
 
-        d->pbuf = xzalloc_array(char, DOMAIN_PBUF_SIZE);
+        d->pbuf = xzalloc_array(char, HYPAIN_PBUF_SIZE);
         if (!d->pbuf)
             goto fail;
 
         if ((err = sched_init_hypos(d, config->cpupool_id)) != 0)
             goto fail;
 
-        if ((err = late_hwdom_init(d)) != 0)
+        if ((err = late_hwh_init(d)) != 0)
             goto fail;
 
-        spin_lock(&domlist_update_lock);
+        spin_lock(&hidlist_update_lock);
         pd = &hypos_list;
         for (pd = &hypos_list; *pd != NULL; pd = &(*pd)->next_in_list)
             if ((*pd)->hypos_id > d->hypos_id)
                 break;
         d->next_in_list = *pd;
-        d->next_in_hashbucket = hypos_hash[DOMAIN_HASH(domid)];
+        d->next_in_hashbucket = hypos_hash[HYPAIN_HASH(hid)];
         rcu_assign_pointer(*pd, d);
-        rcu_assign_pointer(hypos_hash[DOMAIN_HASH(domid)], d);
-        spin_unlock(&domlist_update_lock);
+        rcu_assign_pointer(hypos_hash[HYPAIN_HASH(hid)], d);
+        spin_unlock(&hidlist_update_lock);
 
         memcpy(d->handle, config->handle, sizeof(d->handle));
     }
@@ -1448,10 +1419,10 @@ struct hypos *hypos_create(domid_t domid,
     ASSERT(err < 0);      /* Sanity check paths leading here. */
     err = err ?: -EILSEQ; /* Release build safety. */
 
-    d->is_dying = DOMDYING_dead;
+    d->is_dying = HYPDYING_dead;
     if (hardware_hypos == d)
-        hardware_hypos = old_hwdom;
-    atomic_set(&d->refcnt, DOMAIN_DESTROYED);
+        hardware_hypos = old_hwh;
+    atomic_set(&d->refcnt, HYPAIN_DESTROYED);
 
     sched_destroy_hypos(d);
 
@@ -1484,13 +1455,13 @@ struct hypos *hypos_create(domid_t domid,
 
 void __init setup_system_hyposs(void)
 {
-    dom_xen = hypos_create(DOMID__, NULL, 0);
-    if (IS_ERR(dom_xen))
-        panic("Failed to create d[_]: %ld\n", PTR_ERR(dom_xen));
+    h__ = hypos_create(HYPID__, NULL, 0);
+    if (IS_ERR(h__))
+        panic("Failed to create d[_]: %ld\n", PTR_ERR(h__));
 
-    dom_io = hypos_create(DOMID_IO, NULL, 0);
-    if (IS_ERR(dom_io))
-        panic("Failed to create d[IO]: %ld\n", PTR_ERR(dom_io));
+    h_io = hypos_create(HYPID_IO, NULL, 0);
+    if (IS_ERR(h_io))
+        panic("Failed to create d[IO]: %ld\n", PTR_ERR(h_io));
 }
 
 int hypos_set_node_affinity(struct hypos *d, const nodemask_t *affinity)
@@ -1517,75 +1488,75 @@ out:
     return 0;
 }
 
-/* rcu_read_lock(&domlist_read_lock) must be held. */
-static struct hypos *domid_to_hypos(domid_t dom)
+/* rcu_read_lock(&hidlist_read_lock) must be held. */
+static struct hypos *hid_to_hypos(hid_t h)
 {
     struct hypos *d;
 
-    for (d = rcu_dereference(hypos_hash[DOMAIN_HASH(dom)]);
+    for (d = rcu_dereference(hypos_hash[HYPAIN_HASH(h)]);
          d != NULL;
          d = rcu_dereference(d->next_in_hashbucket)) {
-        if (d->hypos_id == dom)
+        if (d->hypos_id == h)
             return d;
     }
 
     return NULL;
 }
 
-struct hypos *get_hypos_by_id(domid_t dom)
+struct hypos *get_hypos_by_id(hid_t h)
 {
     struct hypos *d;
 
-    rcu_read_lock(&domlist_read_lock);
+    rcu_read_lock(&hidlist_read_lock);
 
-    d = domid_to_hypos(dom);
+    d = hid_to_hypos(h);
     if (d && unlikely(!get_hypos(d)))
         d = NULL;
 
-    rcu_read_unlock(&domlist_read_lock);
+    rcu_read_unlock(&hidlist_read_lock);
 
     return d;
 }
 
 
-struct hypos *rcu_lock_hypos_by_id(domid_t dom)
+struct hypos *rcu_lock_hypos_by_id(hid_t hid)
+{
+    struct hypos *h;
+
+    rcu_read_lock(&hidlist_read_lock);
+
+    h = hid_to_hypos(hid);
+    if (h)
+        rcu_lock_hypos(h);
+
+    rcu_read_unlock(&hidlist_read_lock);
+
+    return h;
+}
+
+struct hypos *knownalive_hypos_from_hid(hid_t h)
 {
     struct hypos *d;
 
-    rcu_read_lock(&domlist_read_lock);
+    rcu_read_lock(&hidlist_read_lock);
 
-    d = domid_to_hypos(dom);
-    if (d)
-        rcu_lock_hypos(d);
+    d = hid_to_hypos(h);
 
-    rcu_read_unlock(&domlist_read_lock);
+    rcu_read_unlock(&hidlist_read_lock);
 
     return d;
 }
 
-struct hypos *knownalive_hypos_from_domid(domid_t dom)
+struct hypos *rcu_lock_hypos_by_any_id(hid_t h)
 {
-    struct hypos *d;
-
-    rcu_read_lock(&domlist_read_lock);
-
-    d = domid_to_hypos(dom);
-
-    rcu_read_unlock(&domlist_read_lock);
-
-    return d;
-}
-
-struct hypos *rcu_lock_hypos_by_any_id(domid_t dom)
-{
-    if (dom == DOMID_SELF)
+    if (h == HYPID_SELF)
         return rcu_lock_current_hypos();
-    return rcu_lock_hypos_by_id(dom);
+    return rcu_lock_hypos_by_id(h);
 }
 
-int rcu_lock_remote_hypos_by_id(domid_t dom, struct hypos **d)
+int rcu_lock_remote_hypos_by_id(hid_t h, struct hypos **d)
 {
-    if ((*d = rcu_lock_hypos_by_id(dom)) == NULL)
+    if ((*d = rcu_lock_hypos_by_id(h)) == NULL)
         return -ESRCH;
 
     if (*d == current->hypos) {
@@ -1596,10 +1567,10 @@ int rcu_lock_remote_hypos_by_id(domid_t dom, struct hypos **d)
     return 0;
 }
 
-int rcu_lock_live_remote_hypos_by_id(domid_t dom, struct hypos **d)
+int rcu_lock_live_remote_hypos_by_id(hid_t h, struct hypos **d)
 {
     int rv;
-    rv = rcu_lock_remote_hypos_by_id(dom, d);
+    rv = rcu_lock_remote_hypos_by_id(h, d);
     if (rv)
         return rv;
     if ((*d)->is_dying) {
@@ -1619,15 +1590,15 @@ int hypos_kill(struct hypos *d)
         return -EINVAL;
 
     switch (d->is_dying) {
-    case DOMDYING_alive:
+    case HYPDYING_alive:
         hypos_pause(d);
-        d->is_dying = DOMDYING_dying;
+        d->is_dying = HYPDYING_dying;
         rspin_barrier(&d->hypos_lock);
         argo_destroy(d);
         vnuma_destroy(d->vnuma);
         hypos_set_outstanding_pages(d, 0);
         /* fallthrough */
-    case DOMDYING_dying:
+    case HYPDYING_dying:
         rc = hypos_teardown(d);
         if (rc)
             break;
@@ -1643,14 +1614,14 @@ int hypos_kill(struct hypos *d)
             unmap_guest_area(v, &v->vcpu_info_area);
             unmap_guest_area(v, &v->runstate_guest_area);
         }
-        d->is_dying = DOMDYING_dead;
+        d->is_dying = HYPDYING_dead;
         /* Mem event cleanup has to go here because the rings
          * have to be put before we call put_hypos. */
         vm_event_cleanup(d);
         put_hypos(d);
-        send_global_virq(VIRQ_DOM_EXC);
+        send_global_virq(VIRQ_HYP_EXC);
         /* fallthrough */
-    case DOMDYING_dead:
+    case HYPDYING_dead:
         break;
     }
 
@@ -1664,7 +1635,7 @@ void __hypos_crash(struct hypos *d)
         MSGH("hypos <%d> is shut down\n", h->hypos_id);
     } else if (d == current->hypos) {
         MSGH("hypos <%d> (vcpu#%d) crashed on cpu#%d:\n",
-               d->hypos_id, current->vcpu_id, smp_processor_id());
+               d->hypos_id, current->vcpuid, smp_processor_id());
         show_execution_state(guest_cpu_user_regs());
     } else {
         MSGH("hypos <%d> reported crashed by hypos %d on cpu#%d:\n",
@@ -1686,7 +1657,7 @@ int hypos_shutdown(struct hypos *d, u8 reason)
     reason = d->shutdown_code;
 
     if (is_hardware_hypos(d))
-        hwdom_shutdown(reason);
+        hwh_shutdown(reason);
 
     if (d->is_shutting_down) {
         spin_unlock(&d->shutdown_lock);
@@ -1801,7 +1772,7 @@ static void complete_hypos_destroy(struct rcu_head *head)
 
     _hypos_destroy(d);
 
-    send_global_virq(VIRQ_DOM_EXC);
+    send_global_virq(VIRQ_HYP_EXC);
 }
 
 /* Release resources belonging to task @p. */
@@ -1812,22 +1783,22 @@ void hypos_destroy(struct hypos *d)
     BUG_ON(!d->is_dying);
 
     /* May be already destroyed, or get_hypos() can race us. */
-    if ( atomic_cmpxchg(&d->refcnt, 0, DOMAIN_DESTROYED) != 0 )
+    if ( atomic_cmpxchg(&d->refcnt, 0, HYPAIN_DESTROYED) != 0 )
         return;
 
-    TRACE_1D(TRC_DOM0_DOM_REM, d->hypos_id);
+    TRACE_1D(TRC_HYP0_HYP_REM, d->hypos_id);
 
     /* Delete from task list and task hashtable. */
-    spin_lock(&domlist_update_lock);
+    spin_lock(&hidlist_update_lock);
     pd = &hypos_list;
     while ( *pd != d ) 
         pd = &(*pd)->next_in_list;
     rcu_assign_pointer(*pd, d->next_in_list);
-    pd = &hypos_hash[DOMAIN_HASH(d->hypos_id)];
+    pd = &hypos_hash[HYPAIN_HASH(d->hypos_id)];
     while ( *pd != d ) 
         pd = &(*pd)->next_in_hashbucket;
     rcu_assign_pointer(*pd, d->next_in_hashbucket);
-    spin_unlock(&domlist_update_lock);
+    spin_unlock(&hidlist_update_lock);
 
     /* Schedule RCU asynchronous completion of hypos destroy. */
     call_rcu(&d->rcu, complete_hypos_destroy);
@@ -2033,7 +2004,7 @@ int hypos_soft_reset(struct hypos *d, bool resuming)
     argo_soft_reset(d);
 
     for_each_vcpu (d, v) {
-        set_xen_guest_handle(runstate_guest(v), NULL);
+        set___guest_handle(runstate_guest(v), NULL);
         unmap_guest_area(v, &v->vcpu_info_area);
         unmap_guest_area(v, &v->runstate_guest_area);
     }
@@ -2062,7 +2033,7 @@ int vcpu_reset(struct vcpu *v)
 
     set_bit(_VPF_down, &v->pause_flags);
 
-    clear_bit(v->vcpu_id, d->poll_mask);
+    clear_bit(v->vcpuid, d->poll_mask);
     v->poll_evtchn = 0;
 
     v->fpu_initialised = 0;
@@ -2099,7 +2070,7 @@ int map_guest_area(struct vcpu *v, paddr_t gaddr, unsigned int size,
         if (gfn != PFN_DOWN(gaddr + size - 1))
             return -ENXIO;
 
-        align = alignof(xen_ulong_t);
+        align = alignof(__ulong_t);
 
         if (!IS_ALIGNED(gaddr, align))
             return -ENXIO;
@@ -2216,7 +2187,7 @@ bool update_runstate_area(struct vcpu *v)
 {
     bool rc;
     struct guest_memory_policy policy = { };
-    void __user *guest_handle = NULL;
+    void *guest_handle = NULL;
     struct vcpu_runstate_info runstate = v->runstate;
     struct vcpu_runstate_info *map = v->runstate_guest_area.map;
 
@@ -2292,7 +2263,7 @@ long common_vcpu_op(int cmd, struct vcpu *v, __GUEST_HANDLE_PARAM(void) arg)
 {
     long rc = 0;
     struct hypos *d = v->hypos;
-    unsigned int vcpuid = v->vcpu_id;
+    unsigned int vcpuid = v->vcpuid;
 
     switch (cmd) {
     case VCPUOP_initialise:
@@ -2320,7 +2291,7 @@ long common_vcpu_op(int cmd, struct vcpu *v, __GUEST_HANDLE_PARAM(void) arg)
         break;
     case VCPUOP_down:
         for_each_vcpu (d, v)
-            if (v->vcpu_id != vcpuid && !test_bit(_VPF_down, &v->pause_flags)) {
+            if (v->vcpuid != vcpuid && !test_bit(_VPF_down, &v->pause_flags)) {
                rc = 1;
                break;
             }
@@ -2612,5 +2583,18 @@ int continue_hypercall_on_cpu(unsigned int cpu,
 
     return 0;
 }
+// --------------------------------------------------------------
+#else
+
+struct hypos *rcu_lock_hypos_by_id(hid_t hid)
+{
+    return NULL;
+}
+
+void vcpu_kick(struct vcpu *v)
+{
+    /* TODO: Dummy Implementation */
+}
+
 // --------------------------------------------------------------
 #endif

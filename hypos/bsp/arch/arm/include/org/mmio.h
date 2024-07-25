@@ -10,7 +10,7 @@
 #define _ORG_MMIO_H
 // --------------------------------------------------------------
 #include <org/esr.h>
-#include <bsp/vcpu.h>
+#include <org/vcpu.h>
 #include <bsp/rwlock.h>
 
 #define MAX_IO_HANDLER  16
@@ -64,6 +64,12 @@ struct vmmio {
     rwlock_t lock;
     struct mmio_handler *handlers;
 };
+
+// --------------------------------------------------------------
+
+void register_mmio_handler(struct hypos *h,
+                           const struct mmio_handler_ops *ops,
+                           hpa_t addr, hpa_t size, void *priv);
 
 // --------------------------------------------------------------
 #endif /* _ORG_MMIO_H */

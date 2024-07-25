@@ -15,11 +15,11 @@
 #include <asm/atomic.h>
 #include <asm/sysregs.h>
 #include <asm/barrier.h>
+#include <org/traps.h>
 #include <bsp/compiler.h>
 #include <bsp/type.h>
-#include <bsp/traps.h>
-#include <lib/math.h>
 #include <bsp/panic.h>
+#include <lib/math.h>
 
 #define TTBL_OFFSETS(var, va)     \
     const unsigned int var[4] = { \

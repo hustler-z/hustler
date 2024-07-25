@@ -6,8 +6,8 @@
  * Usage: handle hcpu exceptions.
  */
 
-#ifndef _BSP_TRAPS_H
-#define _BSP_TRAPS_H
+#ifndef _ORG_TRAPS_H
+#define _ORG_TRAPS_H
 // --------------------------------------------------------------
 #include <asm/hcpu.h>
 
@@ -22,5 +22,8 @@ void do_fiq(struct hcpu_regs *regs);
 void do_error(struct hcpu_regs *regs);
 void panic_par(hpa_t par);
 
+register_t get_hcpu_reg(struct hcpu_regs *regs, int reg);
+void set_hcpu_reg(struct hcpu_regs *regs, int reg,
+                  register_t value);
 // --------------------------------------------------------------
-#endif /* _BSP_TRAPS_H */
+#endif /* _ORG_TRAPS_H */

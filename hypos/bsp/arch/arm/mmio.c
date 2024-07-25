@@ -3,23 +3,43 @@
  *
  * File:  cpu.c
  * Date:  2024/07/15
- * Usage:
+ * Usage: decode intructions and mmio implementation
  */
 
 #include <bsp/config.h>
+#include <org/vreg.h> /* XXX: Can't be modified */
+#include <lib/define.h>
+#include <lib/sort.h>
 
 #if IS_IMPLEMENTED(__INSTR_IMPL)
 // --------------------------------------------------------------
-#include <org/mmio.h>
-#include <lib/define.h>
-#include <lib/sort.h>
 
 /* XXX: ARMv8 Instruction Encoding
  *
  * 31 30 29  27 26 25  23   21 20              11   9         4       0
- * ____________________________________________________________________
+ * +------------------------------------------------------------------+
  * |size|1 1 1 |V |0 0 |opc |0 |      imm9     |0 1 |  Rn     |  Rt   |
- * |____|______|__|____|____|__|_______________|____|_________|_______|
+ * +------------------------------------------------------------------+
+ *
+ * XXX: MMIO - Memory-Mapped IO
+ *
+ *      A method of performing input/output (I/O) between the CPU and
+ *      peripheral devices in a computer.
+ *
+ *      Memory-mapped I/O uses the same address space to address both
+ *      memory and I/O devices. The memory and registers of the I/O
+ *      devices are mapped to (associated with) address values.
+ *
+ *      when an address is accessed by the CPU, it may refer to a
+ *      portion of physical RAM, or it can instead refer to memory
+ *      of the I/O device. Thus, the CPU instructions used to access
+ *      the memory can also be used for accessing devices. Each I/O
+ *      device monitors the CPU's address bus and responds to any
+ *      CPU access of an address assigned to that device, connecting
+ *      the data bus to the desired device's hardware register.
+ * --------------------------------------------------------------
+ *
+ *
  */
 union instr {
     u32 value;
@@ -45,12 +65,13 @@ static void update_dabt(struct hcpu_dabt *dabt, int reg,
     dabt->sign = sign;
 }
 
-static int decode_thumb2(register_t pc, struct hcpu_dabt *dabt, u16 hw1)
+static int decode_thumb2(register_t pc, struct hcpu_dabt *dabt,
+                         u16 hw1)
 {
     u16 hw2;
     u16 rt;
 
-    if (raw_copy_from_guest(&hw2, (void *__user)(pc + 2), sizeof (hw2)))
+    if (raw_copy_from_guest(&hw2, (void *)(pc + 2), sizeof (hw2)))
         return -EFAULT;
 
     rt = (hw2 >> 12) & 0xf;
@@ -61,16 +82,16 @@ static int decode_thumb2(register_t pc, struct hcpu_dabt *dabt, u16 hw1)
         bool sign = (hw1 & (1u << 8));
         bool load = (hw1 & (1u << 4));
 
-        if ( (hw1 & 0x0110) == 0x0100 )
+        if ((hw1 & 0x0110) == 0x0100)
             goto bad_thumb2;
 
-        if ( (hw1 & 0x0070) == 0x0070 )
+        if ((hw1 & 0x0070) == 0x0070)
             goto bad_thumb2;
 
-        if ( rt == 15 )
+        if (rt == 15)
             goto bad_thumb2;
 
-        if ( !load && sign )
+        if (!load && sign)
             goto bad_thumb2;
 
         update_dabt(dabt, rt, (hw1 >> 5) & 3, sign);
@@ -250,15 +271,16 @@ static enum io_state handle_read(const struct mmio_handler *handler,
     return IO_HANDLED;
 }
 
-static enum io_state handle_write(const struct mmio_handler *handler,
-                                  struct vcpu *v,
-                                  mmio_info_t *info)
+static enum io_state
+handle_write(const struct mmio_handler *handler, struct vcpu *v,
+             mmio_info_t *info)
 {
     const struct hcpu_dabt dabt = info->dabt;
     struct hcpu_regs *regs = guest_hcpu_regs();
     int ret;
 
-    ret = handler->ops->write(v, info, get_user_reg(regs, dabt.reg),
+    ret = handler->ops->write(v, info,
+                              get_user_reg(regs, dabt.reg),
                               handler->priv);
     return ret ? IO_HANDLED : IO_ABORT;
 }
@@ -285,8 +307,8 @@ static void swap_mmio_handler(void *_a, void *_b, size_t size)
     SWAP(*a, *b);
 }
 
-static const struct mmio_handler *find_mmio_handler(struct hypos *d,
-                                                    hpa_t gpa)
+static const struct mmio_handler
+*find_mmio_handler(struct hypos *d, hpa_t gpa)
 {
     struct vmmio *vmmio = &h->arch.vmmio;
     struct mmio_handler key = {.addr = gpa};
@@ -309,7 +331,7 @@ void try_decode_instruction(const struct hcpu_regs *regs,
         info->dabt_instr.state = INSTR_VALID;
 
         if (check_workaround_766422() && (regs->cpsr & PSR_THUMB) &&
-            info->dabt.write ) {
+            info->dabt.write) {
             rc = decode_instruction(regs, info);
             if (rc) {
                 MSGQ(true, "Unable to decode instruction\n");
@@ -414,6 +436,16 @@ int hypos_io_init(struct hypos *h, unsigned int max_count)
 void hypos_io_free(struct hypos *h)
 {
     free(h->arch.vmmio.handlers);
+}
+
+// --------------------------------------------------------------
+#else
+
+void register_mmio_handler(struct hypos *h,
+                           const struct mmio_handler_ops *ops,
+                           hpa_t addr, hpa_t size, void *priv)
+{
+    /* TODO: Dummy Implementation */
 }
 
 // --------------------------------------------------------------

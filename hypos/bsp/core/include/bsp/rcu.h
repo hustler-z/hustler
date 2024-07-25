@@ -59,12 +59,12 @@ typedef struct _rcu_read_lock  rcu_read_lock_t;
 int rcu_pending(int cpu);
 int rcu_needs_cpu(int cpu);
 
-static inline void rcu_read_lock(void)
+static inline void rcu_read_lock(rcu_read_lock_t *lock)
 {
     rcu_quiesce_disable();
 }
 
-static inline void rcu_read_unlock(void)
+static inline void rcu_read_unlock(rcu_read_lock_t *lock)
 {
     ASSERT(!rcu_quiesce_allowed());
     rcu_quiesce_enable();

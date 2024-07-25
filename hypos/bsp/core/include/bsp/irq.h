@@ -97,5 +97,6 @@ void irq_setup(void);
 void release_irq(unsigned int irq, const void *dev_id);
 int setup_irq(unsigned int irq, unsigned int irqflags,
               struct irqaction *new);
+void gic_set_irq_type(struct irq_desc *desc, unsigned int type);
 // --------------------------------------------------------------
 #endif /* _BSP_IRQ_H */

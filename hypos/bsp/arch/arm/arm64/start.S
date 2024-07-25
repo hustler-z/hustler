@@ -223,7 +223,7 @@ FUNC(traps_setup)
 #if ASM_DBG
     DBG("- Set HSTR_EL2 -\r\n")
 #endif
-    ldr  x0, =HSTR(15)
+    ldr  x0, =HSTR_MASK(15)
     msr  HSTR_EL2, x0
 
     /* Achitectural Feature Trap Register (EL2)

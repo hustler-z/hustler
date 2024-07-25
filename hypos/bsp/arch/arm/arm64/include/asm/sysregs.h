@@ -117,7 +117,7 @@
 #define CPTR_EL2_SET   ((CPTR_CP_MASK & ~(CPTR_CP(10) | CPTR_CP(11))) |\
                          CPTR_TTA | CPTR_TAM)
 
-#define HSTR(x)        ((_AC(1, U) << (x)))
+#define HSTR_MASK(x)        ((_AC(1, U) << (x)))
 
 /* TCR_EL2 - Translation Control Register
  *

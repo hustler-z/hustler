@@ -28,9 +28,11 @@ arm-y += early.o
 arm-y += tlbflush.o
 arm-y += psci.o
 arm-y += cpu.o
-arm-y += cope.o
+arm-y += mmio.o
 arm-y += pci.o
 arm-y += vpci.o
 arm-y += smmu.o
+arm-y += guest.o
+arm-y += vreg.o
 
 # ----------------------------------------------------------

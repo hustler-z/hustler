@@ -12,6 +12,82 @@
 
 #include <bsp/type.h>
 
+#define ESR_EC_SHIFT                26
+
+#define ESR_EC_UNKNOWN              0x00
+#define ESR_EC_WFI_WFE              0x01
+#define ESR_EC_CP15_32              0x03
+#define ESR_EC_CP15_64              0x04
+/* Trapped MCR or MRC access to CP14 */
+#define ESR_EC_CP14_32              0x05
+/* Trapped LDC/STC access to CP14 (only for
+ * debug registers).
+ */
+#define ESR_EC_CP14_DBG             0x06
+/* HCPTR-trapped access to CP0-CP13 */
+#define ESR_EC_CP                   0x07
+#define ESR_EC_CP10                 0x08
+#define ESR_EC_JAZELLE              0x09
+#define ESR_EC_BXJ                  0x0a
+#define ESR_EC_CP14_64              0x0C
+#define ESR_EC_SVC32                0x11
+#define ESR_EC_HVC32                0x12
+#define ESR_EC_SMC32                0x13
+#define ESR_EC_SVC64                0x15
+#define ESR_EC_HVC64                0x16
+#define ESR_EC_SMC64                0x17
+#define ESR_EC_SYSREG               0x18
+#define ESR_EC_SVE                  0x19
+#define ESR_EC_INSTR_ABORT_LOWER_EL 0x20
+#define ESR_EC_INSTR_ABORT_CURR_EL  0x21
+#define ESR_EC_DATA_ABORT_LOWER_EL  0x24
+#define ESR_EC_DATA_ABORT_CURR_EL   0x25
+#define ESR_EC_BRK                  0x3C
+
+/* ESR.EC == ESR_CP{15,14,10}_32 */
+#define ESR_CP32_OP2_MASK    (0x000E0000)
+#define ESR_CP32_OP2_SHIFT   (17)
+#define ESR_CP32_OP1_MASK    (0x0001C000)
+#define ESR_CP32_OP1_SHIFT   (14)
+#define ESR_CP32_CRN_MASK    (0x00003C00)
+#define ESR_CP32_CRN_SHIFT   (10)
+#define ESR_CP32_CRM_MASK    (0x0000001E)
+#define ESR_CP32_CRM_SHIFT   (1)
+#define ESR_CP32_REGS_MASK   (ESR_CP32_OP1_MASK|ESR_CP32_OP2_MASK|\
+                              ESR_CP32_CRN_MASK|ESR_CP32_CRM_MASK)
+
+/* ESR.EC == ESR_CP{15,14}_64 */
+#define ESR_CP64_OP1_MASK    (0x000f0000)
+#define ESR_CP64_OP1_SHIFT   (16)
+#define ESR_CP64_CRM_MASK    (0x0000001E)
+#define ESR_CP64_CRM_SHIFT   (1)
+#define ESR_CP64_REGS_MASK   (ESR_CP64_OP1_MASK|ESR_CP64_CRM_MASK)
+
+/* ESR.EC == ESR_SYSREG */
+#define ESR_SYSREG_OP0_MASK  (0x00300000)
+#define ESR_SYSREG_OP0_SHIFT (20)
+#define ESR_SYSREG_OP1_MASK  (0x0001C000)
+#define ESR_SYSREG_OP1_SHIFT (14)
+#define ESR_SYSREG_CRN_MASK  (0x00003C00)
+#define ESR_SYSREG_CRN_SHIFT (10)
+#define ESR_SYSREG_CRM_MASK  (0x0000001E)
+#define ESR_SYSREG_CRM_SHIFT (1)
+#define ESR_SYSREG_OP2_MASK  (0x000E0000)
+#define ESR_SYSREG_OP2_SHIFT (17)
+#define ESR_SYSREG_REGS_MASK (ESR_SYSREG_OP0_MASK|ESR_SYSREG_OP1_MASK|\
+                              ESR_SYSREG_CRN_MASK|ESR_SYSREG_CRM_MASK|\
+                              ESR_SYSREG_OP2_MASK)
+
+/* ESR.EC == ESR_{HVC32, HVC64, SMC64, SVC32, SVC64} */
+#define ESR_XXC_IMM_MASK     (0xFFFF)
+
+enum dabt_size {
+    DABT_BYTE        = 0,
+    DABT_HALF_WORD   = 1,
+    DABT_WORD        = 2,
+    DABT_DOUBLE_WORD = 3,
+};
+
 /* XXX: Holds syndrome information for an exception taken to ELx
  *
  * When the value of ID_AA64MMFR0_EL1.PARange indicates that
@@ -40,6 +116,46 @@ union hcpu_esr {
          */
         unsigned long ec:6;
     };
+
+    /* reg, reg0, reg1 are 4 bits on AArch32, the fifth bit is sbzp. */
+    struct hcpu_cp32 {
+        unsigned long read:1;  /* Direction */
+        unsigned long crm:4;   /* CRm */
+        unsigned long reg:5;   /* Rt */
+        unsigned long crn:4;   /* CRn */
+        unsigned long op1:3;   /* Op1 */
+        unsigned long op2:3;   /* Op2 */
+        unsigned long cc:4;    /* Condition Code */
+        unsigned long ccvalid:1;/* CC Valid */
+        unsigned long len:1;   /* Instruction length */
+        unsigned long ec:6;    /* Exception Class */
+    } cp32; /* ESR_EC_CP15_32, CP14_32, CP10 */
+
+    struct hcpu_cp64 {
+        unsigned long read:1;   /* Direction */
+        unsigned long crm:4;    /* CRm */
+        unsigned long reg1:5;   /* Rt1 */
+        unsigned long reg2:5;   /* Rt2 */
+        unsigned long sbzp2:1;
+        unsigned long op1:4;    /* Op1 */
+        unsigned long cc:4;     /* Condition Code */
+        unsigned long ccvalid:1;/* CC Valid */
+        unsigned long len:1;    /* Instruction length */
+        unsigned long ec:6;     /* Exception Class */
+    } cp64; /* ESR_EC_CP15_64, ESR_EC_CP14_64 */
+
+    struct hcpu_sysreg {
+        unsigned long read:1;   /* Direction */
+        unsigned long crm:4;    /* CRm */
+        unsigned long reg:5;    /* Rt */
+        unsigned long crn:4;    /* CRn */
+        unsigned long op1:3;    /* Op1 */
+        unsigned long op2:3;    /* Op2 */
+        unsigned long op0:2;    /* Op0 */
+        unsigned long res0:3;
+        unsigned long len:1;    /* Instruction length */
+        unsigned long ec:6;
+    } sysreg; /* ESR_EC_SYSREG */
 
     struct hcpu_dabt {
         unsigned long dfsc:6;  /* Data Fault Status Code (bit[5:0]) */
@@ -83,6 +199,12 @@ union hcpu_esr {
         unsigned long ec:6;
     } iabt; /* Instruction Abort ISS Encoding */
 
+    struct hcpu_brk {
+        unsigned long comment:16;   /* Comment */
+        unsigned long res0:9;
+        unsigned long len:1;        /* Instruction length */
+        unsigned long ec:6;         /* Exception Class */
+    } brk;
     /* TODO */
 };
 

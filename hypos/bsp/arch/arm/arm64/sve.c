@@ -27,8 +27,8 @@ register_t get_default_cptr_flags(void)
      * On ARM64 the TCPx bits which we set here (0..9,12,13) are all
      * RES1, i.e. they would trap whether we did this write or not.
      */
-    return  ((HCPTR_CP_MASK & ~(HCPTR_CP(10) | HCPTR_CP(11))) |
-             HCPTR_TTA | HCPTR_TAM);
+    return ((HCPTR_CP_MASK & ~(HCPTR_CP(10) | HCPTR_CP(11))) |
+            HCPTR_TTA | HCPTR_TAM);
 }
 
 register_t compute_max_zcr(void)
@@ -40,7 +40,6 @@ register_t compute_max_zcr(void)
     /* Remove trap for SVE resources */
     WRITE_SYSREG(cptr_bits & ~HCPTR_CP(8), CPTR_EL2);
     isb();
-
 
     WRITE_SYSREG(zcr, ZCR_EL2);
 

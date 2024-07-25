@@ -37,12 +37,12 @@ void call_psci_system_reset(void);
 #define	PSCI_FNUM_MAX_VALUE                 _AC(0x1F,U)
 
 /* PSCI v0.2 interface */
-#define PSCI_0_2_FN32(nr) \
+#define PSCI_0_2_FN32(nr)                               \
     ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,             \
                        ARM_SMCCC_CONV_32,               \
                        ARM_SMCCC_OWNER_STANDARD,        \
                        nr)
-#define PSCI_0_2_FN64(nr) \
+#define PSCI_0_2_FN64(nr)                               \
     ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,             \
                        ARM_SMCCC_CONV_64,               \
                        ARM_SMCCC_OWNER_STANDARD,        \
@@ -73,7 +73,7 @@ void call_psci_system_reset(void);
 #define PSCI_0_2_TOS_MP_OR_NOT_PRESENT           2
 
 /* PSCI v0.2 power state encoding for CPU_SUSPEND function */
-#define PSCI_0_2_POWER_STATE_ID_MASK        0xffff
+#define PSCI_0_2_POWER_STATE_ID_MASK        0xFFFF
 #define PSCI_0_2_POWER_STATE_ID_SHIFT       0
 #define PSCI_0_2_POWER_STATE_TYPE_SHIFT     16
 #define PSCI_0_2_POWER_STATE_TYPE_MASK      \

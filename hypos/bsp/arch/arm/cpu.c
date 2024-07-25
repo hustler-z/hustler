@@ -24,7 +24,8 @@ struct arm_cpu __read_mostly core_cpu;
 
 struct arm_cpu __read_mostly hypos_cpuinfo;
 
-static bool has_sb_instruction(const struct arm_cpu_capabilities *entry)
+static bool
+has_sb_instruction(const struct arm_cpu_capabilities *entry)
 {
     return core_cpu.isa64.sb;
 }
@@ -54,7 +55,8 @@ void update_cpu_capabilities(const struct arm_cpu_capabilities *caps,
     }
 }
 
-void __bootfunc enable_cpu_capabilities(const struct arm_cpu_capabilities *caps)
+void __bootfunc
+enable_cpu_capabilities(const struct arm_cpu_capabilities *caps)
 {
     for ( ; caps->matches; caps++) {
         if (!cpus_have_cap(caps->capability))
@@ -224,25 +226,25 @@ int __bootfunc processor_setup(void)
 
     if (c->midr.architecture != 0xF)
         MSGE("Huh, cpu architecture %x, expected 0xf (defined by cpuid)\n",
-               c->midr.architecture);
+             c->midr.architecture);
 
     MSGI("[cores] Processor: %016lx, variant: 0x%x, part 0x%03x, "
          "rev 0x%x\n", c->midr.bits, c->midr.variant,
          c->midr.part_number, c->midr.revision);
 
-    MSGI(BLANK_ALIGN"<64-bit Execution>\n");
+    MSGI(BLANK_ALIGN"64-bit Execution @_@\n");
     MSGI(BLANK_ALIGN"Processor Features:      %016lx %016lx\n",
-           core_cpu.pfr64.bits[0], core_cpu.pfr64.bits[1]);
+         core_cpu.pfr64.bits[0], core_cpu.pfr64.bits[1]);
     MSGI(BLANK_ALIGN"Exception Levels: EL3:%s EL2:%s EL1:%s EL0:%s\n",
-           cpu_has_el3_32 ? "64+32" : cpu_has_el3_64 ? "64" : "No",
-           cpu_has_el2_32 ? "64+32" : cpu_has_el2_64 ? "64" : "No",
-           cpu_has_el1_32 ? "64+32" : cpu_has_el1_64 ? "64" : "No",
-           cpu_has_el0_32 ? "64+32" : cpu_has_el0_64 ? "64" : "No");
+         cpu_has_el3_32 ? "64+32" : cpu_has_el3_64 ? "64" : "No",
+         cpu_has_el2_32 ? "64+32" : cpu_has_el2_64 ? "64" : "No",
+         cpu_has_el1_32 ? "64+32" : cpu_has_el1_64 ? "64" : "No",
+         cpu_has_el0_32 ? "64+32" : cpu_has_el0_64 ? "64" : "No");
     MSGI(BLANK_ALIGN"Extensions:%s%s%s%s\n",
-           cpu_has_fp ? " Floating-Point" : "",
-           cpu_has_simd ? " Advanced-SIMD" : "",
-           cpu_has_gicv3 ? " GICv3-SysReg" : "",
-           cpu_has_sve ? " SVE" : "");
+         cpu_has_fp ? " Floating-Point" : "",
+         cpu_has_simd ? " Advanced-SIMD" : "",
+         cpu_has_gicv3 ? " GICv3-SysReg" : "",
+         cpu_has_sve ? " SVE" : "");
 
     if (cpu_has_fp && (boot_cpu_feature64(fp) >= 2))
         MSGE("Unknown Floating-point ID:%d, "
@@ -250,38 +252,38 @@ int __bootfunc processor_setup(void)
              boot_cpu_feature64(fp));
 
     if (cpu_has_simd && (boot_cpu_feature64(simd) >= 2))
-        MSGE("Unknown AdvancedSIMD ID:%d, "
+        MSGE("Unknown Advanced-SIMD ID:%d, "
              "this may result in corruption on the platform\n",
              boot_cpu_feature64(simd));
 
     MSGI(BLANK_ALIGN"Debug Features:          %016lx %016lx\n",
-           core_cpu.dbg64.bits[0], core_cpu.dbg64.bits[1]);
+         core_cpu.dbg64.bits[0], core_cpu.dbg64.bits[1]);
     MSGI(BLANK_ALIGN"Auxiliary Features:      %016lx %016lx\n",
-           core_cpu.aux64.bits[0], core_cpu.aux64.bits[1]);
+         core_cpu.aux64.bits[0], core_cpu.aux64.bits[1]);
     MSGI(BLANK_ALIGN"Memory Model Features:   %016lx %016lx\n",
-           core_cpu.mm64.bits[0], core_cpu.mm64.bits[1]);
+         core_cpu.mm64.bits[0], core_cpu.mm64.bits[1]);
     MSGI(BLANK_ALIGN"ISA Features:            %016lx %016lx\n",
-           core_cpu.isa64.bits[0], core_cpu.isa64.bits[1]);
+         core_cpu.isa64.bits[0], core_cpu.isa64.bits[1]);
 
     if (cpu_has_aarch32) {
-        MSGI(BLANK_ALIGN"<32-bit Execution>\n");
+        MSGI(BLANK_ALIGN"32-bit Execution @_@\n");
         MSGI(BLANK_ALIGN"Processor Features:      %016lx %016lx\n",
                core_cpu.pfr32.bits[0], core_cpu.pfr32.bits[1]);
         MSGI(BLANK_ALIGN"Instruction Sets:%s%s%s%s%s%s\n",
-               cpu_has_aarch32 ? " AArch32" : "",
-               cpu_has_arm ? " A32" : "",
-               cpu_has_thumb ? " Thumb" : "",
-               cpu_has_thumb2 ? " Thumb-2" : "",
-               cpu_has_thumbee ? " ThumbEE" : "",
-               cpu_has_jazelle ? " Jazelle" : "");
+             cpu_has_aarch32 ? " AArch32" : "",
+             cpu_has_arm ? " A32" : "",
+             cpu_has_thumb ? " Thumb" : "",
+             cpu_has_thumb2 ? " Thumb-2" : "",
+             cpu_has_thumbee ? " ThumbEE" : "",
+             cpu_has_jazelle ? " Jazelle" : "");
         MSGI(BLANK_ALIGN"Extensions:%s%s\n",
-               cpu_has_gentimer ? " GenericTimer" : "",
-               cpu_has_security ? " Security" : "");
+             cpu_has_gentimer ? " GenericTimer" : "",
+             cpu_has_security ? " Security" : "");
 
         MSGI(BLANK_ALIGN"Debug Features:          %016lx\n",
-               core_cpu.dbg32.bits[0]);
+             core_cpu.dbg32.bits[0]);
         MSGI(BLANK_ALIGN"Auxiliary Features:      %016lx\n",
-               core_cpu.aux32.bits[0]);
+             core_cpu.aux32.bits[0]);
         MSGI(BLANK_ALIGN"Memory Model Features:   %016lx %016lx\n"
              BLANK_ALIGN"                         %016lx %016lx\n",
              core_cpu.mm32.bits[0], core_cpu.mm32.bits[1],

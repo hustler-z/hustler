@@ -86,7 +86,6 @@ int vttbl_set_allocation(struct hypos *d, unsigned long pages, bool *preempted)
         } else
             break;
 
-        /* Check to see if we need to yield and try again */
         if (preempted && general_preempt_check()) {
             *preempted = true;
             return -ERESTART;

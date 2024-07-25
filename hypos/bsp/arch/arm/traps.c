@@ -8,13 +8,13 @@
 
 #include <org/esr.h>
 #include <org/vcpu.h>
+#include <org/traps.h>
 #include <asm/page.h>
 #include <asm/hcpu.h>
 #include <asm/sysregs.h>
 #include <asm/barrier.h>
 #include <asm/define.h>
 #include <bsp/compiler.h>
-#include <bsp/traps.h>
 #include <bsp/debug.h>
 #include <bsp/panic.h>
 #include <bsp/percpu.h>
@@ -56,6 +56,34 @@ enum bad_code {
     FIQ_CODE,
     ERROR_CODE,
 };
+
+static inline bool is_zero_register(int reg)
+{
+    return (reg == 31);
+}
+
+static register_t *select_reg(struct hcpu_regs *regs, int reg)
+{
+    BUG_ON(is_zero_register(reg));
+    return &regs->x0 + reg;
+}
+
+register_t get_hcpu_reg(struct hcpu_regs *regs, int reg)
+{
+    if (is_zero_register(reg))
+        return 0;
+
+    return *select_reg(regs, reg);
+}
+
+void set_hcpu_reg(struct hcpu_regs *regs, int reg,
+                  register_t value)
+{
+    if (is_zero_register(reg))
+        return;
+
+    *select_reg(regs, reg) = value;
+}
 
 /* Access Flag Fault {访问标志故障}
  *

@@ -9,7 +9,7 @@
 #include <asm/sysregs.h>
 #include <asm/barrier.h>
 #include <asm/debug.h>
-#include <bsp/traps.h>
+#include <org/traps.h>
 
 // --------------------------------------------------------------
 void hyp_syn_el2t_handler(struct hcpu_regs *regs)

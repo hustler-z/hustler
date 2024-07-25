@@ -210,16 +210,18 @@ static inline void deactivate_timer(struct timer *timer)
              &percpu(timers, timer->cpu).inactive);
 }
 
+static DEFINE_RCU_READ_LOCK(timer_lock);
+
 static inline bool timer_lock_unsafe(struct timer *timer)
 {
     unsigned int cpu;
 
-    rcu_read_lock();
+    rcu_read_lock(&timer_lock);
 
     for ( ; ; ) {
         cpu = read_atomic(&timer->cpu);
         if (unlikely(cpu == TIMER_CPU_STATUS_KILLED)) {
-            rcu_read_unlock();
+            rcu_read_unlock(&timer_lock);
             return 0;
         }
 
@@ -229,7 +231,7 @@ static inline bool timer_lock_unsafe(struct timer *timer)
         spin_unlock(&percpu(timers, cpu).lock);
     }
 
-    rcu_read_unlock();
+    rcu_read_unlock(&timer_lock);
 
     return 1;
 }
@@ -332,12 +334,12 @@ void migrate_timer(struct timer *timer, unsigned int new_cpu)
     bool active;
     unsigned long flags;
 
-    rcu_read_lock();
+    rcu_read_lock(&timer_lock);
 
     for ( ; ; ) {
         old_cpu = read_atomic(&timer->cpu);
         if ((old_cpu == new_cpu) || (old_cpu == TIMER_CPU_STATUS_KILLED)) {
-            rcu_read_unlock();
+            rcu_read_unlock(&timer_lock);
             return;
         }
 
@@ -356,7 +358,7 @@ void migrate_timer(struct timer *timer, unsigned int new_cpu)
         spin_unlock_irqrestore(&percpu(timers, new_cpu).lock, flags);
     }
 
-    rcu_read_unlock();
+    rcu_read_unlock(&timer_lock);
 
     active = active_timer(timer);
     if (active)
