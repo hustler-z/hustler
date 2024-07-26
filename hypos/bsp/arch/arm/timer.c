@@ -58,7 +58,7 @@ static void down_heap(struct timer **heap, unsigned int pos)
     struct timer *t = heap[pos];
 
     while ((nxt = (pos << 1)) <= sz) {
-        if (((nxt+1) <= sz) && (heap[nxt+1]->expires
+        if (((nxt + 1) <= sz) && (heap[nxt+1]->expires
                                 < heap[nxt]->expires))
             nxt++;
         if (heap[nxt]->expires > t->expires)
@@ -76,7 +76,7 @@ static void up_heap(struct timer **heap, unsigned int pos)
 {
     struct timer *t = heap[pos];
 
-    while ((pos > 1) && (t->expires < heap[pos>>1]->expires)) {
+    while ((pos > 1) && (t->expires < heap[pos >> 1]->expires)) {
         heap[pos] = heap[pos>>1];
         heap[pos]->heap_offset = pos;
         pos >>= 1;
@@ -86,7 +86,8 @@ static void up_heap(struct timer **heap, unsigned int pos)
     t->heap_offset = pos;
 }
 
-static int remove_from_heap(struct timer **heap, struct timer *t)
+static int remove_from_heap(struct timer **heap,
+                            struct timer *t)
 {
     unsigned int sz = heap_metadata(heap)->size;
     unsigned int pos = t->heap_offset;
@@ -111,7 +112,8 @@ static int remove_from_heap(struct timer **heap, struct timer *t)
     return (pos == 1);
 }
 
-static int add_to_heap(struct timer **heap, struct timer *t)
+static int add_to_heap(struct timer **heap,
+                       struct timer *t)
 {
     unsigned int sz = heap_metadata(heap)->size;
 
@@ -126,7 +128,8 @@ static int add_to_heap(struct timer **heap, struct timer *t)
     return (t->heap_offset == 1);
 }
 
-static int remove_from_list(struct timer **pprev, struct timer *t)
+static int remove_from_list(struct timer **pprev,
+                            struct timer *t)
 {
     struct timer *curr, **_pprev = pprev;
 
@@ -338,7 +341,8 @@ void migrate_timer(struct timer *timer, unsigned int new_cpu)
 
     for ( ; ; ) {
         old_cpu = read_atomic(&timer->cpu);
-        if ((old_cpu == new_cpu) || (old_cpu == TIMER_CPU_STATUS_KILLED)) {
+        if ((old_cpu == new_cpu) ||
+            (old_cpu == TIMER_CPU_STATUS_KILLED)) {
             rcu_read_unlock(&timer_lock);
             return;
         }
@@ -480,7 +484,8 @@ static void timer_softirq_action(void)
         deadline = ts->list->expires;
     now = NOW();
     this_cpu(timer_deadline) =
-        (deadline == STIME_MAX) ? 0 : max(deadline, now + timer_slop);
+        (deadline == STIME_MAX) ?
+                0 : max(deadline, now + timer_slop);
 
     if (!reprogram_timer(this_cpu(timer_deadline)))
         raise_softirq(TIMER_SOFTIRQ);

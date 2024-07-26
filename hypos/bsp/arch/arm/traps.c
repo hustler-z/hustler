@@ -25,16 +25,16 @@
  * 1. Software in the VM attempts to access the virtual peripheral.
  *    and the access is blocked at stage 2 translation, leading to
  *    an abort routed to EL2.
- * a. The abort populates ESR_EL2 with information about the
- *    exception, including the number of bytes accessed, the target
- *    register and whether it was a load or store.
- * b. The abort also populates HPFAR_EL2 with the IPA of the
- *    aborting access.
+ *    a. The abort populates ESR_EL2 with information about the
+ *       exception, including the number of bytes accessed, the
+ *       target register and whether it was a load or store.
+ *    b. The abort also populates HPFAR_EL2 with the IPA of the
+ *       aborting access.
  * 3. The hypervisor uses the information from ESR_EL2 and HPFAR_EL2
  *    to identify the virtual peripheral register accessed. The
  *    information allows the hypervisor to emulate the operation. It
  *    then returns to the vCPU via an ERET.
- * c. Execution restarts on the instruction after the LDR.
+ *    c. Execution restarts on the instruction after the LDR.
  *
  * --------------------------------------------------------------
  */

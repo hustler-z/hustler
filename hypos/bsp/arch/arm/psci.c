@@ -19,6 +19,35 @@
 
 #if IS_IMPLEMENTED(__PSCI_IMPL)
 // --------------------------------------------------------------
+
+/* --------------------------------------------------------------
+ * XXX: PSCI (Power State Coordination Interface)
+ *
+ * Provides an OS agnostic method for implementing power
+ * management use cases where cores can be powered up or
+ * down.
+ *
+ * (a) Core idle management.
+ * (b) Dynamic addition and removal of cores (hotplug),
+ *     and secondary core boot.
+ * (c) big.LITTLE migration.
+ * (d) System shutdown and reset.
+ *
+ * Multiprocessor systems can have a number of different power
+ * domains to power different elements of the system. Each power
+ * domain might contain a combination of one or more processing
+ * elements (such as cores, coprocessors, or GPUs), memories
+ * (caches, DRAMs), and fabric (for example inter-cluster and
+ * intra-cluster coherency fabric).
+ *
+ * Each component in a power domain has a set of power states
+ * that affect the components in the domain.
+ *
+ * PSCI provides an interface to allow an OS to request system
+ * shutdown, system reset, and system suspend (suspend to RAM).
+ *
+ * --------------------------------------------------------------
+ */
 extern void smpboot_cpu(void);
 extern register_t cpu_logical_map[NR_CPUS];
 

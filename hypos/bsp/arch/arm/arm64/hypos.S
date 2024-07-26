@@ -11,8 +11,14 @@
 
 // --------------------------------------------------------------
 
-/* XXX:
- * struct vcpu *__context_switch(struct vcpu *prev, struct vcpu *next)
+/* --------------------------------------------------------------
+ * XXX: Context Switching
+ *
+ * When context switching between vPEs, the hypervisor software
+ * saves the state of one vPE and loads the context of another.
+ * --------------------------------------------------------------
+ * struct vcpu *__context_switch(struct vcpu *prev,
+ *                               struct vcpu *next)
  */
 FUNC(__context_switch)
     add x8, x0, #VCPU_CONTEXT

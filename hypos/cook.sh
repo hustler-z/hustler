@@ -51,7 +51,13 @@ build_symbols() {
 }
 
 build_hypos() {
+    start=$(date +%s)
     make clean && make
+    end=$(date +%s)
+    cost=$(($end-$start))
+
+    echo ""
+    echo "- Built hypos in $(($cost/60)) mins $(($cost%60)) secs -"
 }
 
 clean_all() {
@@ -59,7 +65,17 @@ clean_all() {
 }
 
 prep_review() {
-    make tags
+    _ctags=$(command -v ctags)
+
+    if [ ! -z $_ctags ];then
+        make ctags
+    fi
+
+    _gtags=$(command -v gtags)
+
+    if [ ! -z $_gtags ];then
+        make gtags
+    fi
 }
 
 debug() {

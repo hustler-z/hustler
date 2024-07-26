@@ -91,7 +91,7 @@ END(asm_putn)
 RODATA_SECT(.rodata.debug, hex, "0123456789abcdef")
 // --------------------------------------------------------------
 
-/* XXX: For Hypervisor dump_stack()
+/* XXX: For Hypervisor Stack Dump
  * void save_context(struct hcpu_regs *regs);
  *                              |
  *                              ▼

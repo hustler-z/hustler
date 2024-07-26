@@ -21,6 +21,7 @@ SYM         := $(OUTPUT)/hypos-sym.elf
 MAP         := $(OUTPUT)/hypos.map
 ifeq ($(HOST),x86)
 CROSS_COMPILE ?= /bsp/pro/toolchains/armcc-bm-64/bin/aarch64-none-elf-
+# CROSS_COMPILE ?= /home/luohao/hustler/toolchains/armcc-bm64-v13.2/bin/aarch64-none-elf-
 else
 CROSS_COMPILE ?=
 endif
@@ -205,6 +206,7 @@ $(ELF): $(ASM_OFS_H) $(hyposo) $(lds)
 # Generate asm/offset.h
 # ---------------------------------------------------------------
 $(ASM_OFS_H): offset.S
+	$(call hypos_label)
 	$(call asm_offsets)
 	$(Q)rm -f $<
 offset.S: $(ASM_OFS_C)
@@ -231,12 +233,21 @@ $(thruco): $(PATH_THRU)/%.o: $(SPATH_THRU)/%.c
 $(lds): $(PATH_ARCH)/%.lds: $(SPATH_ARCH)/%.lds.S
 	$(call cc_lds,$@,$<)
 # ---------------------------------------------------------------
-.PHONY: tags
-tags:
+# Code Tracker
+# (a) CTAGS
+# (b) GTAGS
+
+.PHONY: ctags
+ctags:
 	@set -e; rm -rf tags GTAGS GPATH GRTAGS; \
-	echo "TAGS     (done)";                  \
-	$(all_sources) | gtags -f -;             \
+	echo "CTAG     (done)";                  \
 	$(all_sources) | xargs ctags --languages=Asm,c,c++,Make -R
+
+.PHONY: gtags
+gtags:
+	@set -e; rm -rf tags GTAGS GPATH GRTAGS; \
+	echo "GTAG     (done)";                  \
+	$(all_sources) | gtags -f -
 
 .PHONY: remove
 remove:

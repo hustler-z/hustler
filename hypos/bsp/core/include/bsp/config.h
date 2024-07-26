@@ -45,6 +45,7 @@
 #define __WAIT_QUEUE_IMPL          0
 #define __IOMMU_IMPL               0
 #define __SMMUV3_IMPL              0
+#define __INSTR_IMPL               0
 // --------------------------------------------------------------
 #define IS_SUPPORTED(sup)          (!!(sup))
 

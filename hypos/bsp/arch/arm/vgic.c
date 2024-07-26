@@ -133,8 +133,9 @@
  * the pINTID, this deactivates both the vINTID and pINTID.
  *
  * --------------------------------------------------------------
- * MSI
- * ITS (Interrupt Translation Service)
+ * MSI (Message Signal Interrupt)
+ *
+ * XXX: ITS (Interrupt Translation Service)
  *
  * The Interrupt Translation Service (ITS) translates an input
  * EventID from a device, identified by its DeviceID, and
@@ -172,6 +173,64 @@
  *      table entry that describes the Redistributor that is
  *      currently hosting the target vPE to which the interrupt
  *      is routed.
+ *
+ * --------------------------------------------------------------
+ * XXX: Maintenance Interrupts
+ *
+ * The CPU interface can be configured to generate physical
+ * interrupts if certain conditions are true in the virtual
+ * CPU interface.
+ *
+ * The interrupts are reported as a PPI, with INTID 25. The
+ * interrupt is typically configured as Non-secure Group 1
+ * and handled by the hypervisor software at EL2.
+ *
+ * The generation of maintenance interrupts is controlled by
+ * ICH_HCR_EL2, and the interrupts that are currently asserted
+ * are reported in ICH_MISR_EL2.
+ *
+ * XXX: Context Switching
+ *
+ * The state of the Virtual CPU Interface forms part of the
+ * context of a vPE.
+ * (a) The state of the ICV registers.
+ * (b) The active virtual priorities.
+ * (c) Any pending, active, or active and pending virtual
+ *     interrupts.
+ *
+ * The state of the ICV registers can be accessed from EL2
+ * using the ICH registers.
+ *
+ * The active virtual priorities must be saved and restored
+ * when switching vPEs. The active priorities for the current
+ * vPE can be accessed using the ICH_APxRn_EL2 registers.
+ *
+ * XXX: GICv4
+ *
+ * GICv4 adds support for the direct injection of virtual
+ * interrupts. This feature allows software to describe to the
+ * ITS how physical events map to virtual interrupts in advance.
+ * If the vPE targeted by a virtual interrupt is running, the
+ * virtual interrupt can be forwarded without the need to first
+ * enter the hypervisor. This can reduce the overhead associated
+ * with virtualized interrupts, by reducing the number of times
+ * the hypervisor is entered.
+ * --------------------------------------------------------------
+ *
+ *                                                            vCPU Interface
+ *                                                                  ▲
+ *                                                                  | (5) if vPE resident, virtual
+ *                        ITS Tables                                |     interrupt forwarded.
+ *                            |                            +-----------------+
+ * (1) Peripheral sends    +-----+                         | GICR_VPROPBASER |
+ *     interrupt as    --▶ | ITS | -----------------------▶|                 |
+ *     message to ITS      +-----+ (3) vPEID and vINTID    | GICR_VPENDBASER |
+ *                            |        forwarded to target +-----------------+
+ *                            |        Redistributor.      (4) Redistributor checks
+ *                    (2) ITS Translates                       whether vPEID is
+ *                        EventID/DeviceID                     resident and retrieves
+ *                                                             configuration from vPE
+ *                                                             configuration table.
  *
  * --------------------------------------------------------------
  */

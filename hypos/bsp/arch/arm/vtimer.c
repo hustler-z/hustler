@@ -75,11 +75,11 @@ int hypos_vtimer_init(struct hypos *h,
 int vcpu_vtimer_init(struct vcpu *v)
 {
     struct vtimer *t = &v->arch.phys_timer;
-    bool d0 = is_hardware_hypos(v->hypos);
+    bool h0 = is_hardware_hypos(v->hypos);
 
     init_timer(&t->timer, phys_timer_expired, t, v->processor);
     t->ctl = 0;
-    t->irq = d0
+    t->irq = h0
         ? timer_get_irq(TIMER_PHYS_NONSECURE_PPI)
         : GUEST_TIMER_PHYS_NS_PPI;
     t->v = v;
@@ -87,7 +87,7 @@ int vcpu_vtimer_init(struct vcpu *v)
     t = &v->arch.virt_timer;
     init_timer(&t->timer, virt_timer_expired, t, v->processor);
     t->ctl = 0;
-    t->irq = d0
+    t->irq = h0
         ? timer_get_irq(TIMER_VIRT_PPI)
         : GUEST_TIMER_VIRT_PPI;
     t->v = v;
@@ -224,10 +224,10 @@ static bool vtimer_emulate_cp32(struct hcpu_regs *regs,
 {
     struct hsr_cp32 cp32 = hsr.cp32;
 
-    switch (hsr.bits & HSR_CP32_REGS_MASK) {
-    case HSR_CPREG32(CNTP_CTL):
+    switch (hsr.bits & ESR_CP32_REGS_MASK) {
+    case ESR_CPREG32(CNTP_CTL):
         return vreg_emulate_cp32(regs, hsr, vtimer_cntp_ctl);
-    case HSR_CPREG32(CNTP_TVAL):
+    case ESR_CPREG32(CNTP_TVAL):
         return vreg_emulate_cp32(regs, hsr, vtimer_cntp_tval);
     default:
         return false;
@@ -239,8 +239,8 @@ static bool vtimer_emulate_cp64(struct hcpu_regs *regs,
 {
     struct hsr_cp64 cp64 = hsr.cp64;
 
-    switch (hsr.bits & HSR_CP64_REGS_MASK) {
-    case HSR_CPREG64(CNTP_CVAL):
+    switch (hsr.bits & ESR_CP64_REGS_MASK) {
+    case ESR_CPREG64(CNTP_CVAL):
         return vreg_emulate_cp64(regs, hsr, vtimer_cntp_cval);
     default:
         return false;
@@ -252,12 +252,12 @@ static bool vtimer_emulate_sysreg(struct hcpu_regs *regs,
 {
     struct hsr_sysreg sysreg = hsr.sysreg;
 
-    switch (hsr.bits & HSR_SYSREG_REGS_MASK) {
-    case HSR_SYSREG_CNTP_CTL_EL0:
+    switch (hsr.bits & ESR_SYSREG_REGS_MASK) {
+    case ESR_SYSREG_CNTP_CTL_EL0:
         return vreg_emulate_sysreg(regs, hsr, vtimer_cntp_ctl);
-    case HSR_SYSREG_CNTP_TVAL_EL0:
+    case ESR_SYSREG_CNTP_TVAL_EL0:
         return vreg_emulate_sysreg(regs, hsr, vtimer_cntp_tval);
-    case HSR_SYSREG_CNTP_CVAL_EL0:
+    case ESR_SYSREG_CNTP_CVAL_EL0:
         return vreg_emulate_sysreg(regs, hsr, vtimer_cntp_cval);
 
     default:
@@ -270,11 +270,11 @@ bool vtimer_emulate(struct hcpu_regs *regs, union hcpu_esr hsr)
 {
 
     switch (hsr.ec) {
-    case HSR_EC_CP15_32:
+    case ESR_EC_CP15_32:
         return vtimer_emulate_cp32(regs, hsr);
-    case HSR_EC_CP15_64:
+    case ESR_EC_CP15_64:
         return vtimer_emulate_cp64(regs, hsr);
-    case HSR_EC_SYSREG:
+    case ESR_EC_SYSREG:
         return vtimer_emulate_sysreg(regs, hsr);
     default:
         return false;
