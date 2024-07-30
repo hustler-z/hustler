@@ -14,6 +14,9 @@
 #include <bsp/type.h>
 
 struct hcpu_regs {
+    /* XXX: A64 Procedure Call Standard (PCS) passes up to eight
+     *      parameters in registers (X0 - X7).
+     */
     register_t x0;
     register_t x1;
     register_t x2;
@@ -22,6 +25,7 @@ struct hcpu_regs {
     register_t x5;
     register_t x6;
     register_t x7;
+
     register_t x8;
     register_t x9;
     register_t x10;
@@ -50,6 +54,21 @@ struct hcpu_regs {
     register_t sp;
     register_t pc;      /* ELR_EL2 */
 
+    /* ---------------------------------------------------------------
+     * XXX: Saved Program Status Register (SPSR)
+     *      The SPSR holds the value of PSTATE
+     *      before taking an exception and is used
+     *      to restore the value of PSTATE when
+     *      executing an exception return.
+     *
+     *      +-+-+-+-+--- ... ---+--+--+--- ... ---+-+-+-+-+-+-+------+
+     *      |N|Z|C|V|           |SS|IL|           |D|A|I|F| |M|M[3:0]|
+     *      +-+-+-+-+--- ... ---+--+--+--- ... ---+-+-+-+-+-+-+------+
+     *
+     *      SS - Software Step
+     *      IL - Illegal Execution State Bit
+     * ---------------------------------------------------------------
+     */
     register_t cpsr;    /* SPSR_EL2 */
     register_t esr;     /* ESR_EL2 */
 

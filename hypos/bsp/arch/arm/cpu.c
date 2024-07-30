@@ -18,6 +18,15 @@
 #include <bsp/bootcore.h>
 
 // --------------------------------------------------------------
+
+/*
+ *
+ *
+ *
+ */
+
+// --------------------------------------------------------------
+
 DECLARE_BITMAP(cpu_hwcaps, ARM_NCAPS);
 
 struct arm_cpu __read_mostly core_cpu;
@@ -99,6 +108,9 @@ int enable_nonboot_cpu_caps(const struct arm_cpu_capabilities *caps)
     return rc;
 }
 
+/* XXX: The ARM architecture defines a set of feature registers,
+ *      which describe the capabilities of the CPU/system.
+ */
 void identify_cpu(struct arm_cpu *c)
 {
     bool aarch32_el0 = true;
