@@ -28,7 +28,7 @@ FUNC(__context_switch)
     stp  x23, x24, [x8], #16
     stp  x25, x26, [x8], #16
     stp  x27, x28, [x8], #16
-    stp  x29, x9, [x8], #16
+    stp  x29, x9,  [x8], #16
     str  lr, [x8]
 
     add  x8, x1, #VCPU_CONTEXT
@@ -37,7 +37,7 @@ FUNC(__context_switch)
     ldp  x23, x24, [x8], #16
     ldp  x25, x26, [x8], #16
     ldp  x27, x28, [x8], #16
-    ldp  x29, x9, [x8], #16
+    ldp  x29, x9,  [x8], #16
     ldr  lr, [x8]
     mov  sp, x9
     ret

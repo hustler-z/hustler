@@ -18,7 +18,7 @@ void *ioremap_attr(hpa_t start, size_t len, unsigned int attributes)
     unsigned int nr = PFN_UP(offs + len);
     void *ptr = __vmap(&hfn, nr, 1, 1, attributes, VMAP_DEFAULT);
 
-    if (ptr == NULL)
+    if (!ptr)
         return NULL;
 
     return ptr + offs;

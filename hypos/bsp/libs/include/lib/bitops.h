@@ -30,7 +30,7 @@ static inline unsigned int generic_hweight32(unsigned int w)
 {
     w -= (w >> 1) & 0x55555555;
     w =  (w & 0x33333333) + ((w >> 2) & 0x33333333);
-    w =  (w + (w >> 4)) & 0x0f0f0f0f;
+    w =  (w + (w >> 4)) & 0x0F0F0F0F;
 
     if (HAS_FAST_MULTIPLY)
         return (w * 0x01010101) >> 24;
@@ -44,9 +44,9 @@ static inline unsigned int generic_hweight16(unsigned int w)
 {
     w -= ((w >> 1) & 0x5555);
     w =  (w & 0x3333) + ((w >> 2) & 0x3333);
-    w =  (w + (w >> 4)) & 0x0f0f;
+    w =  (w + (w >> 4)) & 0x0F0F;
 
-    return (w + (w >> 8)) & 0xff;
+    return (w + (w >> 8)) & 0xFF;
 }
 
 static inline unsigned int generic_hweight8(unsigned int w)
@@ -64,7 +64,7 @@ static inline unsigned int generic_hweight64(unsigned long w)
 
     w -= (w >> 1) & 0x5555555555555555UL;
     w =  (w & 0x3333333333333333UL) + ((w >> 2) & 0x3333333333333333UL);
-    w =  (w + (w >> 4)) & 0x0f0f0f0f0f0f0f0fUL;
+    w =  (w + (w >> 4)) & 0x0F0F0F0F0F0F0F0FUL;
 
     if (HAS_FAST_MULTIPLY)
         return (w * 0x0101010101010101UL) >> 56;

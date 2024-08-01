@@ -14,6 +14,7 @@
 // --------------------------------------------------------------
 
 /* Note
+ *
  * The MMU uses the most significant bits of the Virtual Address
  * to index entries in a translation table and establish which
  * block is being accessed. The MMU translates the Virtual

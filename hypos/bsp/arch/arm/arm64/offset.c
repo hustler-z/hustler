@@ -22,6 +22,9 @@
  * --------------------------------------------------------------
  * XXX: How do we solve the problem above?
  *      Obviously make those codes aligned.
+ *
+ * This problem has been solved. This file ain't compile as
+ * as normal C files. see asm_offsets in cfg/config.mk
  * --------------------------------------------------------------
  */
 void __offset__(void)

@@ -101,40 +101,45 @@
     eret
 .endm
 
-.macro trap_ventry label, hyp
+// --------------------------------------------------------------
+
+.macro trap_ventry label, hyp, abt
     .align 7                    /* 256 (2 << 7) byte */
 \label:
     trap_entry hyp=\hyp
     mov  x0, sp
+    .if \abt == _TRAP
     b  \label\()_handler
+    .else
+    mov  x1, #\abt
+    b    do_bad_trap
+    .endif
     trap_exit  hyp=\hyp
 .endm
-
-// --------------------------------------------------------------
 
 /* EL2 Hypervisor Exception Vectors
  */
     .align 11                   /* 4096 (2 << 11) byte */
 GLOBAL(hyp_vectors)
-    trap_ventry hyp_syn_el2t, 1
-    trap_ventry hyp_irq_el2t, 1
-    trap_ventry hyp_fiq_el2t, 1
-    trap_ventry hyp_serror_el2t, 1
+    trap_ventry hyp_syn_el2t, __H, BAD_SYNC
+    trap_ventry hyp_irq_el2t, __H, BAD_IRQ
+    trap_ventry hyp_fiq_el2t, __H, BAD_FIQ
+    trap_ventry hyp_serror_el2t, __H, BAD_ERROR
 
-    trap_ventry hyp_syn_el2h, 1
-    trap_ventry hyp_irq_el2h, 1
-    trap_ventry hyp_fiq_el2h, 1
-    trap_ventry hyp_serror_el2h, 1
+    trap_ventry hyp_syn_el2h, __H, _TRAP
+    trap_ventry hyp_irq_el2h, __H, _TRAP
+    trap_ventry hyp_fiq_el2h, __H, BAD_FIQ
+    trap_ventry hyp_serror_el2h, __H, _TRAP
 
-    trap_ventry guest_syn, 0
-    trap_ventry guest_irq, 0
-    trap_ventry guest_fiq, 0
-    trap_ventry guest_serror, 0
+    trap_ventry guest_syn, __G, _TRAP
+    trap_ventry guest_irq, __G, _TRAP
+    trap_ventry guest_fiq, __G, BAD_FIQ
+    trap_ventry guest_serror, __G, _TRAP
 
-    trap_ventry guest_syn_compact, 0
-    trap_ventry guest_irq_compact, 0
-    trap_ventry guest_fiq_compact, 0
-    trap_ventry guest_serror_compact, 0
+    trap_ventry guest_syn_compact, __G, _TRAP
+    trap_ventry guest_irq_compact, __G, _TRAP
+    trap_ventry guest_fiq_compact, __G, BAD_FIQ
+    trap_ventry guest_serror_compact, __G, _TRAP
 END(hyp_vectors)
 
 // --------------------------------------------------------------

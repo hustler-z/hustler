@@ -94,14 +94,14 @@ static void hypos_device_table_setup(struct hypos_device_table *table)
         INIT_LIST_HEAD(&table[idx].entry);
     }
 
-    get_globl()->dev_tbl = table;
+    hypos_get(dev_tbl) = table;
 }
 
 int device_setup(void)
 {
     int ret = -1;
 
-    if (!get_globl()->flags & GLB_INITIALIZED)
+    if (!hypos_get(flags) & GLB_INITIALIZED)
         return ret;
 
     hypos_device_table_setup(device_table);
@@ -113,7 +113,7 @@ int device_setup(void)
     if (ret)
         return ret;
 
-    get_globl()->flags |= GLB_DEVICE_INIT;
+    hypos_get(flags) |= GLB_DEVICE_INIT;
 
     return 0;
 }

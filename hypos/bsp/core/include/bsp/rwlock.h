@@ -21,7 +21,7 @@ typedef struct {
     spinlock_t lock;
 } rwlock_t;
 
-#define    RW_LOCK_UNLOCKED {           \
+#define RW_LOCK_UNLOCKED {              \
     .cnts = ATOMIC_INIT(0),             \
     .lock = SPIN_LOCK_UNLOCKED          \
 }

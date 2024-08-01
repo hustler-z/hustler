@@ -8,30 +8,30 @@
 
 #include <asm/sysregs.h>
 #include <asm/barrier.h>
+#include <asm/define.h>
 #include <asm/debug.h>
 #include <org/traps.h>
 
 // --------------------------------------------------------------
-void hyp_syn_el2t_handler(struct hcpu_regs *regs)
+void do_bad_trap(struct hcpu_regs *regs, unsigned int reason)
 {
-    do_bad_sync(regs);
+    switch (reason) {
+    case BAD_SYNC:
+        do_bad_sync(regs);
+        break;
+    case BAD_IRQ:
+        do_bad_irq(regs);
+        break;
+    case BAD_FIQ:
+        do_bad_fiq(regs);
+        break;
+    case BAD_ERROR:
+        do_bad_error(regs);
+        break;
+    default:
+        break;
+    }
 }
-
-void hyp_irq_el2t_handler(struct hcpu_regs *regs)
-{
-    do_bad_irq(regs);
-}
-
-void hyp_fiq_el2t_handler(struct hcpu_regs *regs)
-{
-    do_bad_fiq(regs);
-}
-
-void hyp_serror_el2t_handler(struct hcpu_regs *regs)
-{
-    do_bad_error(regs);
-}
-
 // --------------------------------------------------------------
 void hyp_syn_el2h_handler(struct hcpu_regs *regs)
 {
@@ -53,11 +53,6 @@ void hyp_irq_el2h_handler(struct hcpu_regs *regs)
     do_irq(regs);
 }
 
-void hyp_fiq_el2h_handler(struct hcpu_regs *regs)
-{
-    do_bad_fiq(regs);
-}
-
 void hyp_serror_el2h_handler(struct hcpu_regs *regs)
 {
     do_error(regs);
@@ -72,10 +67,6 @@ void guest_irq_handler(struct hcpu_regs *regs)
 {
 }
 
-void guest_fiq_handler(struct hcpu_regs *regs)
-{
-}
-
 void guest_serror_handler(struct hcpu_regs *regs)
 {
 }
@@ -86,10 +77,6 @@ void guest_syn_compact_handler(struct hcpu_regs *regs)
 }
 
 void guest_irq_compact_handler(struct hcpu_regs *regs)
-{
-}
-
-void guest_fiq_compact_handler(struct hcpu_regs *regs)
 {
 }
 

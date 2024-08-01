@@ -20,8 +20,8 @@ ELF         := $(OUTPUT)/hypos.elf
 SYM         := $(OUTPUT)/hypos-sym.elf
 MAP         := $(OUTPUT)/hypos.map
 ifeq ($(HOST),x86)
-CROSS_COMPILE ?= /bsp/pro/toolchains/armcc-bm-64/bin/aarch64-none-elf-
-# CROSS_COMPILE ?= /home/luohao/hustler/toolchains/armcc-bm64-v13.2/bin/aarch64-none-elf-
+# CROSS_COMPILE ?= /bsp/pro/toolchains/armcc-bm-64/bin/aarch64-none-elf-
+CROSS_COMPILE ?= /home/luohao/hustler/toolchains/armcc-bm64-v13.2/bin/aarch64-none-elf-
 else
 CROSS_COMPILE ?=
 endif

@@ -1,0 +1,64 @@
+-----------------------------------------------------------------
+Hypos                                                  2024/07/31
+-----------------------------------------------------------------
+
+Popek and Goldberg's Theorem
+(a) Equivalence/Fidelity
+(b) Safety/Resource Control
+(c) Performance/Efficiency
+
+Approaches to Virtualization
+(a) Full (software) Virtualization
+(b) Hardware Virtualization (HVM)
+(c) Paravirtualization
+
+-----------------------------------------------------------------
+
+Memory Virtualization
+
+TTBR
+  | |---------|------------- ~ --------| VA
+  +---▶+---+  |                        |
+    |  |   |  |                        |
+    +-▶:   :--|-▶+---+                 |
+       |   |  |  |   |                 |
+       +---+  +-▶:   : --▶ ~           |
+        L1       |   |                 ▼
+                 +---+          ~ --▶ GPA
+                  L2                   |
+      |◀-------------------------------+
+VTTBR |---------|------------- ~ --------|
+   |  |                                  |
+   +----▶+---+                           |
+      |  |   |                           |
+      +-▶:   : --▶ ~                     |
+         |   |                           |
+         +---+                           |
+         L1                              |
+                                   ~ --▶ PA
+
+Stage-1 and Stage-2 page table walk on ARM using the LPAE memory
+long format descriptors. The virtual address (VA) is first trans-
+lated into a guest physical address (gPA) and finally into a host
+physical address (hPA).
+
+-----------------------------------------------------------------
+
+TrustZone technology refers to security extensions implemented by
+ARM in modern applications processor cores.
+
+The hardware security extensions virtualizes a physical core as
+two virtual cores, providing two completely separated execution
+domains: the secure world for the security subsystem and the non
+-secure world for everything else. The state of the processor
+can be changed by enabling or disabling the NS (Non-Secure) bit
+of the SCR (Secure Configuration Register), exposed through
+coprocessor (CP15) interface.
+
+-----------------------------------------------------------------
+  ▲
+  |
+◀-+-▶
+  |
+  ▼
+-----------------------------------------------------------------

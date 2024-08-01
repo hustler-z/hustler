@@ -26,9 +26,15 @@ static inline size_t read_dcache_line_bytes(void)
     /* Read CTR */
     ctr = READ_SYSREG(CTR_EL0);
 
-    /* Bits 16-19 are the log2 number of words in the cacheline. */
+    /* DminLine => bits [19:16]
+     *
+     * log2 of the number of words in the smallest cache line of
+     * all the data caches and unified caches that are controlled
+     * by the PE.
+     */
     return (size_t) (4 << ((ctr >> 16) & 0xF));
 }
+
 static inline int invalidate_dcache_va_range(const void *p,
                                              unsigned long size)
 {

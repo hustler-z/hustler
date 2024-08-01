@@ -10,7 +10,9 @@
 #include <asm/define.h>
 
 /* Note
-   --------------------------------------------------------------
+ *
+ * ZCR_ELx - SVE Control Register
+ * --------------------------------------------------------------
  * SVE - next generation SIMD extension to AArch64. SVE allows
  *       flexible vector length implementations with a range of
  *       possible values in CPU implementations.
@@ -49,61 +51,61 @@
 .macro _sve_str_v nz, nxbase, offset=0
     _sve_check_zreg \nz
     _check_general_reg \nxbase
-    _check_num (\offset), -0x100, 0xff
-    .inst 0xe5804000                \
+    _check_num (\offset), -0x100, 0xFF
+    .inst 0xE5804000                \
         | (\nz)                     \
         | ((\nxbase) << 5)          \
         | (((\offset) & 7) << 10)   \
-        | (((\offset) & 0x1f8) << 13)
+        | (((\offset) & 0x1F8) << 13)
 .endm
 
 /* LDR (vector): LDR Z\nz, [X\nxbase, #\offset, MUL VL] */
 .macro _sve_ldr_v nz, nxbase, offset=0
     _sve_check_zreg \nz
     _check_general_reg \nxbase
-    _check_num (\offset), -0x100, 0xff
+    _check_num (\offset), -0x100, 0xFF
     .inst 0x85804000                \
         | (\nz)                     \
         | ((\nxbase) << 5)          \
         | (((\offset) & 7) << 10)   \
-        | (((\offset) & 0x1f8) << 13)
+        | (((\offset) & 0x1F8) << 13)
 .endm
 
 /* STR (predicate): STR P\np, [X\nxbase, #\offset, MUL VL] */
 .macro _sve_str_p np, nxbase, offset=0
     _sve_check_preg \np
     _check_general_reg \nxbase
-    _check_num (\offset), -0x100, 0xff
-    .inst 0xe5800000                \
+    _check_num (\offset), -0x100, 0xFF
+    .inst 0xE5800000                \
         | (\np)                     \
         | ((\nxbase) << 5)          \
         | (((\offset) & 7) << 10)   \
-        | (((\offset) & 0x1f8) << 13)
+        | (((\offset) & 0x1F8) << 13)
 .endm
 
 /* LDR (predicate): LDR P\np, [X\nxbase, #\offset, MUL VL] */
 .macro _sve_ldr_p np, nxbase, offset=0
     _sve_check_preg \np
     _check_general_reg \nxbase
-    _check_num (\offset), -0x100, 0xff
+    _check_num (\offset), -0x100, 0xFF
     .inst 0x85800000                \
         | (\np)                     \
         | ((\nxbase) << 5)          \
         | (((\offset) & 7) << 10)   \
-        | (((\offset) & 0x1f8) << 13)
+        | (((\offset) & 0x1F8) << 13)
 .endm
 
 .macro _sve_rdvl nx, imm
     _check_general_reg \nx
-    _check_num (\imm), -0x20, 0x1f
-    .inst 0x04bf5000                \
+    _check_num (\imm), -0x20, 0x1F
+    .inst 0x04BF5000                \
         | (\nx)                     \
-        | (((\imm) & 0x3f) << 5)
+        | (((\imm) & 0x3F) << 5)
 .endm
 
 .macro _sve_rdffr np
     _sve_check_preg \np
-    .inst 0x2519f000                \
+    .inst 0x2519F000                \
         | (\np)
 .endm
 

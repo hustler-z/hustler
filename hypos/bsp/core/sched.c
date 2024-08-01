@@ -135,8 +135,8 @@ static inline struct scheduler *vcpu_scheduler(const struct vcpu *v)
 
 static inline void trace_runstate_change(const struct vcpu *v, int new_state)
 {
-    struct { uint32_t vcpu:16, domain:16; } d;
-    uint32_t event;
+    struct { u32 vcpu:16, domain:16; } d;
+    u32 event;
 
     if ( likely(!tb_init_done) )
         return;
@@ -153,7 +153,7 @@ static inline void trace_runstate_change(const struct vcpu *v, int new_state)
 
 static inline void trace_continue_running(const struct vcpu *v)
 {
-    struct { uint32_t vcpu:16, domain:16; } d;
+    struct { u32 vcpu:16, domain:16; } d;
 
     if ( likely(!tb_init_done) )
         return;
@@ -1337,7 +1337,7 @@ static void domain_watchdog_timeout(void *data)
     domain_shutdown(d, SHUTDOWN_watchdog);
 }
 
-static long domain_watchdog(struct domain *d, uint32_t id, uint32_t timeout)
+static long domain_watchdog(struct domain *d, u32 id, u32 timeout)
 {
     if ( id > NR_DOMAIN_WATCHDOG_TIMERS )
         return -EINVAL;
@@ -1461,7 +1461,7 @@ int vcpuaffinity_params_invalid(const struct xen_domctl_vcpuaffinity *vcpuaff)
             guest_handle_is_null(vcpuaff->cpumap_soft.bitmap));
 }
 
-int vcpu_affinity_domctl(struct domain *d, uint32_t cmd,
+int vcpu_affinity_domctl(struct domain *d, u32 cmd,
                          struct xen_domctl_vcpuaffinity *vcpuaff)
 {
     struct vcpu *v;
@@ -1769,15 +1769,12 @@ long do_set_timer_op(stime_t timeout)
     struct vcpu *v = current;
     stime_t offset = timeout - NOW();
 
-    if ( timeout == 0 )
-    {
+    if (!timeout) {
         stop_timer(&v->singleshot_timer);
-    }
-    else if ( unlikely(timeout < 0) || /* overflow into 64th bit? */
-              unlikely((offset > 0) && ((uint32_t)(offset >> 50) != 0)) )
-    {
+    } else if (unlikely(timeout < 0) || /* overflow into 64th bit? */
+             unlikely((offset > 0) && ((u32)(offset >> 50) != 0))) {
 
-        gdMSGH(XENLOG_INFO, "Warning: huge timeout set: %"PRIx64"\n",
+        MSGH("Warning: huge timeout set: %"PRIx64"\n",
                  timeout);
         set_timer(&v->singleshot_timer, NOW() + MILLISECS(100));
     }

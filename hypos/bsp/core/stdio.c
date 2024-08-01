@@ -178,7 +178,7 @@ int stdio_add_devices(void)
     struct hypos_device *dev;
     int ret;
 
-    if (get_globl()->keyboard_enable) {
+    if (hypos_get(keyboard_enable)) {
         /*
          * For now we probe all the hypos_devices here. At some point this
          * should be done only when the hypos_devices are required - e.g. we

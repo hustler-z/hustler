@@ -12,6 +12,14 @@
 #include <org/bitops.h>
 
 // --------------------------------------------------------------
+#define BAD_SYNC              0
+#define BAD_IRQ               1
+#define BAD_FIQ               2
+#define BAD_ERROR             3
+#define GOOD_TRAP             4
+
+#define __H                   1
+#define __G                   0
 
 /* Exception Level: CurrentEL [3:2] */
 #define ARM64_EL0T            0x00000000

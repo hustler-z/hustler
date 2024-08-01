@@ -102,7 +102,7 @@
  * LPI                   GITS_TRANSLATER
  * --------------------------------------------------------------
  *
- * XXX: IRQ State Machine
+ * XXX: IRQ State Machine (中断状态机)
  *
  * (Inactive)◀-------▶(Pending)◀-------▶(Active and Pending)
  *    ▲                   ▲                      ▲
@@ -491,10 +491,10 @@ static inline void gicv3_save_lrs(struct vcpu *v)
         v->arch.gic.v3.lr[1] = READ_SYSREG_LR(1);
         fallthrough;
     case 1:
-         v->arch.gic.v3.lr[0] = READ_SYSREG_LR(0);
-         break;
+        v->arch.gic.v3.lr[0] = READ_SYSREG_LR(0);
+        break;
     default:
-         BUG();
+        BUG();
     }
 }
 
@@ -551,7 +551,7 @@ static inline void gicv3_restore_lrs(const struct vcpu *v)
         WRITE_SYSREG_LR(v->arch.gic.v3.lr[0], 0);
         break;
     default:
-         BUG();
+        BUG();
     }
 }
 

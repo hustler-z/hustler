@@ -8,7 +8,6 @@
 
 #include <asm/map.h>
 #include <asm/sysregs.h>
-#include <asm/exit.h>
 #include <asm/cache.h>
 #include <asm/at.h>
 #include <org/section.h>

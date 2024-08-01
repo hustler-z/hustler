@@ -273,7 +273,7 @@ typedef u64 dev_table_entry_t;
         (((addr) & GENMASK(51, 8)) | (((bits) - 1) & GENMASK(4, 0)))
 
 #define GITS_BASER_RO_MASK \
-    (GITS_BASER_TYPE_MASK | (0x1fL << GITS_BASER_ENTRY_SIZE_SHIFT))
+    (GITS_BASER_TYPE_MASK | (0x1FL << GITS_BASER_ENTRY_SIZE_SHIFT))
 
 static hpa_t get_baser_phys_addr(u64 reg)
 {

@@ -36,10 +36,10 @@ unsigned int __bitmap_weight(const unsigned long *bitmap, unsigned int bits);
 void __bitmap_set(unsigned long *map, unsigned int start, int len);
 void __bitmap_clear(unsigned long *map, unsigned int start, int len);
 
-#define BITMAP_LAST_WORD_MASK(nbits)			  \
-(									              \
-    ((nbits) % BITS_PER_LONG) ?					  \
-        (1UL<<((nbits) % BITS_PER_LONG))-1 : ~0UL \
+#define BITMAP_LAST_WORD_MASK(nbits)			      \
+(									                  \
+    ((nbits) % BITS_PER_LONG) ?					      \
+        (1UL << ((nbits) % BITS_PER_LONG)) - 1 : ~0UL \
 )
 
 #define bitmap_bytes(nbits) (BITS_TO_LONGS(nbits) * sizeof(unsigned long))
@@ -77,48 +77,58 @@ static inline void bitmap_fill(unsigned long *dst, unsigned int nbits)
     }
 }
 
-static inline void bitmap_copy(unsigned long *dst, const unsigned long *src,
-        unsigned int nbits)
+static inline void bitmap_copy(unsigned long *dst,
+                               const unsigned long *src,
+                               unsigned int nbits)
 {
     bitmap_switch(nbits,,
         *dst = *src,
         memcpy(dst, src, bitmap_bytes(nbits)));
 }
 
-static inline void bitmap_and(unsigned long *dst, const unsigned long *src1,
-        const unsigned long *src2, unsigned int nbits)
+static inline void bitmap_and(unsigned long *dst,
+                              const unsigned long *src1,
+                              const unsigned long *src2,
+                              unsigned int nbits)
 {
     bitmap_switch(nbits,,
         *dst = *src1 & *src2,
         __bitmap_and(dst, src1, src2, nbits));
 }
 
-static inline void bitmap_or(unsigned long *dst, const unsigned long *src1,
-        const unsigned long *src2, unsigned int nbits)
+static inline void bitmap_or(unsigned long *dst,
+                             const unsigned long *src1,
+                             const unsigned long *src2,
+                             unsigned int nbits)
 {
     bitmap_switch(nbits,,
         *dst = *src1 | *src2,
         __bitmap_or(dst, src1, src2, nbits));
 }
 
-static inline void bitmap_xor(unsigned long *dst, const unsigned long *src1,
-        const unsigned long *src2, unsigned int nbits)
+static inline void bitmap_xor(unsigned long *dst,
+                              const unsigned long *src1,
+                              const unsigned long *src2,
+                              unsigned int nbits)
 {
     bitmap_switch(nbits,,
         *dst = *src1 ^ *src2,
         __bitmap_xor(dst, src1, src2, nbits));
 }
 
-static inline void bitmap_andnot(unsigned long *dst, const unsigned long *src1,
-        const unsigned long *src2, unsigned int nbits)
+static inline void bitmap_andnot(unsigned long *dst,
+                                 const unsigned long *src1,
+                                 const unsigned long *src2,
+                                 unsigned int nbits)
 {
     bitmap_switch(nbits,,
         *dst = *src1 & ~*src2,
         __bitmap_andnot(dst, src1, src2, nbits));
 }
 
-static inline void bitmap_complement(unsigned long *dst, const unsigned long *src,
-        unsigned int nbits)
+static inline void bitmap_complement(unsigned long *dst,
+                                     const unsigned long *src,
+                                     unsigned int nbits)
 {
     bitmap_switch(nbits,,
         *dst = ~*src & BITMAP_LAST_WORD_MASK(nbits),
@@ -152,7 +162,8 @@ static inline int bitmap_subset(const unsigned long *src1,
         return __bitmap_subset(src1, src2, nbits));
 }
 
-static inline int bitmap_empty(const unsigned long *src, unsigned int nbits)
+static inline int bitmap_empty(const unsigned long *src,
+                               unsigned int nbits)
 {
     bitmap_switch(nbits,
         return -1,
@@ -160,7 +171,8 @@ static inline int bitmap_empty(const unsigned long *src, unsigned int nbits)
         return __bitmap_empty(src, nbits));
 }
 
-static inline int bitmap_full(const unsigned long *src, unsigned int nbits)
+static inline int bitmap_full(const unsigned long *src,
+                              unsigned int nbits)
 {
     bitmap_switch(nbits,
         return -1,

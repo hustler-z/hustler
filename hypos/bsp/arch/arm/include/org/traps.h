@@ -11,6 +11,7 @@
 // --------------------------------------------------------------
 #include <asm/hcpu.h>
 
+// --------------------------------------------------------------
 void do_bad_sync(struct hcpu_regs *regs);
 void do_bad_irq(struct hcpu_regs *regs);
 void do_bad_fiq(struct hcpu_regs *regs);

@@ -15,6 +15,7 @@
  * (c) When EL2 is not implemented.
  * (d) At EL1 if EL2 is not enabled in the current Security state.
  * (e) At EL0.
+ *
  * On executing an HVC instruction, the PE records the exception
  * as a Hypervisor Call exception in the immediate argument.
  */

@@ -327,7 +327,6 @@ static char *pointer(char *str, const char *end, const char **fmt_ptr,
 
         return str;
     }
-
     case 's': /* Symbol name only */
     {
         unsigned long sym_size, sym_offset;

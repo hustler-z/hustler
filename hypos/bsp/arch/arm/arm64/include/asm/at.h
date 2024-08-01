@@ -73,7 +73,7 @@ typedef struct __packed {
      * ai  - attribute index to the MAIR_ELn
      *       0b111   Normal Memory
      *       0b100   Device Memory
-     * sh  - shareable attibute
+     * sh  - shareable attribute
      * ap  - access permission
      *            Unprivileged(EL0)  Privileged(EL1/2/3)
      *       -------------------------------------------

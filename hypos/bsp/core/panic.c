@@ -14,7 +14,6 @@
 #include <asm/sysregs.h>
 #include <asm/hcpu.h>
 #include <asm/page.h>
-#include <asm/exit.h>
 #include <asm/define.h>
 #include <bsp/exit.h>
 #include <bsp/time.h>
