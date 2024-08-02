@@ -8,20 +8,14 @@
 core-y += vcpu.o
 core-y += sched.o
 core-y += virtio.o
-core-y += hvm.o
+core-y += guest.o
 
-core-y += mmap.o
 core-y += panic.o
 core-y += cpu.o
-core-y += console.o
 core-y += setup.o
-core-y += command.o
-core-y += print.o
-core-y += hypmem.o
-core-y += period.o
-core-y += env.o
+core-y += vsnpr.o
+core-y += memz.o
 core-y += device.o
-core-y += stdio.o
 core-y += vmap.o
 core-y += symtbl.o
 core-y += softirq.o

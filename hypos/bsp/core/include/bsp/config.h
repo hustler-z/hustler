@@ -18,7 +18,7 @@
 #define CFG_REBOOT_ON_PANIC        1
 #define CFG_GIC_V2                 1
 #define CFG_GIC_V3                 2
-
+#define CFG_HYPOS_DEBUG_ON         1
 // --------------------------------------------------------------
 
 /* Implementation Configuration
@@ -46,6 +46,7 @@
 #define __IOMMU_IMPL               0
 #define __SMMUV3_IMPL              0
 #define __INSTR_IMPL               0
+#define __BUDDY_ALLOCATOR_IMPL     0
 // --------------------------------------------------------------
 #define IS_SUPPORTED(sup)          (!!(sup))
 

@@ -9,7 +9,8 @@
 #include <asm/tlb.h>
 #include <asm/map.h>
 #include <asm/bitops.h>
-#include <asm/at.h>
+#include <asm/xaddr.h>
+#include <asm/io.h>
 #include <org/section.h>
 #include <org/globl.h>
 #include <org/membank.h>
@@ -21,6 +22,8 @@
 #include <bsp/spinlock.h>
 #include <bsp/errno.h>
 #include <bsp/type.h>
+#include <bsp/vmap.h>
+
 // --------------------------------------------------------------
 static __initdata DECLARE_BITMAP(inuse, NUM_FIX_PFNMAP);
 
@@ -112,7 +115,8 @@ static int ttbl_next_level(bool read_only,
         if (read_only)
             return MAP_FAILED;
 
-        MSGQ(false, "This Entry (%p) ain't Valid, Thus Create a New Entry @_<\n",
+        MSGQ(false, "This Entry (%p) ain't Valid, "
+                    "Thus Create a New Entry @_<\n",
                 entry);
 
         ret = create_ttbl(entry);
@@ -357,8 +361,8 @@ static int ttbl_update(unsigned long va,
         new_flags = flags | ((nr_contig > 1) ? _PAGE_CONTIG : 0);
 
         for (; nr_contig > 0; nr_contig--) {
-            ret = ttbl_update_entry(root, vfn << PAGE_SHIFT, hfn, level,
-                                    new_flags);
+            ret = ttbl_update_entry(root, vfn << PAGE_SHIFT,
+                                    hfn, level, new_flags);
             if (ret)
                 break;
 
@@ -406,6 +410,11 @@ int __bootfunc populate_ttbl_range(unsigned long va,
             _PAGE_POPULATE);
 }
 
+// --------------------------------------------------------------
+
+/**
+ * Usage: Map a 4Kb page in a fixmap entry
+ */
 void set_fixmap(unsigned int map, hfn_t hfn,
                 unsigned int flags)
 {
@@ -420,9 +429,33 @@ void clear_fixmap(unsigned int map)
 {
     int ret;
 
-    ret = remove_maps(HYPOS_FIXMAP_ADDR(map), HYPOS_FIXMAP_ADDR(map)
-            + PAGE_SIZE);
+    ret = remove_maps(HYPOS_FIXMAP_ADDR(map),
+                      HYPOS_FIXMAP_ADDR(map) + PAGE_SIZE);
 
     BUG_ON(ret != 0);
+}
+
+
+/**
+ * XXX: ioremap implementation
+ * Usage: To remap device address ranges.
+ */
+void *ioremap_attr(hpa_t start, size_t len,
+                   unsigned int attributes)
+{
+    hfn_t hfn = hfn_set(PFN_DOWN(start));
+    unsigned int offs = start & (PAGE_SIZE - 1);
+    unsigned int nr = PFN_UP(offs + len);
+    void *ptr = __vmap(&hfn, nr, 1, 1, attributes, VMAP_DEFAULT);
+
+    if (!ptr)
+        return NULL;
+
+    return ptr + offs;
+}
+
+void *ioremap(hpa_t pa, size_t len)
+{
+    return ioremap_attr(pa, len, PAGE_HYPOS_NOCACHE);
 }
 // --------------------------------------------------------------

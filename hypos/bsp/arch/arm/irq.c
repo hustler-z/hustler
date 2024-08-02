@@ -9,7 +9,7 @@
 #include <org/virq.h>
 #include <org/section.h>
 #include <bsp/percpu.h>
-#include <bsp/hypmem.h>
+#include <bsp/memz.h>
 #include <bsp/errno.h>
 #include <bsp/cpu.h>
 #include <bsp/config.h>

@@ -8,7 +8,7 @@
 
 #include <asm/map.h>
 #include <asm/bitops.h>
-#include <bsp/hypmem.h>
+#include <bsp/memz.h>
 #include <bsp/debug.h>
 #include <bsp/board.h>
 #include <org/membank.h>

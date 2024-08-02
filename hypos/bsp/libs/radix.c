@@ -10,7 +10,7 @@
 #include <lib/define.h>
 #include <lib/strops.h>
 #include <bsp/errno.h>
-#include <bsp/hypmem.h>
+#include <bsp/memz.h>
 #include <bsp/bootcore.h>
 // --------------------------------------------------------------
 struct radix_tree_path {

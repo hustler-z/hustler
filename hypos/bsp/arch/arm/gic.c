@@ -8,7 +8,7 @@
 
 #include <asm/barrier.h>
 #include <asm/sysregs.h>
-#include <asm/at.h>
+#include <asm/xaddr.h>
 #include <org/section.h>
 #include <org/membank.h>
 #include <org/cache.h>
@@ -16,7 +16,7 @@
 #include <bsp/compiler.h>
 #include <bsp/debug.h>
 #include <bsp/delay.h>
-#include <bsp/hypmem.h>
+#include <bsp/memz.h>
 #include <bsp/time.h>
 #include <bsp/panic.h>
 #include <bsp/config.h>

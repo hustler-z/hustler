@@ -9,13 +9,12 @@
 #include <asm/map.h>
 #include <asm/sysregs.h>
 #include <asm/cache.h>
-#include <asm/at.h>
+#include <asm/xaddr.h>
 #include <org/section.h>
 #include <org/hypos.h>
 #include <org/globl.h>
 #include <org/cache.h>
 #include <org/smp.h>
-#include <bsp/exit.h>
 #include <bsp/debug.h>
 #include <bsp/panic.h>
 #include <bsp/percpu.h>

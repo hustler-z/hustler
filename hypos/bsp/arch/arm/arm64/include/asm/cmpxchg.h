@@ -68,12 +68,12 @@ static inline unsigned long __xchg(unsigned long x,
 	return ret;
 }
 
-#define xchg(ptr,x) \
-({ \
-	__typeof__(*(ptr)) __ret; \
-	__ret = (__typeof__(*(ptr))) \
-		__xchg((unsigned long)(x), (ptr), sizeof(*(ptr))); \
-	__ret; \
+#define xchg(ptr,x)                                          \
+({                                                           \
+	__typeof__(*(ptr)) __ret;                                \
+	__ret = (__typeof__(*(ptr)))                             \
+		__xchg((unsigned long)(x), (ptr), sizeof(*(ptr)));   \
+	__ret;                                                   \
 })
 
 #define __CMPXCHG_CASE(w, sz, name)					         \
@@ -132,10 +132,11 @@ static always_inline bool __int_cmpxchg(volatile void *ptr,
 	ASSERT_UNREACHABLE();
 }
 
-static always_inline unsigned long __cmpxchg(volatile void *ptr,
-                    unsigned long old,
-                    unsigned long new,
-                    int size)
+static always_inline
+unsigned long __cmpxchg(volatile void *ptr,
+                        unsigned long old,
+                        unsigned long new,
+                        int size)
 {
 	smp_mb();
 	if (!__int_cmpxchg(ptr, &old, new, size, false, 0))
@@ -145,11 +146,12 @@ static always_inline unsigned long __cmpxchg(volatile void *ptr,
 	return old;
 }
 
-static always_inline bool __cmpxchg_timeout(volatile void *ptr,
-                    unsigned long *old,
-                    unsigned long new,
-                    int size,
-                    unsigned int max_try)
+static always_inline
+bool __cmpxchg_timeout(volatile void *ptr,
+                       unsigned long *old,
+                       unsigned long new,
+                       int size,
+                       unsigned int max_try)
 {
 	bool ret;
 
@@ -160,13 +162,13 @@ static always_inline bool __cmpxchg_timeout(volatile void *ptr,
 	return ret;
 }
 
-#define cmpxchg(ptr, o, n) \
-({ \
-	__typeof__(*(ptr)) __ret; \
-	__ret = (__typeof__(*(ptr))) \
+#define cmpxchg(ptr, o, n)                                       \
+({                                                               \
+	__typeof__(*(ptr)) __ret;                                    \
+	__ret = (__typeof__(*(ptr)))                                 \
 		__cmpxchg((ptr), (unsigned long)(o), (unsigned long)(n), \
-			  sizeof(*(ptr))); \
-	__ret; \
+			  sizeof(*(ptr)));                                   \
+	__ret;                                                       \
 })
 
 #define cmpxchg64(ptr, o, n) cmpxchg(ptr, o, n)

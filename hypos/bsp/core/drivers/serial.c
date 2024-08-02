@@ -5,161 +5,483 @@
  * Date:  2024/05/20
  * Usage:
  */
-
-#include <bsp/errno.h>
 #include <bsp/serial.h>
-#include <bsp/ns16550.h>
-#include <bsp/sdev.h>
-#include <lib/strops.h>
-// --------------------------------------------------------------
-static struct serial_device *serial_devices;
-static struct serial_device *serial_current;
+#include <bsp/debug.h>
 
-void serial_register(struct serial_device *dev)
+unsigned int __ro_after_init serial_txbufsz = CFG_SERIAL_TX_BUFSIZE;
+
+#define mask_serial_rxbuf_idx(_i) ((_i)&(serial_rxbufsz-1))
+#define mask_serial_txbuf_idx(_i) ((_i)&(serial_txbufsz-1))
+
+static struct serial_port com[SERHND_IDX + 1] = {
+    [0 ... SERHND_IDX] = {
+        .rx_lock = SPIN_LOCK_UNLOCKED,
+        .tx_lock = SPIN_LOCK_UNLOCKED
+    }
+};
+
+static bool __read_mostly post_irq;
+
+static inline void serial_start_tx(struct serial_port *port)
 {
-    dev->next = serial_devices;
-    serial_devices = dev;
+    if (port->driver->start_tx != NULL)
+        port->driver->start_tx(port);
 }
 
-int serial_assign(const char *name)
+static inline void serial_stop_tx(struct serial_port *port)
 {
-    struct serial_device *s;
+    if (port->driver->stop_tx != NULL)
+        port->driver->stop_tx(port);
+}
 
-    for (s = serial_devices; s; s = s->next) {
-        if (strcmp(s->name, name))
-            continue;
-        serial_current = s;
-        return 0;
+void serial_rx_interrupt(struct serial_port *port)
+{
+    char c;
+    serial_rx_fn fn = NULL;
+    unsigned long flags;
+
+    spin_lock_irqsave(&port->rx_lock, flags);
+
+    if (port->driver->getc(port, &c)) {
+        if (port->rx != NULL)
+            fn = port->rx;
+        else if ( (c & 0x80) && (port->rx_hi != NULL) )
+            fn = port->rx_hi;
+        else if ( !(c & 0x80) && (port->rx_lo != NULL) )
+            fn = port->rx_lo;
+        else if ( (port->rxbufp - port->rxbufc) != serial_rxbufsz )
+            port->rxbuf[mask_serial_rxbuf_idx(port->rxbufp++)] = c;
     }
 
-    return -EINVAL;
+    spin_unlock_irqrestore(&port->rx_lock, flags);
+
+    if ( fn != NULL )
+        fn(c & 0x7f);
 }
 
-static struct serial_device *get_current(void)
+void serial_tx_interrupt(struct serial_port *port)
 {
-    struct serial_device *dev;
+    int i, n;
+    unsigned long flags;
 
-    if (!serial_current)
-        dev = default_serial_console();
-    else
-        dev = serial_current;
+    local_irq_save(flags);
 
-    return dev;
+    while (!spin_trylock(&port->tx_lock))
+    {
+        if (port->driver->tx_ready(port) <= 0)
+            goto out;
+        cpu_relax();
+    }
+
+    if (port->txbufc == port->txbufp) {
+        /* Disable TX. nothing to send */
+        serial_stop_tx(port);
+        spin_unlock(&port->tx_lock);
+        goto out;
+    } else {
+        if ( port->driver->tx_ready(port) )
+            serial_start_tx(port);
+    }
+
+    for (i = 0, n = port->driver->tx_ready(port); i < n; i++) {
+        if (port->txbufc == port->txbufp)
+            break;
+        port->driver->putc(port,
+					port->txbuf[mask_serial_txbuf_idx(port->txbufc++)]);
+    }
+
+    if (i && port->driver->flush)
+        port->driver->flush(port);
+
+    spin_unlock(&port->tx_lock);
+
+out:
+    local_irq_restore(flags);
 }
 
-int serial_init(void)
+static void __serial_putc(struct serial_port *port, char c)
 {
-    return get_current()->start();
+    if ((port->txbuf != NULL) && !port->sync) {
+        /* Interrupt-driven (asynchronous) transmitter. */
+
+        if (port->tx_quench) {
+            /* Buffer filled and we are dropping characters. */
+            if ((port->txbufp - port->txbufc) > (serial_txbufsz / 2))
+                return;
+            port->tx_quench = 0;
+        }
+
+        if ((port->txbufp - port->txbufc) == serial_txbufsz) {
+            if (port->tx_log_everything) {
+                int n;
+
+                while ((n = port->driver->tx_ready(port)) == 0)
+                    cpu_relax();
+                if (n > 0) {
+                    /* Enable TX before sending chars */
+                    serial_start_tx(port);
+                    while (n--)
+                        port->driver->putc(
+                            port,
+                            port->txbuf[mask_serial_txbuf_idx(port->txbufc++)]);
+                    port->txbuf[mask_serial_txbuf_idx(port->txbufp++)] = c;
+                }
+            } else {
+                /* Buffer is full: drop chars until buffer is half empty. */
+                port->tx_quench = 1;
+            }
+            return;
+        }
+
+        if (((port->txbufp - port->txbufc) == 0) &&
+             port->driver->tx_ready(port) > 0) {
+            /* Enable TX before sending chars */
+            serial_start_tx(port);
+            /* Buffer and UART FIFO are both empty, and port is available. */
+            port->driver->putc(port, c);
+        } else
+            port->txbuf[mask_serial_txbuf_idx(port->txbufp++)] = c;
+    } else if (port->driver->tx_ready) {
+        int n;
+
+        /* Synchronous finite-capacity transmitter. */
+        while (!(n = port->driver->tx_ready(port)))
+            cpu_relax();
+        if (n > 0) {
+            /* Enable TX before sending chars */
+            serial_start_tx(port);
+            port->driver->putc(port, c);
+        }
+    } else {
+        /* Simple synchronous transmitter. */
+        serial_start_tx(port);
+        port->driver->putc(port, c);
+    }
 }
 
-void serial_setbrg(void)
+void serial_puts(int handle, const char *s, size_t nr)
 {
-    get_current()->setbrg();
+    struct serial_port *port;
+    unsigned long flags;
+
+    if (handle == -1)
+        return;
+
+    port = &com[handle & SERHND_IDX];
+    if (!port->driver || !port->driver->putc)
+        return;
+
+    spin_lock_irqsave(&port->tx_lock, flags);
+
+    for ( ; nr > 0; nr--, s++) {
+        char c = *s;
+
+        if ((c == '\n') && (handle & SERHND_COOKED))
+            __serial_putc(port, '\r' | ((handle & SERHND_HI) ? 0x80 : 0x00));
+
+        if (handle & SERHND_HI)
+            c |= 0x80;
+        else if (handle & SERHND_LO)
+            c &= 0x7f;
+
+        __serial_putc(port, c);
+    }
+
+    if (port->driver->flush)
+        port->driver->flush(port);
+
+    spin_unlock_irqrestore(&port->tx_lock, flags);
 }
 
-int serial_getc(void)
+int __init serial_parse_handle(const char *conf)
 {
-    return get_current()->getc();
+    int handle, flags = 0;
+
+    if (!strncmp(conf, "dbgp", 4) && (!conf[4] ||
+		conf[4] == ',')) {
+        handle = SERHND_DBGP;
+        goto common;
+    }
+
+    if (!strncmp(conf, "ehci", 4) && (!conf[4] ||
+		conf[4] == ',')) {
+        handle = SERHND_DBGP;
+        goto common;
+    }
+
+    if (!strncmp(conf, "xhci", 4) && (!conf[4] ||
+		conf[4] == ',')) {
+        handle = SERHND_XHCI;
+        goto common;
+    }
+
+    if (!strncmp(conf, "dtuart", 6)) {
+        handle = SERHND_DTUART;
+        goto common;
+    }
+
+    if (strncmp(conf, "com", 3))
+        goto fail;
+
+    switch (conf[3]) {
+    case '1':
+        handle = SERHND_COM1;
+        break;
+    case '2':
+        handle = SERHND_COM2;
+        break;
+    default:
+        goto fail;
+    }
+
+    if (conf[4] == 'H')
+        flags |= SERHND_HI;
+    else if (conf[4] == 'L')
+        flags |= SERHND_LO;
+
+common:
+    if (!com[handle].driver)
+        goto fail;
+
+    if (!post_irq)
+        com[handle].state = serial_parsed;
+    else if (com[handle].state != serial_initialized) {
+        if (com[handle].driver->init_postirq)
+            com[handle].driver->init_postirq(&com[handle]);
+        com[handle].state = serial_initialized;
+    }
+
+    return handle | flags | SERHND_COOKED;
+
+fail:
+    return -1;
 }
 
-int serial_tstc(void)
+void __init serial_set_rx_handler(int handle, serial_rx_fn fn)
 {
-    return get_current()->tstc();
+    struct serial_port *port;
+    unsigned long flags;
+
+    if (handle == -1)
+        return;
+
+    port = &com[handle & SERHND_IDX];
+
+    spin_lock_irqsave(&port->rx_lock, flags);
+
+    if (port->rx != NULL)
+        goto fail;
+
+    if (handle & SERHND_LO) {
+        if (port->rx_lo != NULL)
+            goto fail;
+        port->rx_lo = fn;
+    } else if (handle & SERHND_HI) {
+        if ( port->rx_hi != NULL )
+            goto fail;
+        port->rx_hi = fn;
+    } else {
+        if ((port->rx_hi != NULL) || (port->rx_lo != NULL))
+            goto fail;
+        port->rx = fn;
+    }
+
+    spin_unlock_irqrestore(&port->rx_lock, flags);
+    return;
+
+fail:
+    spin_unlock_irqrestore(&port->rx_lock, flags);
+    printk("ERROR: Conflicting receive handlers for COM%d\n",
+           handle & SERHND_IDX);
 }
 
-void serial_putc(const char c)
+void serial_force_unlock(int handle)
 {
-    get_current()->putc(c);
+    struct serial_port *port;
+
+    if (handle == -1)
+        return;
+
+    port = &com[handle & SERHND_IDX];
+
+    spin_lock_init(&port->rx_lock);
+    spin_lock_init(&port->tx_lock);
+
+    serial_start_sync(handle);
 }
 
-void serial_puts(const char *s)
+void serial_start_sync(int handle)
 {
-    get_current()->puts(s);
+    struct serial_port *port;
+    unsigned long flags;
+
+    if (handle == -1)
+        return;
+
+    port = &com[handle & SERHND_IDX];
+
+    spin_lock_irqsave(&port->tx_lock, flags);
+
+    if (port->sync++ == 0) {
+        while ((port->txbufp - port->txbufc) != 0) {
+            int n;
+
+            while (!(n = port->driver->tx_ready(port)))
+                cpu_relax();
+
+            if (n < 0)
+                break;
+
+            serial_start_tx(port);
+            port->driver->putc(
+                port, port->txbuf[mask_serial_txbuf_idx(port->txbufc++)]);
+        }
+
+        if (port->driver->flush)
+            port->driver->flush(port);
+    }
+
+    spin_unlock_irqrestore(&port->tx_lock, flags);
 }
 
-int serial_initialize(void)
+void serial_end_sync(int handle)
 {
-    /* TODO some other serial drivers
-     */
+    struct serial_port *port;
+    unsigned long flags;
 
-    ns16550_serial_initialize();
+    if (handle == -1)
+        return;
 
-    serial_assign(default_serial_console()->name);
+    port = &com[handle & SERHND_IDX];
 
-    return 0;
+    spin_lock_irqsave(&port->tx_lock, flags);
+
+    port->sync--;
+
+    spin_unlock_irqrestore(&port->tx_lock, flags);
 }
-// --------------------------------------------------------------
-static int serial_stub_start(struct stdio_dev *sdev)
+
+void serial_start_log_everything(int handle)
 {
-	struct serial_device *dev = sdev->priv;
+    struct serial_port *port;
+    unsigned long flags;
 
-	return dev->start();
+    if (handle == -1)
+        return;
+
+    port = &com[handle & SERHND_IDX];
+
+    spin_lock_irqsave(&port->tx_lock, flags);
+    port->tx_log_everything++;
+    port->tx_quench = 0;
+    spin_unlock_irqrestore(&port->tx_lock, flags);
 }
 
-static int serial_stub_stop(struct stdio_dev *sdev)
+void serial_end_log_everything(int handle)
 {
-	struct serial_device *dev = sdev->priv;
+    struct serial_port *port;
+    unsigned long flags;
 
-	return dev->stop();
+    if (handle == -1)
+        return;
+
+    port = &com[handle & SERHND_IDX];
+
+    spin_lock_irqsave(&port->tx_lock, flags);
+    port->tx_log_everything--;
+    spin_unlock_irqrestore(&port->tx_lock, flags);
 }
 
-static void serial_stub_putc(struct stdio_dev *sdev, const char ch)
+void __init serial_init_preirq(void)
 {
-	struct serial_device *dev = sdev->priv;
-
-	dev->putc(ch);
+    int i;
+    for (i = 0; i < ARRAY_SIZE(com); i++)
+        if (com[i].driver && com[i].driver->init_preirq)
+            com[i].driver->init_preirq(&com[i]);
 }
 
-static void serial_stub_puts(struct stdio_dev *sdev, const char *str)
+void __init serial_init_irq(void)
 {
-	struct serial_device *dev = sdev->priv;
+    unsigned int i;
 
-	dev->puts(str);
+    for (i = 0; i < ARRAY_SIZE(com); i++)
+        if (com[i].driver && com[i].driver->init_irq)
+            com[i].driver->init_irq(&com[i]);
 }
 
-static int serial_stub_getc(struct stdio_dev *sdev)
+void __init serial_init_postirq(void)
 {
-	struct serial_device *dev = sdev->priv;
-
-	return dev->getc();
+    int i;
+    for (i = 0; i < ARRAY_SIZE(com); i++)
+        if (com[i].state == serial_parsed) {
+            if (com[i].driver->init_postirq)
+                com[i].driver->init_postirq(&com[i]);
+            com[i].state = serial_initialized;
+        }
+    post_irq = 1;
 }
 
-static int serial_stub_tstc(struct stdio_dev *sdev)
+void __init serial_endboot(void)
 {
-	struct serial_device *dev = sdev->priv;
-
-	return dev->tstc();
+    int i;
+    for (i = 0; i < ARRAY_SIZE(com); i++)
+        if (com[i].driver && com[i].driver->endboot)
+            com[i].driver->endboot(&com[i]);
 }
 
-/**
- * serial_stdio_init() - Register serial ports with STDIO core
- *
- * This function generates a proxy driver for each serial port driver.
- * These proxy drivers then register with the STDIO core, making the
- * serial drivers available as STDIO devices.
- */
-void serial_stdio_init(void)
+int __init serial_irq(int idx)
 {
-	struct stdio_dev dev;
-	struct serial_device *s = serial_devices;
+    if ((idx >= 0) && (idx < ARRAY_SIZE(com)) &&
+        com[idx].driver && com[idx].driver->irq)
+        return com[idx].driver->irq(&com[idx]);
 
-	while (s) {
-		memset(&dev, 0, sizeof(dev));
-
-		strcpy(dev.name, s->name);
-		dev.flags = DEV_FLAGS_OUTPUT | DEV_FLAGS_INPUT;
-
-		dev.start = serial_stub_start;
-		dev.stop = serial_stub_stop;
-		dev.putc = serial_stub_putc;
-		dev.puts = serial_stub_puts;
-		dev.getc = serial_stub_getc;
-		dev.tstc = serial_stub_tstc;
-		dev.priv = s;
-
-		stdio_register(&dev);
-
-		s = s->next;
-	}
+    return -1;
 }
-// --------------------------------------------------------------
+
+const struct vuart_info *serial_vuart_info(int idx)
+{
+    if ((idx >= 0) && (idx < ARRAY_SIZE(com)) &&
+        com[idx].driver && com[idx].driver->vuart_info)
+        return com[idx].driver->vuart_info(&com[idx]);
+
+    return NULL;
+}
+
+void serial_suspend(void)
+{
+    int i;
+    for (i = 0; i < ARRAY_SIZE(com); i++)
+        if (com[i].state == serial_initialized &&
+			com[i].driver->suspend)
+            com[i].driver->suspend(&com[i]);
+}
+
+void serial_resume(void)
+{
+    int i;
+    for (i = 0; i < ARRAY_SIZE(com); i++)
+        if (com[i].state == serial_initialized &&
+			com[i].driver->resume)
+            com[i].driver->resume(&com[i]);
+}
+
+void __init serial_register_uart(int idx,
+								 struct uart_driver *driver,
+                                 void *uart)
+{
+    com[idx].driver = driver;
+    com[idx].uart   = uart;
+}
+
+void __init serial_async_transmit(struct serial_port *port)
+{
+    BUG_ON(!port->driver->tx_ready);
+    if (port->txbuf != NULL)
+        return;
+    if (serial_txbufsz < PAGE_SIZE)
+        serial_txbufsz = PAGE_SIZE;
+    while (serial_txbufsz & (serial_txbufsz - 1))
+        serial_txbufsz &= serial_txbufsz - 1;
+    port->txbuf = alloc_xenheap_pages(
+        get_order_from_bytes(serial_txbufsz), 0);
+}

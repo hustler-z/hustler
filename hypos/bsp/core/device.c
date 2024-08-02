@@ -8,7 +8,7 @@
 
 #include <org/globl.h>
 #include <bsp/device.h>
-#include <bsp/hypmem.h>
+#include <bsp/memz.h>
 #include <bsp/debug.h>
 #include <bsp/errno.h>
 #include <bsp/type.h>
@@ -73,7 +73,7 @@ static int hypos_device_scan_and_probe(void)
     for (idx = 0; idx < n_ents; idx++) {
         each = entry + idx;
         if (hypos_driver_enabled(each)) {
-            ret = hypos_device_bind(each, get_globl()->dev_tbl);
+            ret = hypos_device_bind(each, hypos_get(dev_tbl));
             if (!ret)
                 each->probe(each->devp);
         } else {

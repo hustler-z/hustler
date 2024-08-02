@@ -13,7 +13,7 @@
 #include <bsp/type.h>
 #include <bsp/compiler.h>
 #include <asm/page.h>
-#include <asm/at.h>
+#include <asm/xaddr.h>
 
 enum vmap_region {
     VMAP_DEFAULT,
@@ -23,8 +23,10 @@ enum vmap_region {
 
 void vm_init_type(enum vmap_region type, void *start, void *end);
 
-void *__vmap(const hfn_t *hfn, unsigned int granularity, unsigned int nr,
-             unsigned int align, unsigned int flags, enum vmap_region type);
+void *__vmap(const hfn_t *hfn, unsigned int granularity,
+             unsigned int nr,
+             unsigned int align, unsigned int flags,
+             enum vmap_region type);
 void *vmap(const hfn_t *hfn, unsigned int nr);
 void *vmap_contig(hfn_t hfn, unsigned int nr);
 void vunmap(const void *va);
@@ -35,6 +37,7 @@ void *hypos_vmalloc(size_t size);
 void *vzalloc(size_t size);
 void vfree(void *va);
 
+// --------------------------------------------------------------
 void __iomem *ioremap(hpa_t pa, size_t len);
 
 unsigned int vmap_size(const void *va);
@@ -48,19 +51,23 @@ static inline void iounmap(void __iomem *va)
 
 void *ioremap(hpa_t pa, size_t len);
 
-void __iomem *ioremap_attr(hpa_t start, size_t len, unsigned int attributes);
+void __iomem *ioremap_attr(hpa_t start, size_t len,
+                           unsigned int attributes);
 
-static inline void __iomem *ioremap_nocache(hpa_t start, size_t len)
+static inline void __iomem *ioremap_nocache(hpa_t start,
+                                            size_t len)
 {
     return ioremap_attr(start, len, PAGE_HYPOS_NOCACHE);
 }
 
-static inline void __iomem *ioremap_cache(hpa_t start, size_t len)
+static inline void __iomem *ioremap_cache(hpa_t start,
+                                          size_t len)
 {
     return ioremap_attr(start, len, PAGE_HYPOS);
 }
 
-static inline void __iomem *ioremap_wc(hpa_t start, size_t len)
+static inline void __iomem *ioremap_wc(hpa_t start,
+                                       size_t len)
 {
     return ioremap_attr(start, len, PAGE_HYPOS_WC);
 }

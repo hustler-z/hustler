@@ -53,7 +53,6 @@ struct hcpu_regs {
 
     register_t sp;
     register_t pc;      /* ELR_EL2 */
-
     /* ---------------------------------------------------------------
      * XXX: Saved Program Status Register (SPSR)
      *      The SPSR holds the value of PSTATE

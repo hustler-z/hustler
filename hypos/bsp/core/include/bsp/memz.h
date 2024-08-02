@@ -12,7 +12,7 @@
 #include <bsp/type.h>
 #include <bsp/panic.h>
 #include <bsp/numa.h>
-#include <asm/at.h>
+#include <asm/xaddr.h>
 
 // --------------------------------------------------------------
 void *alloc(size_t len);
@@ -65,7 +65,7 @@ static inline nid_t hfn_to_nid(hfn_t hfn)
     return nid;
 }
 
-int hypmem_setup(void);
+int memz_setup(void);
 // --------------------------------------------------------------
 void *_malloc(unsigned long size, unsigned long align);
 void *zalloc(unsigned long size, unsigned long align);

@@ -43,11 +43,15 @@ typedef struct rspinlock {
 #define RSPIN_LOCK_UNLOCKED {                   \
     .recurse_cpu = SPINLOCK_NO_CPU,             \
 }
-#define DEFINE_SPINLOCK(l)  spinlock_t l = SPIN_LOCK_UNLOCKED
-#define DEFINE_RSPINLOCK(l) rspinlock_t l = RSPIN_LOCK_UNLOCKED
+#define DEFINE_SPINLOCK(l)   \
+    spinlock_t l = SPIN_LOCK_UNLOCKED
+#define DEFINE_RSPINLOCK(l)  \
+    rspinlock_t l = RSPIN_LOCK_UNLOCKED
 
-#define spin_lock_init(l) (*(l)  = (spinlock_t)SPIN_LOCK_UNLOCKED)
-#define rspin_lock_init(l) (*(l) = (rspinlock_t)RSPIN_LOCK_UNLOCKED)
+#define spin_lock_init(l)    \
+    (*(l)  = (spinlock_t)SPIN_LOCK_UNLOCKED)
+#define rspin_lock_init(l)   \
+    (*(l) = (rspinlock_t)RSPIN_LOCK_UNLOCKED)
 
 void _spin_lock(spinlock_t *lock);
 void _spin_lock_cb(spinlock_t *lock, void (*cb)(void *data), void *data);

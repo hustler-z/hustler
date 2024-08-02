@@ -9,7 +9,7 @@
 #ifndef _ORG_HYPOS_H
 #define _ORG_HYPOS_H
 // --------------------------------------------------------------
-#include <asm/at.h>
+#include <asm/xaddr.h>
 #include <bsp/compiler.h>
 
 #define map_hypos_page(hfn)         __hfn_to_va(hfn_get(hfn))

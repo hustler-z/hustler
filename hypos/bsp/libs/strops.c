@@ -7,7 +7,7 @@
  */
 
 #include <lib/strops.h>
-#include <bsp/hypmem.h>
+#include <bsp/memz.h>
 
 // --------------------------------------------------------------
 char *strcpy(char *dest, const char *src)

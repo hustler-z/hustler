@@ -8,12 +8,6 @@
 
 drivers-y += serial.o
 drivers-y += ns16550.o
-drivers-y += keyboard.o
-drivers-y += input.o
-
-ifeq ($(PLATFORM),rockchip)
-drivers-y += rkserial.o
-drivers-y += rktimer.o
-endif
+drivers-y += console.o
 
 # ----------------------------------------------------------

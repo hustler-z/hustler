@@ -14,9 +14,8 @@
 #include <bsp/rcu.h>
 #include <bsp/timer.h>
 #include <bsp/debug.h>
-#include <bsp/period.h>
 #include <bsp/config.h>
-#include <bsp/hypmem.h>
+#include <bsp/memz.h>
 #include <lib/math.h>
 #include <lib/list.h>
 #include <lib/strops.h>

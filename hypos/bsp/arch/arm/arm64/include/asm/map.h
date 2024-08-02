@@ -9,7 +9,7 @@
 #ifndef _ASM_MAP_H
 #define _ASM_MAP_H
 // --------------------------------------------------------------
-#include <asm/at.h>
+#include <asm/xaddr.h>
 #include <asm/tlb.h>
 #include <bsp/panic.h>
 #include <bsp/debug.h>

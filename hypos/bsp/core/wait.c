@@ -9,7 +9,7 @@
 #include <org/vcpu.h>
 #include <bsp/spinlock.h>
 #include <bsp/preempt.h>
-#include <bsp/hypmem.h>
+#include <bsp/memz.h>
 #include <bsp/config.h>
 #include <bsp/panic.h>
 #include <lib/list.h>

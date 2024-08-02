@@ -6,7 +6,7 @@
  * Usage: general initialization
  */
 
-#include <asm/at.h>
+#include <asm/xaddr.h>
 #include <asm/ttbl.h>
 #include <asm/hcpu.h>
 #include <asm/debug.h>
@@ -16,17 +16,14 @@
 #include <org/time.h>
 #include <org/smp.h>
 #include <org/vcpu.h>
-#include <bsp/hypmem.h>
+#include <bsp/memz.h>
 #include <bsp/percpu.h>
 #include <bsp/cpu.h>
 #include <bsp/sdev.h>
 #include <bsp/bootcore.h>
 #include <bsp/console.h>
 #include <bsp/debug.h>
-#include <bsp/period.h>
 #include <bsp/vmap.h>
-#include <bsp/board.h>
-#include <bsp/exit.h>
 #include <bsp/board.h>
 #include <bsp/symtbl.h>
 #include <bsp/tasklet.h>
@@ -106,7 +103,7 @@ static bootfunc_t hypos_boot_sequence[] = {
 
     /* Set up Buddy Allocators and Other Allocators
      */
-    hypmem_setup,
+    memz_setup,
 
     /* Interrupt Controller Setup
      */
@@ -128,10 +125,6 @@ static bootfunc_t hypos_boot_sequence[] = {
      */
     bootcalls,
 
-    /* Periodic Work List Setup
-     */
-    periodic_work_setup,
-
     /* Peripheral Setup
      */
     device_setup,
@@ -141,13 +134,11 @@ static bootfunc_t hypos_boot_sequence[] = {
     console_setup,
 };
 
-void asmlinkage __bootfunc __setup(unsigned long phys_offset,
-        unsigned long boot_args)
+void asmlinkage __bootfunc __setup(unsigned long phys_offset)
 {
     early_debug("[hypos] Welcome to C world\n");
 
     hypos_get(phys_offset) = phys_offset;
-    hypos_get(boot_param) = boot_args;
 
     /* Normal booting process, initiate hypos services. my
      * goal here is to implement basic console and be able
@@ -155,7 +146,7 @@ void asmlinkage __bootfunc __setup(unsigned long phys_offset,
      * simple command.
      */
     if (__bootchain(hypos_boot_sequence))
-        hang();
+        BUG();
 }
 
 static bootfunc_t hypos_smpboot_sequence[] = {
@@ -167,6 +158,6 @@ void asmlinkage __bootfunc __smp_setup(void)
     hypos_get(hypos_status) = HYPOS_SMP_BOOT_STAGE;
 
     if (__bootchain(hypos_smpboot_sequence))
-        hang();
+        BUG();
 }
 // --------------------------------------------------------------

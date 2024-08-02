@@ -41,7 +41,7 @@ static void __do_softirq(unsigned long ignore_mask)
 
     ASSERT(!rcu_allowed || rcu_quiesce_allowed());
 
-    for ( ; ; ) {
+    for (;;) {
         cpu = smp_processor_id();
 
         if (rcu_allowed && rcu_pending(cpu))

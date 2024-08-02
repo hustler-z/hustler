@@ -9,7 +9,7 @@
 #ifndef _ORG_BOOTMEM_H
 #define _ORG_BOOTMEM_H
 // --------------------------------------------------------------
-#include <asm/at.h>
+#include <asm/xaddr.h>
 #include <bsp/type.h>
 
 /* Boot-time Allocaters for Page Frame Table and other Purposes */

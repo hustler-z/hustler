@@ -1,7 +1,7 @@
 /**
  * Hustler's Project
  *
- * File:  allocation.c
+ * File:  memz.c
  * Date:  2024/05/22
  * Usage: memory management system setup
  *        (Initialization, Allocation, Deallocation)
@@ -10,7 +10,8 @@
 #include <org/section.h>
 #include <org/membank.h>
 #include <asm/ttbl.h>
-#include <bsp/hypmem.h>
+#include <bsp/memz.h>
+#include <bsp/config.h>
 #include <bsp/panic.h>
 #include <bsp/debug.h>
 #include <lib/strops.h>
@@ -19,7 +20,7 @@
 #define HYPOS_MEMZONE 0
 #define NR_ZONES    (PADDR_BITS - PAGE_SHIFT + 1)
 
-#if 0 /* BUDDY_ALLOCATOR */
+#if IS_IMPLEMENTED(__BUDDY_ALLOCATOR_IMPL) /* BUDDY_ALLOCATOR */
 
 static DEFINE_SPINLOCK(heap_lock);
 
@@ -47,43 +48,34 @@ static unsigned long init_node(int node, unsigned long hfn,
                             PAGE_SIZE - 1) >> PAGE_SHIFT;
     int i, j;
 
-    if ( !first_node_initialised )
-    {
+    if (!first_node_initialised) {
         _heap[node] = &_heap_static;
         avail[node] = avail_static;
         first_node_initialised = true;
         needed = 0;
-    }
-    else if ( *use_tail && nr >= needed &&
+    } else if (*use_tail && nr >= needed &&
               arch_hfns_in_directmap(hfn + nr - needed, needed) &&
               (!xenheap_bits ||
-               !((hfn + nr - 1) >> (xenheap_bits - PAGE_SHIFT))) )
-    {
+               !((hfn + nr - 1) >> (xenheap_bits - PAGE_SHIFT)))) {
         _heap[node] = hfn_to_virt(hfn + nr - needed);
         avail[node] = hfn_to_virt(hfn + nr - 1) +
                       PAGE_SIZE - sizeof(**avail) * NR_ZONES;
-    }
-    else if ( nr >= needed &&
-              arch_hfns_in_directmap(hfn, needed) &&
-              (!xenheap_bits ||
-               !((hfn + needed - 1) >> (xenheap_bits - PAGE_SHIFT))) )
-    {
+    } else if (nr >= needed &&
+               arch_hfns_in_directmap(hfn, needed) &&
+               (!xenheap_bits ||
+               !((hfn + needed - 1) >> (xenheap_bits - PAGE_SHIFT)))) {
         _heap[node] = hfn_to_virt(hfn);
         avail[node] = hfn_to_virt(hfn + needed - 1) +
                       PAGE_SIZE - sizeof(**avail) * NR_ZONES;
         *use_tail = false;
-    }
-    else if ( get_order_from_bytes(sizeof(**_heap)) ==
-              get_order_from_pages(needed) )
-    {
+    } else if (get_order_from_bytes(sizeof(**_heap)) ==
+               get_order_from_pages(needed)) {
         _heap[node] = alloc_xenheap_pages(get_order_from_pages(needed), 0);
         BUG_ON(!_heap[node]);
         avail[node] = (void *)_heap[node] + (needed << PAGE_SHIFT) -
                       sizeof(**avail) * NR_ZONES;
         needed = 0;
-    }
-    else
-    {
+    } else {
         _heap[node] = xmalloc(heap_by_zone_and_order_t);
         avail[node] = xmalloc_array(unsigned long, NR_ZONES);
         BUG_ON(!_heap[node] || !avail[node]);
@@ -92,8 +84,8 @@ static unsigned long init_node(int node, unsigned long hfn,
 
     memset(avail[node], 0, NR_ZONES * sizeof(long));
 
-    for ( i = 0; i < NR_ZONES; i++ )
-        for ( j = 0; j <= MAX_ORDER; j++ )
+    for (i = 0; i < NR_ZONES; i++)
+        for (j = 0; j <= MAX_ORDER; j++)
             INIT_PAGE_LIST_HEAD(&heap(node, i, j));
 
     return needed;
@@ -108,12 +100,10 @@ static void page_list_add_scrub(struct page *pg, unsigned int node,
     pg->u.free.first_dirty = first_dirty;
     pg->u.free.scrub_state = BUDDY_NOT_SCRUBBING;
 
-    if ( first_dirty != INVALID_DIRTY_IDX )
-    {
+    if (first_dirty != INVALID_DIRTY_IDX) {
         ASSERT(first_dirty < (1U << order));
         page_list_add_tail(pg, &heap(node, zone, order));
-    }
-    else
+    } else
         page_list_add(pg, &heap(node, zone, order));
 }
 
@@ -137,17 +127,15 @@ static void check_one_page(struct page *pg)
 
 static void check_and_stop_scrub(struct page *head)
 {
-    if ( head->u.free.scrub_state == BUDDY_SCRUBBING )
-    {
+    if (head->u.free.scrub_state == BUDDY_SCRUBBING) {
         typeof(head->u.free) pgfree;
 
         head->u.free.scrub_state = BUDDY_SCRUB_ABORT;
         spin_lock_kick();
-        for ( ; ; )
-        {
+        for (; ;) {
             /* Can't ACCESS_ONCE() a bitfield. */
             pgfree.val = ACCESS_ONCE(head->u.free.val);
-            if ( pgfree.scrub_state != BUDDY_SCRUB_ABORT )
+            if (pgfree.scrub_state != BUDDY_SCRUB_ABORT)
                 break;
             cpu_relax();
         }
@@ -156,8 +144,9 @@ static void check_and_stop_scrub(struct page *head)
 
 static struct page *get_free_buddy(unsigned int zone_lo,
                                         unsigned int zone_hi,
-                                        unsigned int order, unsigned int memflags,
-                                        const struct domain *d)
+                                        unsigned int order,
+                                        unsigned int memflags,
+                                        const struct hypos *d)
 {
     nodeid_t first, node = MEMF_get_node(memflags), req_node = node;
     nodemask_t nodemask = node_online_map;
@@ -165,64 +154,39 @@ static struct page *get_free_buddy(unsigned int zone_lo,
     struct page *pg;
     bool use_unscrubbed = (memflags & MEMF_no_scrub);
 
-    /*
-     * d->node_affinity is our preferred allocation set if provided, but it
-     * may have bits set outside of node_online_map.  Clamp it.
-     */
-    if ( d )
-    {
-        /*
-         * It is the callers responsibility to ensure that d->node_affinity
-         * isn't complete junk.
-         */
-        if ( nodes_intersects(nodemask, d->node_affinity) )
+    if (d) {
+        if (nodes_intersects(nodemask, d->node_affinity))
             nodes_and(nodemask, nodemask, d->node_affinity);
         else
             ASSERT_UNREACHABLE();
     }
 
-    if ( node == NUMA_NO_NODE )
-    {
-        if ( d != NULL )
+    if (node == NUMA_NO_NODE) {
+        if (d != NULL)
             node = cycle_node(d->last_alloc_node, nodemask);
 
-        if ( node >= MAX_NUMNODES )
+        if (node >= MAX_NUMNODES)
             node = cpu_to_node(smp_processor_id());
-    }
-    else if ( unlikely(node >= MAX_NUMNODES) )
-    {
+    } else if (unlikely(node >= MAX_NUMNODES)) {
         ASSERT_UNREACHABLE();
         return NULL;
     }
     first = node;
 
-    /*
-     * Start with requested node, but exhaust all node memory in requested
-     * zone before failing, only calc new node value if we fail to find memory
-     * in target node, this avoids needless computation on fast-path.
-     */
-    for ( ; ; )
-    {
+    for (; ;) {
         zone = zone_hi;
         do {
             /* Check if target node can support the allocation. */
-            if ( !avail[node] || (avail[node][zone] < (1UL << order)) )
+            if (!avail[node] || (avail[node][zone] < (1UL << order)))
                 continue;
 
             /* Find smallest order which can satisfy the request. */
-            for ( j = order; j <= MAX_ORDER; j++ )
-            {
-                if ( (pg = page_list_remove_head(&heap(node, zone, j))) )
-                {
-                    if ( pg->u.free.first_dirty == INVALID_DIRTY_IDX )
+            for (j = order; j <= MAX_ORDER; j++) {
+                if ((pg = page_list_remove_head(&heap(node, zone, j)))) {
+                    if (pg->u.free.first_dirty == INVALID_DIRTY_IDX)
                         return pg;
-                    /*
-                     * We grab single pages (order=0) even if they are
-                     * unscrubbed. Given that scrubbing one page is fairly quick
-                     * it is not worth breaking higher orders.
-                     */
-                    if ( (order == 0) || use_unscrubbed )
-                    {
+
+                    if ((order == 0) || use_unscrubbed) {
                         check_and_stop_scrub(pg);
                         return pg;
                     }
@@ -230,36 +194,31 @@ static struct page *get_free_buddy(unsigned int zone_lo,
                     page_list_add_tail(pg, &heap(node, zone, j));
                 }
             }
-        } while ( zone-- > zone_lo ); /* careful: unsigned zone may wrap */
+        } while (zone-- > zone_lo); /* careful: unsigned zone may wrap */
 
-        if ( (memflags & MEMF_exact_node) && req_node != NUMA_NO_NODE )
+        if ((memflags & MEMF_exact_node) && req_node != NUMA_NO_NODE)
             return NULL;
 
         /* Pick next node. */
-        if ( !nodemask_test(node, &nodemask) )
-        {
-            /* Very first node may be caller-specified and outside nodemask. */
+        if (!nodemask_test(node, &nodemask)) {
             ASSERT(!nodemask_retry);
             first = node = first_node(nodemask);
             if ( node < MAX_NUMNODES )
                 continue;
-        }
-        else if ( (node = next_node(node, nodemask)) >= MAX_NUMNODES )
+        } else if ((node = next_node(node, nodemask)) >= MAX_NUMNODES)
             node = first_node(nodemask);
-        if ( node == first )
-        {
-            /* When we have tried all in nodemask, we fall back to others. */
-            if ( (memflags & MEMF_exact_node) || nodemask_retry++ )
+
+        if (node == first) {
+            if ((memflags & MEMF_exact_node) || nodemask_retry++)
                 return NULL;
             nodes_andnot(nodemask, node_online_map, nodemask);
             first = node = first_node(nodemask);
-            if ( node >= MAX_NUMNODES )
+            if (node >= MAX_NUMNODES)
                 return NULL;
         }
     }
 }
 
-/* Initialise fields which have other uses for free pages. */
 static void init_free_page_fields(struct page *pg)
 {
     pg->u.inuse.type_info = PGT_TYPE_INFO_INITIALIZER;
@@ -270,7 +229,7 @@ static void init_free_page_fields(struct page *pg)
 static struct page *alloc_pages(
     unsigned int zone_lo, unsigned int zone_hi,
     unsigned int order, unsigned int memflags,
-    struct domain *d)
+    struct hypos *d)
 {
     nodeid_t node;
     unsigned int i, buddy_order, zone, first_dirty;
@@ -292,25 +251,19 @@ static struct page *alloc_pages(
 
     spin_lock(&heap_lock);
 
-    /*
-     * Claimed memory is considered unavailable unless the request
-     * is made by a domain with sufficient unclaimed pages.
-     */
-    if ( (outstanding_claims + request > total_avail_pages) &&
-          ((memflags & MEMF_no_refcount) ||
-           !d || d->outstanding_pages < request) )
-    {
+    if ((outstanding_claims + request > total_avail_pages) &&
+        ((memflags & MEMF_no_refcount) ||
+        !d || d->outstanding_pages < request)) {
         spin_unlock(&heap_lock);
         return NULL;
     }
 
     pg = get_free_buddy(zone_lo, zone_hi, order, memflags, d);
     /* Try getting a dirty buddy if we couldn't get a clean one. */
-    if ( !pg && !(memflags & MEMF_no_scrub) )
+    if (!pg && !(memflags & MEMF_no_scrub))
         pg = get_free_buddy(zone_lo, zone_hi, order,
                             memflags | MEMF_no_scrub, d);
-    if ( !pg )
-    {
+    if (!pg) {
         /* No suitable memory blocks. Fail the request. */
         spin_unlock(&heap_lock);
         return NULL;
@@ -323,18 +276,16 @@ static struct page *alloc_pages(
     first_dirty = pg->u.free.first_dirty;
 
     /* We may have to halve the chunk a number of times. */
-    while ( buddy_order != order )
-    {
+    while (buddy_order != order) {
         buddy_order--;
         page_list_add_scrub(pg, node, zone, buddy_order,
                             (1U << buddy_order) > first_dirty ?
                             first_dirty : INVALID_DIRTY_IDX);
         pg += 1U << buddy_order;
 
-        if ( first_dirty != INVALID_DIRTY_IDX )
-        {
+        if (first_dirty != INVALID_DIRTY_IDX) {
             /* Adjust first_dirty */
-            if ( first_dirty >= 1U << buddy_order )
+            if (first_dirty >= 1U << buddy_order)
                 first_dirty -= 1U << buddy_order;
             else
                 first_dirty = 0; /* We've moved past original first_dirty */
@@ -348,16 +299,13 @@ static struct page *alloc_pages(
 
     check_low_mem_virq();
 
-    if ( d != NULL )
+    if (d != NULL)
         d->last_alloc_node = node;
 
-    for ( i = 0; i < (1 << order); i++ )
-    {
+    for (i = 0; i < (1 << order); i++) {
         /* Reference count must continuously be zero for free pages. */
-        if ( (pg[i].count_info & ~PGC_need_scrub) != PGC_state_free )
-        {
-            printk(XENLOG_ERR
-                   "pg[%u] MFN %"PRI_hfn" c=%#lx o=%u v=%#lx t=%#x\n",
+        if ((pg[i].count_info & ~PGC_need_scrub) != PGC_state_free) {
+            printk("pg[%u] MFN %"PRI_hfn" c=%#lx o=%u v=%#lx t=%#x\n",
                    i, hfn_get(page_to_hfn(pg + i)),
                    pg[i].count_info, pg[i].v.free.order,
                    pg[i].u.free.val, pg[i].tlbflush_timestamp);
@@ -365,12 +313,14 @@ static struct page *alloc_pages(
         }
 
         /* PGC_need_scrub can only be set if first_dirty is valid */
-        ASSERT(first_dirty != INVALID_DIRTY_IDX || !(pg[i].count_info & PGC_need_scrub));
+        ASSERT(first_dirty != INVALID_DIRTY_IDX ||
+               !(pg[i].count_info & PGC_need_scrub));
 
         /* Preserve PGC_need_scrub so we can check it after lock is dropped. */
-        pg[i].count_info = PGC_state_inuse | (pg[i].count_info & PGC_need_scrub);
+        pg[i].count_info = PGC_state_inuse |
+                           (pg[i].count_info & PGC_need_scrub);
 
-        if ( !(memflags & MEMF_no_tlbflush) )
+        if (!(memflags & MEMF_no_tlbflush))
             accumulate_tlbflush(&need_tlbflush, &pg[i],
                                 &tlbflush_timestamp);
 
@@ -379,49 +329,41 @@ static struct page *alloc_pages(
 
     spin_unlock(&heap_lock);
 
-    if ( first_dirty != INVALID_DIRTY_IDX ||
-         (scrub_debug && !(memflags & MEMF_no_scrub)) )
-    {
-        for ( i = 0; i < (1U << order); i++ )
-        {
-            if ( test_and_clear_bit(_PGC_need_scrub, &pg[i].count_info) )
-            {
-                if ( !(memflags & MEMF_no_scrub) )
+    if (first_dirty != INVALID_DIRTY_IDX ||
+         (scrub_debug && !(memflags & MEMF_no_scrub))) {
+        for (i = 0; i < (1U << order); i++) {
+            if (test_and_clear_bit(_PGC_need_scrub, &pg[i].count_info)) {
+                if (!(memflags & MEMF_no_scrub))
                     scrub_one_page(&pg[i]);
 
                 dirty_cnt++;
-            }
-            else if ( !(memflags & MEMF_no_scrub) )
+            } else if (!(memflags & MEMF_no_scrub))
                 check_one_page(&pg[i]);
         }
 
-        if ( dirty_cnt )
-        {
+        if (dirty_cnt) {
             spin_lock(&heap_lock);
             node_need_scrub[node] -= dirty_cnt;
             spin_unlock(&heap_lock);
         }
     }
 
-    if ( need_tlbflush )
+    if (need_tlbflush)
         filtered_flush_tlb_mask(tlbflush_timestamp);
 
-    /*
-     * Ensure cache and RAM are consistent for platforms where the guest
-     * can control its own visibility of/through the cache.
-     */
     hfn = page_to_hfn(pg);
-    for ( i = 0; i < (1U << order); i++ )
-        flush_page_to_ram(hfn_get(hfn) + i, !(memflags & MEMF_no_icache_flush));
+    for (i = 0; i < (1U << order); i++)
+        flush_page_to_ram(hfn_get(hfn) + i,
+                          !(memflags & MEMF_no_icache_flush));
 
     return pg;
 }
 
-/* Remove any offlined page in the buddy pointed to by head. */
 static int reserve_offlined_page(struct page *head)
 {
     unsigned int node = page_to_nid(head);
-    int zone = page_to_zone(head), i, head_order = PFN_ORDER(head), count = 0;
+    int zone = page_to_zone(head), i,
+               head_order = PFN_ORDER(head), count = 0;
     struct page *cur_head;
     unsigned int cur_order, first_dirty;
 
@@ -430,61 +372,48 @@ static int reserve_offlined_page(struct page *head)
     cur_head = head;
 
     check_and_stop_scrub(head);
-    /*
-     * We may break the buddy so let's mark the head as clean. Then, when
-     * merging chunks back into the heap, we will see whether the chunk has
-     * unscrubbed pages and set its first_dirty properly.
-     */
+
     first_dirty = head->u.free.first_dirty;
     head->u.free.first_dirty = INVALID_DIRTY_IDX;
 
     page_list_del(head, &heap(node, zone, head_order));
 
-    while ( cur_head < (head + (1 << head_order)) )
-    {
+    while (cur_head < (head + (1 << head_order))) {
         struct page *pg;
         int next_order;
 
-        if ( page_state_is(cur_head, offlined) )
-        {
+        if (page_state_is(cur_head, offlined)) {
             cur_head++;
-            if ( first_dirty != INVALID_DIRTY_IDX && first_dirty )
+            if (first_dirty != INVALID_DIRTY_IDX && first_dirty)
                 first_dirty--;
             continue;
         }
 
         next_order = cur_order = 0;
 
-        while ( cur_order < head_order )
-        {
+        while (cur_order < head_order) {
             next_order = cur_order + 1;
 
-            if ( (cur_head + (1 << next_order)) >= (head + ( 1 << head_order)) )
+            if ((cur_head + (1 << next_order)) >= (head + ( 1 << head_order)))
                 goto merge;
 
-            for ( i = (1 << cur_order), pg = cur_head + (1 << cur_order );
+            for (i = (1 << cur_order), pg = cur_head + (1 << cur_order);
                   i < (1 << next_order);
-                  i++, pg++ )
-                if ( page_state_is(pg, offlined) )
+                  i++, pg++)
+                if (page_state_is(pg, offlined))
                     break;
-            if ( i == ( 1 << next_order) )
-            {
+            if (i == ( 1 << next_order)) {
                 cur_order = next_order;
                 continue;
-            }
-            else
-            {
-            merge:
-                /* We don't consider merging outside the head_order. */
+            } else {
+merge:
                 page_list_add_scrub(cur_head, node, zone, cur_order,
                                     (1U << cur_order) > first_dirty ?
                                     first_dirty : INVALID_DIRTY_IDX);
                 cur_head += (1 << cur_order);
 
-                /* Adjust first_dirty if needed. */
-                if ( first_dirty != INVALID_DIRTY_IDX )
-                {
-                    if ( first_dirty >=  1U << cur_order )
+                if (first_dirty != INVALID_DIRTY_IDX) {
+                    if (first_dirty >=  1U << cur_order)
                         first_dirty -= 1U << cur_order;
                     else
                         first_dirty = 0;
@@ -495,9 +424,9 @@ static int reserve_offlined_page(struct page *head)
         }
     }
 
-    for ( cur_head = head; cur_head < head + ( 1UL << head_order); cur_head++ )
-    {
-        if ( !page_state_is(cur_head, offlined) )
+    for (cur_head = head; cur_head < head + ( 1UL << head_order);
+         cur_head++) {
+        if (!page_state_is(cur_head, offlined))
             continue;
 
         avail[node][zone]--;
@@ -516,68 +445,41 @@ static int reserve_offlined_page(struct page *head)
 
 static nodemask_t node_scrubbing;
 
-/*
- * If get_node is true this will return closest node that needs to be scrubbed,
- * with appropriate bit in node_scrubbing set.
- * If get_node is not set, this will return *a* node that needs to be scrubbed.
- * node_scrubbing bitmask will no be updated.
- * If no node needs scrubbing then NUMA_NO_NODE is returned.
- */
 static unsigned int node_to_scrub(bool get_node)
 {
     nodeid_t node = cpu_to_node(smp_processor_id()), local_node;
     nodeid_t closest = NUMA_NO_NODE;
     u8 dist, shortest = 0xff;
 
-    if ( node == NUMA_NO_NODE )
+    if (node == NUMA_NO_NODE)
         node = 0;
 
-    if ( node_need_scrub[node] &&
-         (!get_node || !node_test_and_set(node, node_scrubbing)) )
+    if (node_need_scrub[node] &&
+        (!get_node || !node_test_and_set(node, node_scrubbing)))
         return node;
 
-    /*
-     * See if there are memory-only nodes that need scrubbing and choose
-     * the closest one.
-     */
     local_node = node;
-    for ( ; ; )
-    {
+    for (; ;) {
         do {
             node = cycle_node(node, node_online_map);
-        } while ( !cpumask_empty(&node_to_cpumask(node)) &&
-                  (node != local_node) );
+        } while (!cpumask_empty(&node_to_cpumask(node)) &&
+                 (node != local_node));
 
-        /*
-         * In practice `node` will always be within MAX_NUMNODES, but GCC can't
-         * always see that, so an explicit check is necessary to avoid tripping
-         * its out-of-bounds array access warning (-Warray-bounds).
-         */
-        if ( node >= MAX_NUMNODES )
+        if (node >= MAX_NUMNODES)
             break;
 
-        if ( node == local_node )
+        if (node == local_node)
             break;
 
-        if ( node_need_scrub[node] )
-        {
-            if ( !get_node )
+        if (node_need_scrub[node]) {
+            if (!get_node)
                 return node;
 
             dist = __node_distance(local_node, node);
 
-            /*
-             * Grab the node right away. If we find a closer node later we will
-             * release this one. While there is a chance that another CPU will
-             * not be able to scrub that node when it is searching for scrub work
-             * at the same time it will be able to do so next time it wakes up.
-             * The alternative would be to perform this search under a lock but
-             * then we'd need to take this lock every time we come in here.
-             */
-            if ( (dist < shortest || closest == NUMA_NO_NODE) &&
-                 !node_test_and_set(node, node_scrubbing) )
-            {
-                if ( closest != NUMA_NO_NODE )
+            if ((dist < shortest || closest == NUMA_NO_NODE) &&
+                !node_test_and_set(node, node_scrubbing)) {
+                if (closest != NUMA_NO_NODE)
                     node_clear(closest, node_scrubbing);
                 shortest = dist;
                 closest = node;
@@ -594,15 +496,14 @@ struct scrub_wait_state {
     bool drop;
 };
 
-static void cf_check scrub_continue(void *data)
+static void scrub_continue(void *data)
 {
     struct scrub_wait_state *st = data;
 
-    if ( st->drop )
+    if (st->drop)
         return;
 
-    if ( st->pg->u.free.scrub_state == BUDDY_SCRUB_ABORT )
-    {
+    if (st->pg->u.free.scrub_state == BUDDY_SCRUB_ABORT) {
         /* There is a waiter for this buddy. Release it. */
         st->drop = true;
         st->pg->u.free.first_dirty = st->first_dirty;
@@ -621,24 +522,22 @@ bool scrub_free_pages(void)
     unsigned int cnt = 0;
 
     node = node_to_scrub(true);
-    if ( node == NUMA_NO_NODE )
+    if (node == NUMA_NO_NODE)
         return false;
 
     spin_lock(&heap_lock);
 
-    for ( zone = 0; zone < NR_ZONES; zone++ )
-    {
+    for (zone = 0; zone < NR_ZONES; zone++) {
         unsigned int order = MAX_ORDER;
 
         do {
-            while ( !page_list_empty(&heap(node, zone, order)) )
-            {
+            while (!page_list_empty(&heap(node, zone, order))) {
                 unsigned int i, dirty_cnt;
                 struct scrub_wait_state st;
 
                 /* Unscrubbed pages are always at the end of the list. */
                 pg = page_list_last(&heap(node, zone, order));
-                if ( pg->u.free.first_dirty == INVALID_DIRTY_IDX )
+                if (pg->u.free.first_dirty == INVALID_DIRTY_IDX)
                     break;
 
                 ASSERT(pg->u.free.scrub_state == BUDDY_NOT_SCRUBBING);
@@ -648,27 +547,17 @@ bool scrub_free_pages(void)
 
                 dirty_cnt = 0;
 
-                for ( i = pg->u.free.first_dirty; i < (1U << order); i++)
-                {
-                    if ( test_bit(_PGC_need_scrub, &pg[i].count_info) )
-                    {
+                for (i = pg->u.free.first_dirty; i < (1U << order); i++) {
+                    if (test_bit(_PGC_need_scrub, &pg[i].count_info)) {
                         scrub_one_page(&pg[i]);
-                        /*
-                         * We can modify count_info without holding heap
-                         * lock since we effectively locked this buddy by
-                         * setting its scrub_state.
-                         */
+
                         pg[i].count_info &= ~PGC_need_scrub;
                         dirty_cnt++;
-                        cnt += 100; /* scrubbed pages add heavier weight. */
-                    }
-                    else
+                        cnt += 100;
+                    } else
                         cnt++;
 
-                    if ( pg->u.free.scrub_state == BUDDY_SCRUB_ABORT )
-                    {
-                        /* Someone wants this chunk. Drop everything. */
-
+                    if (pg->u.free.scrub_state == BUDDY_SCRUB_ABORT) {
                         pg->u.free.first_dirty = (i == (1U << order) - 1) ?
                             INVALID_DIRTY_IDX : i + 1;
                         smp_wmb();
@@ -680,28 +569,13 @@ bool scrub_free_pages(void)
                         goto out_nolock;
                     }
 
-                    /*
-                     * Scrub a few (8) pages before becoming eligible for
-                     * preemption. But also count non-scrubbing loop iterations
-                     * so that we don't get stuck here with an almost clean
-                     * heap. Consider the CPU no longer being seen as online as
-                     * a request to preempt immediately, to not unduly delay
-                     * its offlining.
-                     */
-                    if ( !cpu_online(cpu) || (cnt > 800 && softirq_pending(cpu)) )
-                    {
+                    if (!cpu_online(cpu) || (cnt > 800 && softirq_pending(cpu))) {
                         preempt = true;
                         break;
                     }
                 }
 
                 st.pg = pg;
-                /*
-                 * get_free_buddy() grabs a buddy with first_dirty set to
-                 * INVALID_DIRTY_IDX so we can't set pg's first_dirty here.
-                 * It will be set either below or in the lock callback (in
-                 * scrub_continue()).
-                 */
                 st.first_dirty = (i >= (1U << order) - 1) ?
                     INVALID_DIRTY_IDX : i + 1;
                 st.drop = false;
@@ -709,29 +583,27 @@ bool scrub_free_pages(void)
 
                 node_need_scrub[node] -= dirty_cnt;
 
-                if ( st.drop )
+                if (st.drop)
                     goto out;
 
-                if ( i >= (1U << order) - 1 )
-                {
+                if (i >= (1U << order) - 1) {
                     page_list_del(pg, &heap(node, zone, order));
                     page_list_add_scrub(pg, node, zone, order, INVALID_DIRTY_IDX);
-                }
-                else
+                } else
                     pg->u.free.first_dirty = i + 1;
 
                 pg->u.free.scrub_state = BUDDY_NOT_SCRUBBING;
 
-                if ( preempt || (node_need_scrub[node] == 0) )
+                if (preempt || (node_need_scrub[node] == 0))
                     goto out;
             }
-        } while ( order-- != 0 );
+        } while (order-- != 0);
     }
 
- out:
+out:
     spin_unlock(&heap_lock);
 
- out_nolock:
+out_nolock:
     node_clear(node, node_scrubbing);
     return node_to_scrub(false) != NUMA_NO_NODE;
 }
@@ -742,8 +614,7 @@ static bool mark_page_free(struct page *pg, hfn_t hfn)
 
     ASSERT(hfn_get(hfn) == hfn_get(page_to_hfn(pg)));
 
-    switch ( pg->count_info & PGC_state )
-    {
+    switch (pg->count_info & PGC_state) {
     case PGC_state_inuse:
         BUG_ON(pg->count_info & PGC_broken);
         pg->count_info = PGC_state_free;
@@ -756,8 +627,7 @@ static bool mark_page_free(struct page *pg, hfn_t hfn)
         break;
 
     default:
-        printk(XENLOG_ERR
-               "pg MFN %"PRI_hfn" c=%#lx o=%u v=%#lx t=%#x\n",
+        printk("pg MFN %"PRI_hfn" c=%#lx o=%u v=%#lx t=%#x\n",
                hfn_get(hfn),
                pg->count_info, pg->v.free.order,
                pg->u.free.val, pg->tlbflush_timestamp);
@@ -766,7 +636,7 @@ static bool mark_page_free(struct page *pg, hfn_t hfn)
 
     /* If a page has no owner it will need no safety TLB flush. */
     pg->u.free.need_tlbflush = (page_get_owner(pg) != NULL);
-    if ( pg->u.free.need_tlbflush )
+    if (pg->u.free.need_tlbflush)
         page_set_tlbflush_timestamp(pg);
 
     /* This page is not a guest frame any more. */
@@ -790,13 +660,11 @@ static void free_pages(
 
     spin_lock(&heap_lock);
 
-    for ( i = 0; i < (1 << order); i++ )
-    {
-        if ( mark_page_free(&pg[i], hfn_add(hfn, i)) )
+    for (i = 0; i < (1 << order); i++) {
+        if (mark_page_free(&pg[i], hfn_add(hfn, i)))
             pg_offlined = true;
 
-        if ( need_scrub )
-        {
+        if (need_scrub) {
             pg[i].count_info |= PGC_need_scrub;
             poison_one_page(&pg[i]);
         }
@@ -804,29 +672,25 @@ static void free_pages(
 
     avail[node][zone] += 1 << order;
     total_avail_pages += 1 << order;
-    if ( need_scrub )
-    {
+    if (need_scrub) {
         node_need_scrub[node] += 1 << order;
         pg->u.free.first_dirty = 0;
-    }
-    else
+    } else
         pg->u.free.first_dirty = INVALID_DIRTY_IDX;
 
     /* Merge chunks as far as possible. */
-    while ( order < MAX_ORDER )
-    {
+    while (order < MAX_ORDER) {
         mask = 1UL << order;
 
-        if ( (hfn_get(page_to_hfn(pg)) & mask) )
-        {
+        if ((hfn_get(page_to_hfn(pg)) & mask)) {
             struct page *predecessor = pg - mask;
 
             /* Merge with predecessor block? */
-            if ( !hfn_valid(page_to_hfn(predecessor)) ||
-                 !page_state_is(predecessor, free) ||
-                 (predecessor->count_info & PGC_no_buddy_merge) ||
-                 (PFN_ORDER(predecessor) != order) ||
-                 (page_to_nid(predecessor) != node) )
+            if (!hfn_valid(page_to_hfn(predecessor)) ||
+                !page_state_is(predecessor, free) ||
+                (predecessor->count_info & PGC_no_buddy_merge) ||
+                (PFN_ORDER(predecessor) != order) ||
+                (page_to_nid(predecessor) != node))
                 break;
 
             check_and_stop_scrub(predecessor);
@@ -834,30 +698,28 @@ static void free_pages(
             page_list_del(predecessor, &heap(node, zone, order));
 
             /* Update predecessor's first_dirty if necessary. */
-            if ( predecessor->u.free.first_dirty == INVALID_DIRTY_IDX &&
-                 pg->u.free.first_dirty != INVALID_DIRTY_IDX )
+            if (predecessor->u.free.first_dirty == INVALID_DIRTY_IDX &&
+                pg->u.free.first_dirty != INVALID_DIRTY_IDX )
                 predecessor->u.free.first_dirty = (1U << order) +
                                                   pg->u.free.first_dirty;
 
             pg = predecessor;
-        }
-        else
-        {
+        } else {
             struct page *successor = pg + mask;
 
             /* Merge with successor block? */
-            if ( !hfn_valid(page_to_hfn(successor)) ||
-                 !page_state_is(successor, free) ||
-                 (successor->count_info & PGC_no_buddy_merge) ||
-                 (PFN_ORDER(successor) != order) ||
-                 (page_to_nid(successor) != node) )
+            if (!hfn_valid(page_to_hfn(successor)) ||
+                !page_state_is(successor, free) ||
+                (successor->count_info & PGC_no_buddy_merge) ||
+                (PFN_ORDER(successor) != order) ||
+                (page_to_nid(successor) != node))
                 break;
 
             check_and_stop_scrub(successor);
 
             /* Update pg's first_dirty if necessary. */
-            if ( pg->u.free.first_dirty == INVALID_DIRTY_IDX &&
-                 successor->u.free.first_dirty != INVALID_DIRTY_IDX )
+            if (pg->u.free.first_dirty == INVALID_DIRTY_IDX &&
+                successor->u.free.first_dirty != INVALID_DIRTY_IDX)
                 pg->u.free.first_dirty = (1U << order) +
                                          successor->u.free.first_dirty;
 
@@ -869,7 +731,7 @@ static void free_pages(
 
     page_list_add_scrub(pg, node, zone, order, pg->u.free.first_dirty);
 
-    if ( pg_offlined )
+    if (pg_offlined)
         reserve_offlined_page(pg);
 
     spin_unlock(&heap_lock);
@@ -879,26 +741,26 @@ static unsigned long mark_page_offline(struct page *pg, int broken)
 {
     unsigned long nx, x, y = pg->count_info;
 
-    ASSERT(page_is_ram_type(hfn_get(page_to_hfn(pg)), RAM_TYPE_CONVENTIONAL));
+    ASSERT(page_is_ram_type(hfn_get(page_to_hfn(pg)),
+           RAM_TYPE_CONVENTIONAL));
     ASSERT(spin_is_locked(&heap_lock));
 
     do {
         nx = x = y;
 
-        if ( ((x & PGC_state) != PGC_state_offlined) &&
-             ((x & PGC_state) != PGC_state_offlining) )
-        {
+        if (((x & PGC_state) != PGC_state_offlined) &&
+            ((x & PGC_state) != PGC_state_offlining)) {
             nx &= ~PGC_state;
             nx |= (((x & PGC_state) == PGC_state_free)
                    ? PGC_state_offlined : PGC_state_offlining);
         }
 
-        if ( broken )
+        if (broken)
             nx |= PGC_broken;
 
-        if ( x == nx )
+        if (x == nx)
             break;
-    } while ( (y = cmpxchg(&pg->count_info, x, nx)) != x );
+    } while ((y = cmpxchg(&pg->count_info, x, nx)) != x);
 
     return y;
 }
@@ -909,17 +771,15 @@ static int reserve_heap_page(struct page *pg)
     unsigned int i, node = page_to_nid(pg);
     unsigned int zone = page_to_zone(pg);
 
-    for ( i = 0; i <= MAX_ORDER; i++ )
-    {
+    for (i = 0; i <= MAX_ORDER; i++) {
         struct page *tmp;
 
-        if ( page_list_empty(&heap(node, zone, i)) )
+        if (page_list_empty(&heap(node, zone, i)))
             continue;
 
-        page_list_for_each_safe ( head, tmp, &heap(node, zone, i) )
-        {
-            if ( (head <= pg) &&
-                 (head + (1UL << i) > pg) )
+        page_list_for_each_safe(head, tmp, &heap(node, zone, i)) {
+            if ((head <= pg) &&
+                (head + (1UL << i) > pg))
                 return reserve_offlined_page(head);
         }
     }
@@ -931,46 +791,31 @@ static int reserve_heap_page(struct page *pg)
 int offline_page(hfn_t hfn, int broken, uint32_t *status)
 {
     unsigned long old_info = 0;
-    struct domain *owner;
+    struct hypos *owner;
     struct page *pg;
 
-    if ( !hfn_valid(hfn) )
-    {
-        dprintk(XENLOG_WARNING,
-                "try to offline out of range page %"PRI_hfn"\n", hfn_get(hfn));
+    if (!hfn_valid(hfn)) {
+        printk("try to offline out of range page %"PRI_hfn"\n", hfn_get(hfn));
         return -EINVAL;
     }
 
     *status = 0;
     pg = hfn_to_page(hfn);
 
-    if ( is_xen_fixed_hfn(hfn) )
-    {
+    if (is_xen_fixed_hfn(hfn)) {
         *status = PG_OFFLINE_XENPAGE | PG_OFFLINE_FAILED |
-          (DOMID_XEN << PG_OFFLINE_OWNER_SHIFT);
+                  (DOMID_XEN << PG_OFFLINE_OWNER_SHIFT);
         return -EPERM;
     }
 
-    /*
-     * N.B. xen's txt in x86_64 is marked reserved and handled already.
-     * Also kexec range is reserved.
-     */
-    if ( !page_is_ram_type(hfn_get(hfn), RAM_TYPE_CONVENTIONAL) )
-    {
+    if (!page_is_ram_type(hfn_get(hfn), RAM_TYPE_CONVENTIONAL)) {
         *status = PG_OFFLINE_FAILED | PG_OFFLINE_NOT_CONV_RAM;
         return -EINVAL;
     }
 
-    /*
-     * NB. When broken page belong to guest, usually hypervisor will
-     * notify the guest to handle the broken page. However, hypervisor
-     * need to prevent malicious guest access the broken page again.
-     * Under such case, hypervisor shutdown guest, preventing recursive mce.
-     */
-    if ( (pg->count_info & PGC_broken) && (owner = page_get_owner(pg)) )
-    {
+    if ((pg->count_info & PGC_broken) && (owner = page_get_owner(pg))) {
         *status = PG_OFFLINE_AGAIN;
-        domain_crash(owner);
+        hypos_crash(owner);
         return 0;
     }
 
@@ -978,8 +823,7 @@ int offline_page(hfn_t hfn, int broken, uint32_t *status)
 
     old_info = mark_page_offline(pg, broken);
 
-    if ( page_state_is(pg, offlined) )
-    {
+    if (page_state_is(pg, offlined)) {
         reserve_heap_page(pg);
 
         spin_unlock(&heap_lock);
@@ -991,42 +835,25 @@ int offline_page(hfn_t hfn, int broken, uint32_t *status)
 
     spin_unlock(&heap_lock);
 
-    if ( (owner = page_get_owner_and_reference(pg)) )
-    {
-        if ( p2m_pod_offline_or_broken_hit(pg) )
-        {
+    if ((owner = page_get_owner_and_reference(pg))) {
+        if (p2m_pod_offline_or_broken_hit(pg)) {
             put_page(pg);
             p2m_pod_offline_or_broken_replace(pg);
             *status = PG_OFFLINE_OFFLINED;
-        }
-        else
-        {
+        } else {
             *status = PG_OFFLINE_OWNED | PG_OFFLINE_PENDING |
-                      (owner->domain_id << PG_OFFLINE_OWNER_SHIFT);
+                      (owner->hypos_id << PG_OFFLINE_OWNER_SHIFT);
             /* Release the reference since it will not be allocated anymore */
             put_page(pg);
         }
-    }
-    else if ( old_info & PGC_xen_heap )
-    {
+    } else if (old_info & PGC_xen_heap)
         *status = PG_OFFLINE_XENPAGE | PG_OFFLINE_PENDING |
                   (DOMID_XEN << PG_OFFLINE_OWNER_SHIFT);
-    }
     else
-    {
-        /*
-         * assign_pages does not hold heap_lock, so small window that the owner
-         * may be set later, but please notice owner will only change from
-         * NULL to be set, not verse, since page is offlining now.
-         * No windows If called from #MC handler, since all CPU are in softirq
-         * If called from user space like CE handling, tools can wait some time
-         * before call again.
-         */
         *status = PG_OFFLINE_ANONYMOUS | PG_OFFLINE_FAILED |
-                  (DOMID_INVALID << PG_OFFLINE_OWNER_SHIFT );
-    }
+                  (DOMID_INVALID << PG_OFFLINE_OWNER_SHIFT);
 
-    if ( broken )
+    if (broken)
         *status |= PG_OFFLINE_BROKEN;
 
     return 0;
@@ -1043,9 +870,8 @@ unsigned int online_page(hfn_t hfn, uint32_t *status)
     struct page *pg;
     int ret;
 
-    if ( !hfn_valid(hfn) )
-    {
-        dprintk(XENLOG_WARNING, "call expand_pages() first\n");
+    if (!hfn_valid(hfn)) {
+        printk("call expand_pages() first\n");
         return -EINVAL;
     }
 
@@ -1057,34 +883,27 @@ unsigned int online_page(hfn_t hfn, uint32_t *status)
     do {
         ret = *status = 0;
 
-        if ( y & PGC_broken )
-        {
+        if (y & PGC_broken) {
             ret = -EINVAL;
             *status = PG_ONLINE_FAILED |PG_ONLINE_BROKEN;
             break;
         }
 
-        if ( (y & PGC_state) == PGC_state_offlined )
-        {
+        if ((y & PGC_state) == PGC_state_offlined) {
             page_list_del(pg, &page_offlined_list);
             *status = PG_ONLINE_ONLINED;
-        }
-        else if ( (y & PGC_state) == PGC_state_offlining )
-        {
+        } else if ( (y & PGC_state) == PGC_state_offlining)
             *status = PG_ONLINE_ONLINED;
-        }
         else
-        {
             break;
-        }
 
         x = y;
         nx = (x & ~PGC_state) | PGC_state_inuse;
-    } while ( (y = cmpxchg(&pg->count_info, x, nx)) != x );
+    } while ((y = cmpxchg(&pg->count_info, x, nx)) != x);
 
     spin_unlock(&heap_lock);
 
-    if ( (y & PGC_state) == PGC_state_offlined )
+    if ((y & PGC_state) == PGC_state_offlined)
         free_pages(pg, 0, false);
 
     return ret;
@@ -1094,9 +913,9 @@ int query_page_offline(hfn_t hfn, uint32_t *status)
 {
     struct page *pg;
 
-    if ( !hfn_valid(hfn) || !page_is_ram_type(hfn_get(hfn), RAM_TYPE_CONVENTIONAL) )
-    {
-        dprintk(XENLOG_WARNING, "call expand_pages() first\n");
+    if (!hfn_valid(hfn) || !page_is_ram_type(hfn_get(hfn),
+        RAM_TYPE_CONVENTIONAL)) {
+        printk("call expand_pages() first\n");
         return -EINVAL;
     }
 
@@ -1105,11 +924,11 @@ int query_page_offline(hfn_t hfn, uint32_t *status)
 
     pg = hfn_to_page(hfn);
 
-    if ( page_state_is(pg, offlining) )
+    if (page_state_is(pg, offlining))
         *status |= PG_OFFLINE_STATUS_OFFLINE_PENDING;
-    if ( pg->count_info & PGC_broken )
+    if (pg->count_info & PGC_broken)
         *status |= PG_OFFLINE_STATUS_BROKEN;
-    if ( page_state_is(pg, offlined) )
+    if (page_state_is(pg, offlined))
         *status |= PG_OFFLINE_STATUS_OFFLINED;
 
     spin_unlock(&heap_lock);
@@ -1126,8 +945,7 @@ static void __pages_setup(const struct page *pg,
 
     s = hfn_get(page_to_hfn(pg));
     e = hfn_get(hfn_add(page_to_hfn(pg + nr_pages - 1), 1));
-    if ( unlikely(!avail[nid]) )
-    {
+    if (unlikely(!avail[nid])) {
         bool use_tail = IS_ALIGNED(s, 1UL << MAX_ORDER) &&
                         (find_first_set_bit(e) <= find_first_set_bit(s));
         unsigned long n;
@@ -1140,11 +958,10 @@ static void __pages_setup(const struct page *pg,
             s += n;
     }
 
-    while ( s < e )
-    {
+    while (s < e) {
         unsigned int inc_order = min(MAX_ORDER, flsl(e - s) - 1);
 
-        if ( s )
+        if (s)
             inc_order = min(inc_order, ffsl(s) - 1U);
         free_pages(hfn_to_page(_hfn(s)), inc_order, need_scrub);
         s += (1UL << inc_order);
@@ -1157,50 +974,31 @@ static void _pages_setup(
     unsigned long i;
     bool need_scrub = scrub_debug;
 
-    /*
-     * Keep MFN 0 away from the buddy allocator to avoid crossing zone
-     * boundary when merging two buddies.
-     */
-    if ( !hfn_get(page_to_hfn(pg)) )
-    {
-        if ( nr_pages-- <= 1 )
+    if (!hfn_get(page_to_hfn(pg))) {
+        if (nr_pages-- <= 1)
             return;
         pg++;
     }
 
-
-    /*
-     * Some pages may not go through the boot allocator (e.g reserved
-     * memory at boot but released just after --- kernel, initramfs,
-     * etc.).
-     * Update first_valid_hfn to ensure those regions are covered.
-     */
     spin_lock(&heap_lock);
     first_valid_hfn = hfn_min(page_to_hfn(pg), first_valid_hfn);
     spin_unlock(&heap_lock);
 
-    if ( system_state < SYS_STATE_active && opt_bootscrub == BOOTSCRUB_IDLE )
+    if (system_state < SYS_STATE_active && opt_bootscrub == BOOTSCRUB_IDLE)
         need_scrub = true;
 
-    for ( i = 0; i < nr_pages; ) {
+    for (i = 0; i < nr_pages; ) {
         unsigned int zone = page_to_zone(pg);
 
         unsigned int nid = page_to_nid(pg);
         unsigned long left = nr_pages - i;
         unsigned long contig_pages;
 
-        /*
-         * _pages_setup() is only able to accept range following
-         * specific property (see comment on top of _pages_setup()).
-         *
-         * So break down the range in smaller set.
-         */
-        for ( contig_pages = 1; contig_pages < left; contig_pages++ ) {
-
-            if ( zone != page_to_zone(pg + contig_pages) )
+        for (contig_pages = 1; contig_pages < left; contig_pages++) {
+            if (zone != page_to_zone(pg + contig_pages))
                 break;
 
-            if ( nid != (page_to_nid(pg + contig_pages)) )
+            if (nid != (page_to_nid(pg + contig_pages)))
                 break;
         }
 
@@ -1211,11 +1009,11 @@ static void _pages_setup(
     }
 }
 
-int __init end_boot_allocator(void)
+int __bootfunc end_boot_allocator(void)
 {
     unsigned int i;
 
-    /* Pages that are free now go to the domain sub-allocator. */
+    /* Pages that are free now go to the hypos sub-allocator. */
     for (i = 0; i < nr_memchunks; i++) {
         struct memchunks *r = &memchunks_list[i];
         if ((mc->start < mc->end) &&
@@ -1368,7 +1166,7 @@ void mfree(void *p)
 extern unsigned int nr_memchunks;
 extern struct memchunk memchunks_list[];
 
-int __bootfunc hypmem_setup(void)
+int __bootfunc memz_setup(void)
 {
     unsigned int i;
 

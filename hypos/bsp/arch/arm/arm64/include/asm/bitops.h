@@ -23,17 +23,20 @@ int  test_and_set_bit(int nr, volatile void *p);
 int  test_and_clear_bit(int nr, volatile void *p);
 int  test_and_change_bit(int nr, volatile void *p);
 bool set_bit_timeout(int nr, volatile void *p,
-        unsigned int max_try);
+                     unsigned int max_try);
 bool clear_bit_timeout(int nr, volatile void *p,
-        unsigned int max_try);
+                       unsigned int max_try);
 bool change_bit_timeout(int nr, volatile void *p,
-        unsigned int max_try);
+                        unsigned int max_try);
 bool test_and_set_bit_timeout(int nr, volatile void *p,
-        int *oldbit, unsigned int max_try);
+                              int *oldbit,
+                              unsigned int max_try);
 bool test_and_clear_bit_timeout(int nr, volatile void *p,
-        int *oldbit, unsigned int max_try);
+                                int *oldbit,
+                                unsigned int max_try);
 bool test_and_change_bit_timeout(int nr, volatile void *p,
-        int *oldbit, unsigned int max_try);
+                                 int *oldbit,
+                                 unsigned int max_try);
 
 // --------------------------------------------------------------
 static inline int __test_and_set_bit(int nr, volatile void *addr)
@@ -59,7 +62,7 @@ static inline int __test_and_clear_bit(int nr, volatile void *addr)
 }
 
 static inline int __test_and_change_bit(int nr,
-                                            volatile void *addr)
+                                        volatile void *addr)
 {
         unsigned int mask = BITOP_MASK(nr);
         volatile unsigned int *p =
@@ -76,7 +79,7 @@ static inline int test_bit(int nr, const volatile void *addr)
             (const volatile unsigned int *)addr;
 
         return 1UL & (p[BITOP_WORD(nr)] >>
-                (nr & (BITOP_BITS_PER_WORD-1)));
+                (nr & (BITOP_BITS_PER_WORD - 1)));
 }
 // --------------------------------------------------------------
 #endif /* _ASM_BITOPS_H */

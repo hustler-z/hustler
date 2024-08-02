@@ -9,7 +9,7 @@
 #include <org/globl.h>
 #include <bsp/jump.h>
 // --------------------------------------------------------------
-#define FUNCJMP(impl, rt, func, ...)  get_globl()->fjmp->func = impl,
+#define FUNCJMP(impl, rt, func, ...)  hypos_get(fjmp)->func = impl,
 
 struct funcjmp hypos_fjmp = {
 #include <org/jmpglb.h>
@@ -18,6 +18,6 @@ struct funcjmp hypos_fjmp = {
 int jump_tbl_setup(void)
 {
     if (get_globl())
-        get_globl()->fjmp = &hypos_fjmp;
+        hypos_get(fjmp) = &hypos_fjmp;
 }
 // --------------------------------------------------------------

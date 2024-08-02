@@ -1,13 +1,13 @@
 /**
  * Hustler's Project
  *
- * File:  at.h
+ * File:  xaddr.h
  * Date:  2024/07/01
- * Usage: Address Translation
+ * Usage: translate addresses
  */
 
-#ifndef _ASM_AT_H
-#define _ASM_AT_H
+#ifndef _ASM_XADDR_H
+#define _ASM_XADDR_H
 // --------------------------------------------------------------
 #ifndef __ASSEMBLY__
 // --------------------------------------------------------------
@@ -570,4 +570,4 @@ pglist_splice(struct pglist_head *list, struct pglist_head *head)
 // --------------------------------------------------------------
 #endif /* !__ASSEMBLY__ */
 // --------------------------------------------------------------
-#endif /* _ASM_AT_H */
+#endif /* _ASM_XADDR_H */

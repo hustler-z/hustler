@@ -8,15 +8,15 @@
 
 #include <asm/barrier.h>
 #include <bsp/spinlock.h>
-#include <bsp/stdio.h>
-#include <bsp/hypmem.h>
-#include <bsp/panic.h>
-#include <lib/ctype.h>
-#include <lib/math.h>
-#include <lib/strops.h>
+#include <bsp/memz.h>
 #include <bsp/errno.h>
 #include <bsp/symtbl.h>
 #include <bsp/compiler.h>
+#include <bsp/panic.h>
+#include <bsp/debug.h>
+#include <lib/ctype.h>
+#include <lib/math.h>
+#include <lib/strops.h>
 #include <lib/args.h>
 #include <lib/bitops.h>
 
@@ -180,7 +180,6 @@ static char *print_bitmap_list(char *str, const char *end,
                                const unsigned long *bitmap,
                                unsigned int nr_bits)
 {
-    /* current bit is 'cur', most recently seen range is [rbot, rtop] */
     unsigned int cur, rbot, rtop;
     bool first = true;
 
@@ -228,12 +227,8 @@ static char *print_bitmap_string(char *str, const char *end,
     if (chunksz == 0)
         chunksz = CHUNKSZ;
 
-    /*
-     * First iteration copes with the trailing partial word if nr_bits isn't a
-     * round multiple of CHUNKSZ.  All subsequent iterations work on a
-     * complete CHUNKSZ block.
-     */
-    for (i = ROUNDUP(nr_bits, CHUNKSZ) - CHUNKSZ; i >= 0; i -= CHUNKSZ) {
+    for (i = ROUNDUP(nr_bits, CHUNKSZ) - CHUNKSZ;
+         i >= 0; i -= CHUNKSZ) {
         unsigned int chunkmask = (1ULL << chunksz) - 1;
         unsigned int word      = i / BITS_PER_LONG;
         unsigned int offset    = i % BITS_PER_LONG;
@@ -246,20 +241,22 @@ static char *print_bitmap_string(char *str, const char *end,
         }
 
         first = false;
-        str = number(str, end, val, 16, DIV_ROUND_UP(chunksz, 4), -1, ZEROPAD);
+        str = number(str, end, val, 16,
+                     DIV_ROUND_UP(chunksz, 4), -1, ZEROPAD);
         chunksz = CHUNKSZ;
     }
 
     return str;
 }
 
-static char *pointer(char *str, const char *end, const char **fmt_ptr,
-                     const void *arg, int field_width, int precision,
+static char *pointer(char *str, const char *end,
+                     const char **fmt_ptr,
+                     const void *arg, int field_width,
+                     int precision,
                      int flags)
 {
     const char *fmt = *fmt_ptr, *s;
 
-    /* Custom %p suffixes. See XEN_ROOT/docs/misc/printk-formats.txt */
     switch (fmt[1]) {
     case 'b': /* Bitmap as hex, or list */
         ++*fmt_ptr;
@@ -284,16 +281,11 @@ static char *pointer(char *str, const char *end, const char **fmt_ptr,
         /* Consumed 'h' from the format string. */
         ++*fmt_ptr;
 
-        /* Bound user count from %* to between 0 and 64 bytes. */
         if (field_width <= 0)
             return str;
         if (field_width > 64)
             field_width = 64;
 
-        /*
-         * Peek ahead in the format string to see if a recognised separator
-         * modifier is present.
-         */
         switch (fmt[2]) {
         case 'C': /* Colons. */
             ++*fmt_ptr;
@@ -332,12 +324,11 @@ static char *pointer(char *str, const char *end, const char **fmt_ptr,
         unsigned long sym_size, sym_offset;
         char namebuf[KSYM_NAME_LEN + 1];
 
-        /* Advance parents fmt string, as we have consumed 's' or 'S' */
         ++*fmt_ptr;
 
-        s = symbols_lookup((unsigned long)arg, &sym_size, &sym_offset, namebuf);
+        s = symbols_lookup((unsigned long)arg, &sym_size,
+                           &sym_offset, namebuf);
 
-        /* If the symbol is not found, fall back to printing the address */
         if (!s)
             break;
 
@@ -348,12 +339,11 @@ static char *pointer(char *str, const char *end, const char **fmt_ptr,
         unsigned long sym_size, sym_offset;
         char namebuf[KSYM_NAME_LEN + 1];
 
-        /* Advance parents fmt string, as we have consumed 's' or 'S' */
         ++*fmt_ptr;
 
-        s = symbols_lookup((unsigned long)arg, &sym_size, &sym_offset, namebuf);
+        s = symbols_lookup((unsigned long)arg, &sym_size,
+                            &sym_offset, namebuf);
 
-        /* If the symbol is not found, fall back to printing the address */
         if (!s)
             break;
 
@@ -400,11 +390,11 @@ int vsnpr(char *buf, size_t size, const char *fmt, va_list args)
     int flags;          /* flags to number() */
 
     int field_width;    /* width of output field */
-    int precision;              /* min. # of digits for integers; max
-                                   number of chars for from string */
-    int qualifier;              /* 'h', 'l', or 'L' for integer fields */
-                                /* 'z' support added 23/7/1999 S.H.    */
-                                /* 'z' changed to 'Z' --davidm 1/25/99 */
+    int precision;      /* min. # of digits for integers; max
+                           number of chars for from string */
+    int qualifier;      /* 'h', 'l', or 'L' for integer fields */
+                        /* 'z' support added 23/7/1999 S.H.    */
+                        /* 'z' changed to 'Z' --davidm 1/25/99 */
 
     /* Reject out-of-range values early */
     BUG_ON(((int)size < 0) || ((unsigned int)size != size));
@@ -490,7 +480,7 @@ repeat:
                     ++str;
                 }
             }
-            c = (unsigned char) va_arg(args, int);
+            c = (unsigned char)va_arg(args, int);
             if (str < end)
                 *str = c;
             ++str;
@@ -646,7 +636,11 @@ void vpr_common(const char *fmt, va_list args)
     local_irq_restore(flags);
 }
 
-void pr(const char *fmt, ...)
+/**
+ * Note pr_hypos() implemented as a standard print
+ * interface.
+ */
+void pr_hypos(const char *fmt, ...)
 {
     va_list args;
 
@@ -654,11 +648,11 @@ void pr(const char *fmt, ...)
     vpr_common(fmt, args);
     va_end(args);
 }
+
 // --------------------------------------------------------------
 
 /* SSCANF IMPLEMENTATION
  */
-
 #define __DECONST(type, var)  ((type)(uptr_t)(const void *)(var))
 
 struct str_info {
@@ -677,11 +671,6 @@ str_to_int_convert(const char **nptr, int base, unsigned int unsign)
     u64 qbase;
     struct str_info *info;
 
-    /*
-     * Skip white space and pick up leading +/- sign if any.
-     * If base is 0, allow 0x for hex and 0 for octal, else
-     * assume decimal; if base is already 16, allow 0x.
-     */
     info = (struct str_info *)alloc(sizeof(struct str_info));
     if (!info)
         return NULL;
@@ -689,6 +678,7 @@ str_to_int_convert(const char **nptr, int base, unsigned int unsign)
     do {
         c = *s++;
     } while (isspace(c));
+
     if (c == '-') {
         neg = 1;
         c = *s++;
@@ -697,6 +687,7 @@ str_to_int_convert(const char **nptr, int base, unsigned int unsign)
         if (c == '+')
             c = *s++;
     }
+
     if ((base == 0 || base == 16) &&
         c == '0' && (*s == 'x' || *s == 'X')) {
         c = s[1];
@@ -803,66 +794,42 @@ __sccl(char *tab, const unsigned char *fmt)
 {
     int c, n, v;
 
-    /* first `clear' the whole table */
-    c = *fmt++;             /* first char hat => negated scanset */
+    c = *fmt++;            /* first char hat => negated scanset */
     if (c == '^') {
-        v = 1;          /* default => accept */
-        c = *fmt++;     /* get new first char */
+        v = 1;             /* default => accept */
+        c = *fmt++;        /* get new first char */
     } else {
-        v = 0;          /* default => reject */
+        v = 0;             /* default => reject */
     }
 
-    /* XXX: Will not work if sizeof(tab*) > sizeof(char) */
     for (n = 0; n < 256; n++)
         tab[n] = v;        /* memset(tab, v, 256) */
 
     if (c == 0)
-        return (fmt - 1);/* format ended before closing ] */
+        return (fmt - 1);  /* format ended before closing ] */
 
     v = 1 - v;
     for (;;) {
-        tab[c] = v;             /* take character c */
-    doswitch:
-        n = *fmt++;             /* and examine the next */
+        tab[c] = v;        /* take character c */
+doswitch:
+        n = *fmt++;        /* and examine the next */
         switch (n) {
-        case 0:                 /* format ended too soon */
+        case 0:            /* format ended too soon */
             return (fmt - 1);
 
         case '-':
-            /*
-             * A scanset of the form
-             *      [01+-]
-             * is defined as `the digit 0, the digit 1,
-             * the character +, the character -', but
-             * the effect of a scanset such as
-             *      [a-zA-Z0-9]
-             * is implementation defined.  The V7 Unix
-             * scanf treats `a-z' as `the letters a through
-             * z', but treats `a-a' as `the letter a, the
-             * character -, and the letter a'.
-             *
-             * For compatibility, the `-' is not considerd
-             * to define a range if the character following
-             * it is either a close bracket (required by ANSI)
-             * or is not numerically greater than the character
-             * we just stored in the table (c).
-             */
             n = *fmt;
             if (n == ']' || n < c) {
                 c = '-';
-                break;  /* resume the for(;;) */
+                break;     /* resume the for(;;) */
             }
             fmt++;
-            /* fill in the range */
+
             do {
                 tab[++c] = v;
             } while (c < n);
             c = n;
-            /*
-             * Alas, the V7 Unix scanf also treats formats
-             * such as [a-c-e] as `the letters a through e'.
-             * This too is permitted by the standard....
-             */
+
             goto doswitch;
             break;
 
@@ -874,20 +841,12 @@ __sccl(char *tab, const unsigned char *fmt)
             break;
         }
     }
-/* NOTREACHED */
+    /* NOTREACHED */
 }
 
-/**
- * vsscanf - Unformat a buffer into a list of arguments
- * @buf:	input buffer
- * @fmt:	format of buffer
- * @args:	arguments
- */
+// --------------------------------------------------------------
 #define BUF             32      /* Maximum length of numeric string. */
 
-/*
- * Flags used during conversion.
- */
 #define LONG            0x01    /* l: long or double */
 #define SHORT           0x04    /* h: short */
 #define SUPPRESS        0x08    /* suppress assignment */
@@ -896,27 +855,18 @@ __sccl(char *tab, const unsigned char *fmt)
 #define QUAD            0x400
 #define SHORTSHORT      0x4000  /** hh: char */
 
-/*
- * The following are used in numeric conversions only:
- * SIGNOK, NDIGITS, DPTOK, and EXPOK are for floating point;
- * SIGNOK, NDIGITS, PFXOK, and NZDIGITS are for integral.
- */
 #define SIGNOK          0x40    /* +/- is (still) legal */
 #define NDIGITS         0x80    /* no digits detected */
-
 #define DPTOK           0x100   /* (float) decimal point is still legal */
 #define EXPOK           0x200   /* (float) exponent (e+3, etc) still legal */
-
 #define PFXOK           0x100   /* 0x prefix is (still) legal */
 #define NZDIGITS        0x200   /* no zero digits detected */
 
-/*
- * Conversion types.
- */
 #define CT_CHAR         0       /* %c conversion */
 #define CT_CCL          1       /* %[...] conversion */
 #define CT_STRING       2       /* %s conversion */
 #define CT_INT          3       /* integer, i.e., strtoq or strtouq */
+// --------------------------------------------------------------
 
 typedef u64 (*ccfntype)(const char *, char **, int);
 
@@ -940,8 +890,9 @@ vsscanf(const char *inp, char const *fmt0, va_list ap)
     char buf[BUF];          /* buffer for numeric conversions */
 
     /* `basefix' is used to avoid `if' tests in the integer scanner */
-    static short basefix[17] = { 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
-                     12, 13, 14, 15, 16 };
+    static short basefix[17] = { 10, 1, 2, 3, 4, 5,
+                                 6, 7, 8, 9, 10, 11,
+                                 12, 13, 14, 15, 16 };
 
     inr = strlen(inp);
 
@@ -963,10 +914,6 @@ vsscanf(const char *inp, char const *fmt0, va_list ap)
             goto literal;
         width = 0;
         flags = 0;
-        /*
-         * switch on the format.  continue if done;
-         * break once format type is derived.
-         */
 again:
         c = *fmt++;
         switch (c) {
@@ -1008,10 +955,6 @@ literal:
             width = width * 10 + c - '0';
             goto again;
 
-        /*
-         * Conversions.
-         *
-         */
         case 'd':
             c = CT_INT;
             ccfn = (ccfntype)strtoq;
@@ -1037,7 +980,7 @@ literal:
             break;
 
         case 'x':
-            flags |= PFXOK; /* enable 0x prefixing */
+            flags |= PFXOK;
             c = CT_INT;
             ccfn = strtouq;
             base = 16;
@@ -1067,7 +1010,7 @@ literal:
 
         case 'n':
             nconversions++;
-            if (flags & SUPPRESS)   /* ??? */
+            if (flags & SUPPRESS)
                 continue;
             if (flags & SHORTSHORT)
                 *va_arg(ap, char *) = nread;
@@ -1082,16 +1025,9 @@ literal:
             continue;
         }
 
-        /*
-         * We have a conversion that requires input.
-         */
         if (inr <= 0)
             goto input_failure;
 
-        /*
-         * Consume leading white space, except for formats
-         * that suppress this.
-         */
         if ((flags & NOSKIP) == 0) {
             while (isspace(*inp)) {
                 nread++;
@@ -1100,16 +1036,8 @@ literal:
                 else
                     goto input_failure;
             }
-            /*
-             * Note that there is at least one character in
-             * the buffer, so conversions that do not set NOSKIP
-             * can no longer result in an input failure.
-             */
         }
 
-        /*
-         * Do the conversion.
-         */
         switch (c) {
         case CT_CHAR:
             /* scan arbitrary characters (sets NOSKIP) */
@@ -1140,9 +1068,7 @@ literal:
             }
             nconversions++;
             break;
-
         case CT_CCL:
-            /* scan a (nonempty) character class (sets NOSKIP) */
             if (width == 0)
                 width = (size_t)~0;     /* `infinity' */
             /* take only those things in the class */
@@ -1183,9 +1109,7 @@ literal:
             nread += n;
             nconversions++;
             break;
-
         case CT_STRING:
-            /* like CCL, but zero-length string OK, & no NOSKIP */
             if (width == 0)
                 width = (size_t)~0;
             if (flags & SUPPRESS) {
@@ -1230,23 +1154,8 @@ literal:
             flags |= SIGNOK | NDIGITS | NZDIGITS;
             for (p = buf; width; width--) {
                 c = *inp;
-                /*
-                 * Switch on the character; `goto ok'
-                 * if we accept it as a part of number.
-                 */
+
                 switch (c) {
-                /*
-                 * The digit 0 is always legal, but is
-                 * special.  For %i conversions, if no
-                 * digits (zero or nonzero) have been
-                 * scanned (only signs), we will have
-                 * base==0.  In that case, we should set
-                 * it to 8 and enable 0x prefixing.
-                 * Also, if we have not scanned zero digits
-                 * before this, do not turn off prefixing
-                 * (someone else will turn it off if we
-                 * have scanned any nonzero digits).
-                 */
                 case '0':
                     if (base == 0) {
                         base = 8;
@@ -1292,7 +1201,6 @@ literal:
                         }
                     break;
 
-                /* x ok iff flag still set & 2nd char */
                 case 'x': case 'X':
                     if (flags & PFXOK && p == buf + 1) {
                         base = 16;      /* if %i */
@@ -1301,28 +1209,15 @@ literal:
                     }
                     break;
                 }
-
-                /*
-                 * If we got here, c is not a legal character
-                 * for a number.  Stop accumulating digits.
-                 */
                 break;
 ok:
-                /*
-                 * c is legal: store it and look at the next.
-                 */
                 *p++ = c;
                 if (--inr > 0)
                     inp++;
                 else
                     break;          /* end of input */
             }
-            /*
-             * If we had only a sign, it is no good; push
-             * back the sign.  If the number ends in `x',
-             * it was [sign] '' 'x', so push back the x
-             * and treat it as [sign] ''.
-             */
+
             if (flags & NDIGITS) {
                 if (p > buf) {
                     inp--;

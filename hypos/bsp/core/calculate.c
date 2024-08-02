@@ -29,7 +29,7 @@ unsigned int get_random(void)
 
         for (i = 0; i < sizeof(val) * 8; i += 11) {
             next = next * 1103515245 + 12345;
-            val |= ((next >> 16) & 0x7ff) << i;
+            val |= ((next >> 16) & 0x7FF) << i;
         }
     }
 

@@ -11,7 +11,6 @@ arm-y += traps.o
 arm-y += smp.o
 arm-y += membank.o
 arm-y += globl.o
-arm-y += io.o
 arm-y += gic.o
 arm-y += vgic.o
 arm-y += time.o

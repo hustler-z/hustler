@@ -14,7 +14,7 @@
 #include <bsp/irq.h>
 #include <bsp/config.h>
 #include <bsp/errno.h>
-#include <bsp/hypmem.h>
+#include <bsp/memz.h>
 #include <asm/barrier.h>
 
 /* --------------------------------------------------------------

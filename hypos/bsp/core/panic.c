@@ -15,14 +15,12 @@
 #include <asm/hcpu.h>
 #include <asm/page.h>
 #include <asm/define.h>
-#include <bsp/exit.h>
 #include <bsp/time.h>
 #include <bsp/debug.h>
 #include <bsp/delay.h>
 #include <bsp/percpu.h>
 #include <bsp/panic.h>
 #include <bsp/spinlock.h>
-#include <lib/args.h>
 
 // --------------------------------------------------------------
 void hang(void)

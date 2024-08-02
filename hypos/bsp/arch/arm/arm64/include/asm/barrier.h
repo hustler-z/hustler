@@ -17,7 +17,7 @@
  * again, so that privilege and access are checked with the current
  * MMU configuration.
  */
-#define isb()           asm volatile("isb" : : : "memory")
+#define isb()         asm volatile("isb" : : : "memory")
 
 /* Data Synchronization Barrier is a memory barrier that ensures the
  * completion of memory accesses.
@@ -27,17 +27,17 @@
  * instructions, not just loads or stores, or both, until
  * synchronization is complete.
  */
-#define dsb(scope)      asm volatile("dsb " #scope : : : "memory")
+#define dsb(scope)    asm volatile("dsb " #scope : : : "memory")
 
 /* Data Memory Barrier is a memory barrier that ensures the ordering
  * of observations of memory accesses.
  */
-#define dmb(scope)      asm volatile("dmb " #scope : : : "memory")
+#define dmb(scope)    asm volatile("dmb " #scope : : : "memory")
 
 /* Send Event is a hint instruction. It causes an event to be
  * signaled to all PEs in the multiprocessor system.
  */
-#define sev()           asm volatile("sev" : : : "memory")
+#define sev()         asm volatile("sev" : : : "memory")
 
 /* Wait For Event is a hint instruction that indicates that the PE
  * can enter a low-power state and remain there until a wakeup event
@@ -45,35 +45,35 @@
  * executing the SEV instruction on any PE in the multiprocessor
  * system.
  */
-#define wfe()           asm volatile("wfe" : : : "memory")
+#define wfe()         asm volatile("wfe" : : : "memory")
 
 /* Wait For Interrupt is a hint instruction that indicates that the
  * PE can enter a low-power state and remain there until a wakeup
  * event occurs.
  */
-#define wfi()           asm volatile("wfi" : : : "memory")
+#define wfi()         asm volatile("wfi" : : : "memory")
 
-#define __nops(n)	    ".rept	" #n "\nnop\n.endr\n"
-#define nops(n)		    asm volatile(__nops(n))
+#define __nops(n)	  ".rept	" #n "\nnop\n.endr\n"
+#define nops(n)		  asm volatile(__nops(n))
 
-#define psb_csync()	    asm volatile("hint #17" : : : "memory")
-#define csdb()		    asm volatile("hint #20" : : : "memory")
+#define psb_csync()	  asm volatile("hint #17" : : : "memory")
+#define csdb()		  asm volatile("hint #20" : : : "memory")
 
-#define barrier()       asm volatile("" : : : "memory")
+#define barrier()     asm volatile("" : : : "memory")
 
-#define cpu_relax()     barrier()
+#define cpu_relax()   barrier()
 
-#define mb()            dsb(sy)
-#define rmb()           dsb(ld)
-#define wmb()           dsb(st)
+#define mb()          dsb(sy)
+#define rmb()         dsb(ld)
+#define wmb()         dsb(st)
 
-#define smp_mb()        dmb(ish)
-#define smp_rmb()       dmb(ishld)
-#define smp_wmb()       dmb(ishst)
+#define smp_mb()      dmb(ish)
+#define smp_rmb()     dmb(ishld)
+#define smp_wmb()     dmb(ishst)
 
-#define dma_mb()	    dmb(osh)
-#define dma_rmb()	    dmb(oshld)
-#define dma_wmb()	    dmb(oshst)
+#define dma_mb()	  dmb(osh)
+#define dma_rmb()	  dmb(oshld)
+#define dma_wmb()	  dmb(oshst)
 
 #define smp_mb__before_atomic()  smp_mb()
 #define smp_mb__after_atomic()   smp_mb()

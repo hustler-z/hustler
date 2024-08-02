@@ -9,7 +9,7 @@
 #include <org/section.h>
 #include <org/psci.h>
 #include <org/smp.h>
-#include <asm/at.h>
+#include <asm/xaddr.h>
 #include <bsp/errno.h>
 #include <bsp/config.h>
 #include <bsp/percpu.h>

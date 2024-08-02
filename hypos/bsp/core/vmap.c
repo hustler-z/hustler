@@ -9,12 +9,12 @@
 #include <org/section.h>
 #include <org/membank.h>
 #include <org/globl.h>
-#include <asm/at.h>
+#include <asm/xaddr.h>
 #include <asm/bitops.h>
 #include <asm/map.h>
 #include <lib/bitops.h>
 #include <lib/bitmap.h>
-#include <bsp/hypmem.h>
+#include <bsp/memz.h>
 #include <bsp/board.h>
 #include <bsp/panic.h>
 #include <bsp/vmap.h>
