@@ -84,6 +84,7 @@ SECTIONS
         *(.data.boot_pgtbl)
         *(.data.ttbr)
         *(.data.init)
+        *(.data.const)
         *(.data.read_mostly)
         *(.data.ro_after_init)
         *(.data .data.*)

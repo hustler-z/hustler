@@ -80,8 +80,6 @@ void reboot(unsigned int delay_ms)
 void crash(void) {
     MSGE("------------------ [Hypervisor Crashed] ------------------\n");
 
-    flush();
-
     /* XXX: At HYPOS_EARLY_BOOT_STAGE, GIC might ain't set yet.
      *      In this case, simply halt the boot cpu directly.
      */

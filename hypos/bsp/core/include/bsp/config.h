@@ -19,6 +19,10 @@
 #define CFG_GIC_V2                 1
 #define CFG_GIC_V3                 2
 #define CFG_HYPOS_DEBUG_ON         1
+#define CFG_ARM                    1
+#define CFG_ACPI                   0
+#define CFG_HAS_IOPORTS            0
+#define CFG_SERIAL_TX_BUFSIZE      32768
 // --------------------------------------------------------------
 
 /* Implementation Configuration
@@ -47,10 +51,12 @@
 #define __SMMUV3_IMPL              0
 #define __INSTR_IMPL               0
 #define __BUDDY_ALLOCATOR_IMPL     0
+#define __CONSOLE_IMPL             1
 // --------------------------------------------------------------
 #define IS_SUPPORTED(sup)          (!!(sup))
 
 #define SUP__ID_AA64ZFR0_EL1       0
 #define SUP__ID_PFR2_EL1           0
+#define SUP__NS16550_PCI           0
 // --------------------------------------------------------------
 #endif /* _BSP_CONFIG_H */

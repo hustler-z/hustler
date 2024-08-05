@@ -157,6 +157,7 @@ struct ns16550_defaults {
     int irq;       /* default irq */
     unsigned long io_base; /* default io_base address */
 };
+
 void ns16550_init(int index, struct ns16550_defaults *defaults);
 // --------------------------------------------------------------
 #endif /* _BSP_SERIAL_H */

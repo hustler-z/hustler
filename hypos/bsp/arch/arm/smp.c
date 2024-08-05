@@ -89,7 +89,6 @@ register_t __cpu_logical_map[NR_CPUS] =
 
 const unsigned long
 cpu_bit_bitmap[BITS_PER_LONG + 1][BITS_TO_LONGS(NR_CPUS)] = {
-
     MASK_DECLARE_8(0),  MASK_DECLARE_8(8),
     MASK_DECLARE_8(16), MASK_DECLARE_8(24),
 #if BITS_PER_LONG > 32

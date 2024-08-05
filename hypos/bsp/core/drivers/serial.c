@@ -5,6 +5,9 @@
  * Date:  2024/05/20
  * Usage:
  */
+
+#include <asm/page.h>
+#include <bsp/config.h>
 #include <bsp/serial.h>
 #include <bsp/debug.h>
 
@@ -45,17 +48,17 @@ void serial_rx_interrupt(struct serial_port *port)
     if (port->driver->getc(port, &c)) {
         if (port->rx != NULL)
             fn = port->rx;
-        else if ( (c & 0x80) && (port->rx_hi != NULL) )
+        else if ((c & 0x80) && (port->rx_hi != NULL))
             fn = port->rx_hi;
-        else if ( !(c & 0x80) && (port->rx_lo != NULL) )
+        else if (!(c & 0x80) && (port->rx_lo != NULL))
             fn = port->rx_lo;
-        else if ( (port->rxbufp - port->rxbufc) != serial_rxbufsz )
+        else if ((port->rxbufp - port->rxbufc) != serial_rxbufsz)
             port->rxbuf[mask_serial_rxbuf_idx(port->rxbufp++)] = c;
     }
 
     spin_unlock_irqrestore(&port->rx_lock, flags);
 
-    if ( fn != NULL )
+    if (fn != NULL)
         fn(c & 0x7f);
 }
 
@@ -79,7 +82,7 @@ void serial_tx_interrupt(struct serial_port *port)
         spin_unlock(&port->tx_lock);
         goto out;
     } else {
-        if ( port->driver->tx_ready(port) )
+        if (port->driver->tx_ready(port))
             serial_start_tx(port);
     }
 
@@ -193,7 +196,7 @@ void serial_puts(int handle, const char *s, size_t nr)
     spin_unlock_irqrestore(&port->tx_lock, flags);
 }
 
-int __init serial_parse_handle(const char *conf)
+int __bootfunc serial_parse_handle(const char *conf)
 {
     int handle, flags = 0;
 
@@ -257,7 +260,7 @@ fail:
     return -1;
 }
 
-void __init serial_set_rx_handler(int handle, serial_rx_fn fn)
+void __bootfunc serial_set_rx_handler(int handle, serial_rx_fn fn)
 {
     struct serial_port *port;
     unsigned long flags;
@@ -392,7 +395,7 @@ void serial_end_log_everything(int handle)
     spin_unlock_irqrestore(&port->tx_lock, flags);
 }
 
-void __init serial_init_preirq(void)
+void __bootfunc serial_init_preirq(void)
 {
     int i;
     for (i = 0; i < ARRAY_SIZE(com); i++)
@@ -400,7 +403,7 @@ void __init serial_init_preirq(void)
             com[i].driver->init_preirq(&com[i]);
 }
 
-void __init serial_init_irq(void)
+void __bootfunc serial_init_irq(void)
 {
     unsigned int i;
 
@@ -409,7 +412,7 @@ void __init serial_init_irq(void)
             com[i].driver->init_irq(&com[i]);
 }
 
-void __init serial_init_postirq(void)
+void __bootfunc serial_init_postirq(void)
 {
     int i;
     for (i = 0; i < ARRAY_SIZE(com); i++)
@@ -421,7 +424,7 @@ void __init serial_init_postirq(void)
     post_irq = 1;
 }
 
-void __init serial_endboot(void)
+void __bootfunc serial_endboot(void)
 {
     int i;
     for (i = 0; i < ARRAY_SIZE(com); i++)
@@ -429,7 +432,7 @@ void __init serial_endboot(void)
             com[i].driver->endboot(&com[i]);
 }
 
-int __init serial_irq(int idx)
+int __bootfunc serial_irq(int idx)
 {
     if ((idx >= 0) && (idx < ARRAY_SIZE(com)) &&
         com[idx].driver && com[idx].driver->irq)
@@ -465,7 +468,7 @@ void serial_resume(void)
             com[i].driver->resume(&com[i]);
 }
 
-void __init serial_register_uart(int idx,
+void __bootfunc serial_register_uart(int idx,
 								 struct uart_driver *driver,
                                  void *uart)
 {
@@ -473,7 +476,7 @@ void __init serial_register_uart(int idx,
     com[idx].uart   = uart;
 }
 
-void __init serial_async_transmit(struct serial_port *port)
+void __bootfunc serial_async_transmit(struct serial_port *port)
 {
     BUG_ON(!port->driver->tx_ready);
     if (port->txbuf != NULL)

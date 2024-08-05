@@ -614,41 +614,6 @@ int snpr(char *buf, size_t size, const char *fmt, ...)
     return i;
 }
 
-static DEFINE_SPINLOCK(vpr_lock);
-
-void vpr_common(const char *fmt, va_list args)
-{
-    static char   buf[1024];
-    unsigned long flags;
-    int ret;
-
-    local_irq_save(flags);
-    spin_lock(&vpr_lock);
-
-    ret = vsnpr(buf, sizeof(buf), fmt, args);
-
-    if (ret <= 0)
-        return;
-
-    puts(buf);
-
-    spin_unlock(&vpr_lock);
-    local_irq_restore(flags);
-}
-
-/**
- * Note pr_hypos() implemented as a standard print
- * interface.
- */
-void pr_hypos(const char *fmt, ...)
-{
-    va_list args;
-
-    va_start(args, fmt);
-    vpr_common(fmt, args);
-    va_end(args);
-}
-
 // --------------------------------------------------------------
 
 /* SSCANF IMPLEMENTATION

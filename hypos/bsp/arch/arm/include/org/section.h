@@ -12,6 +12,7 @@
 #include <bsp/compiler.h>
 
 #define __initdata          __section(".data.init")
+#define __initconst         __section(".data.const")
 #define __read_mostly       __section(".data.read_mostly")
 #define __bootfunc          __section(".boot.setup")
 #define __thread_percpu     __section(".bss.thread_percpu")

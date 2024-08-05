@@ -19,7 +19,6 @@
 #include <bsp/memz.h>
 #include <bsp/percpu.h>
 #include <bsp/cpu.h>
-#include <bsp/sdev.h>
 #include <bsp/bootcore.h>
 #include <bsp/console.h>
 #include <bsp/debug.h>
@@ -128,10 +127,6 @@ static bootfunc_t hypos_boot_sequence[] = {
     /* Peripheral Setup
      */
     device_setup,
-
-    /* Hypos Console Setup
-     */
-    console_setup,
 };
 
 void asmlinkage __bootfunc __setup(unsigned long phys_offset)

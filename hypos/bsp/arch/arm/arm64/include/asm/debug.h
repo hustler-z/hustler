@@ -15,21 +15,7 @@
 #ifdef __RK3568__
 #include <rk3568/rk3568.h>
 #define DEBUG_UART_PA     UART2_BASE
-
 #include <bsp/ns16550.h>
-/* Register offsets */
-#define UART_RBR          0x00    /* receive buffer       */
-#define UART_DLL          0x00    /* divisor latch (ls) (DLAB=1) */
-#define UART_THR          0x00    /* transmit holding     */
-#define UART_DLM          0x04    /* divisor latch (ms) (DLAB=1) */
-#define UART_IER          0x04    /* interrupt enable     */
-#define UART_FCR          0x08    /* FIFO control         */
-#define UART_IIR          0x08    /* interrupt identity   */
-#define UART_LCR          0x0C    /* line control         */
-#define UART_MCR          0x10    /* Modem control        */
-#define UART_LSR          0x14    /* line status          */
-#define UART_MSR          0x18    /* Modem status         */
-#define UART_USR          0x7c    /* Status register (DW) */
 #endif
 
 #define DEBUG_UART_VA  \

@@ -15,6 +15,7 @@
 // --------------------------------------------------------------
 struct hypos *hypos_list;
 struct vcpu  *hypos_vcpus[NR_CPUS] __read_mostly;
+hid_t __read_mostly max_init_hid;
 
 bool opt_hypos0_vcpus_pin;
 
@@ -1791,11 +1792,11 @@ void hypos_destroy(struct hypos *d)
     /* Delete from task list and task hashtable. */
     spin_lock(&hidlist_update_lock);
     pd = &hypos_list;
-    while ( *pd != d ) 
+    while ( *pd != d )
         pd = &(*pd)->next_in_list;
     rcu_assign_pointer(*pd, d->next_in_list);
     pd = &hypos_hash[HYPAIN_HASH(d->hypos_id)];
-    while ( *pd != d ) 
+    while ( *pd != d )
         pd = &(*pd)->next_in_hashbucket;
     rcu_assign_pointer(*pd, d->next_in_hashbucket);
     spin_unlock(&hidlist_update_lock);

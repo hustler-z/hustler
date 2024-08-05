@@ -6,11 +6,17 @@
  * Usage:
  */
 
+#include <bsp/ns16550.h>
 #include <bsp/serial.h>
 #include <bsp/timer.h>
+#include <bsp/time.h>
 #include <bsp/irq.h>
 
 // --------------------------------------------------------------
+/* Resume retry settings */
+#define RESUME_DELAY      MILLISECS(10)
+#define RESUME_RETRIES    100
+
 static struct ns16550 {
     int baud, clock_hz, data_bits, parity, stop_bits, fifo_size, irq;
     u64 io_base;   /* I/O port or memory-mapped I/O address. */
@@ -22,7 +28,7 @@ static struct ns16550 {
     /* UART with IRQ line: interrupt-driven I/O. */
     struct irqaction irqaction;
     u8 lsr_mask;
-#ifdef CFG_ARM
+#if IS_ENABLED(CFG_ARM)
     struct vuart_info vuart;
 #endif
     /* UART with no IRQ line: periodically-polled I/O. */
@@ -31,7 +37,7 @@ static struct ns16550 {
     unsigned int timeout_ms;
     bool intr_works;
     bool dw_usr_bsy;
-#ifdef NS16550_PCI
+#if IS_SUPPORTED(SUP__NS16550_PCI)
     /* PCI card parameters. */
     bool pb_bdf_enable;     /* if =1, pb-bdf effective, port behind bridge */
     bool ps_bdf_enable;     /* if =1, ps_bdf effective, port on pci card */
@@ -46,7 +52,7 @@ static struct ns16550 {
 #endif
 } ns16550_com[2] = {};
 
-#ifdef NS16550_PCI
+#if IS_SUPPORTED(SUP__NS16550_PCI)
 struct ns16550_config {
     u16 vendor_id;
     u16 dev_id;
@@ -83,12 +89,12 @@ struct ns16550_config_param {
 static void enable_exar_enhanced_bits(const struct ns16550 *uart);
 #endif
 
-static void cf_check ns16550_delayed_resume(void *data);
+static void ns16550_delayed_resume(void *data);
 
 static u8 ns_read_reg(const struct ns16550 *uart, unsigned int reg)
 {
     void __iomem *addr = uart->remapped_io_base + (reg << uart->reg_shift);
-#ifdef CFG_HAS_IOPORTS
+#if IS_ENABLED(CFG_HAS_IOPORTS)
     if (!uart->remapped_io_base)
         return inb(uart->io_base + reg);
 #endif
@@ -105,7 +111,7 @@ static u8 ns_read_reg(const struct ns16550 *uart, unsigned int reg)
 static void ns_write_reg(const struct ns16550 *uart, unsigned int reg, u8 c)
 {
     void __iomem *addr = uart->remapped_io_base + (reg << uart->reg_shift);
-#ifdef CFG_HAS_IOPORTS
+#if IS_ENABLED(CFG_HAS_IOPORTS)
     if (uart->remapped_io_base == NULL)
         return outb(c, uart->io_base + reg);
 #endif
@@ -134,7 +140,7 @@ static void handle_dw_usr_busy_quirk(struct ns16550 *uart)
         ns_read_reg(uart, UART_USR);
 }
 
-static void cf_check ns16550_interrupt(int irq, void *dev_id)
+static void ns16550_interrupt(int irq, void *dev_id)
 {
     struct serial_port *port = dev_id;
     struct ns16550 *uart = port->uart;
@@ -156,7 +162,7 @@ static void cf_check ns16550_interrupt(int irq, void *dev_id)
 /* Safe: ns16550_poll() runs as softirq so not reentrant on a given CPU. */
 static DEFINE_PERCPU(struct serial_port *, poll_port);
 
-static void cf_check __ns16550_poll(const struct cpu_user_regs *regs)
+static void __ns16550_poll(const struct cpu_user_regs *regs)
 {
     struct serial_port *port = this_cpu(poll_port);
     struct ns16550 *uart = port->uart;
@@ -183,13 +189,13 @@ out:
     set_timer(&uart->timer, NOW() + MILLISECS(uart->timeout_ms));
 }
 
-static void cf_check ns16550_poll(void *data)
+static void ns16550_poll(void *data)
 {
     this_cpu(poll_port) = data;
     run_in_exception_handler(__ns16550_poll);
 }
 
-static int cf_check ns16550_tx_ready(struct serial_port *port)
+static int ns16550_tx_ready(struct serial_port *port)
 {
     struct ns16550 *uart = port->uart;
 
@@ -200,13 +206,13 @@ static int cf_check ns16550_tx_ready(struct serial_port *port)
             uart->lsr_mask ) == uart->lsr_mask) ? uart->fifo_size : 0;
 }
 
-static void cf_check ns16550_putc(struct serial_port *port, char c)
+static void ns16550_putc(struct serial_port *port, char c)
 {
     struct ns16550 *uart = port->uart;
     ns_write_reg(uart, UART_THR, c);
 }
 
-static int cf_check ns16550_getc(struct serial_port *port, char *pc)
+static int ns16550_getc(struct serial_port *port, char *pc)
 {
     struct ns16550 *uart = port->uart;
 
@@ -220,7 +226,7 @@ static int cf_check ns16550_getc(struct serial_port *port, char *pc)
 
 static void pci_serial_early_init(struct ns16550 *uart)
 {
-#ifdef NS16550_PCI
+#if IS_SUPPORTED(SUP__NS16550_PCI)
     if (uart->bar && uart->io_base >= 0x10000) {
         pci_conf_write16(PCI_SBDF(0, uart->ps_bdf[0], uart->ps_bdf[1],
                                   uart->ps_bdf[2]),
@@ -265,7 +271,7 @@ static void ns16550_setup_preirq(struct ns16550 *uart)
     /* Handle the DesignWare 8250 'busy-detect' quirk. */
     handle_dw_usr_busy_quirk(uart);
 
-#ifdef NS16550_PCI
+#if IS_SUPPORTED(SUP__NS16550_PCI)
     /* Enable Exar "Enhanced function bits" */
     enable_exar_enhanced_bits(uart);
 #endif
@@ -284,7 +290,7 @@ static void ns16550_setup_preirq(struct ns16550 *uart)
         if (divisor)
             uart->baud = uart->clock_hz / (divisor << 4);
         else
-            printk("Automatic baud rate determination was requested,"
+            MSGH("Automatic baud rate determination was requested,"
                    " but a baud rate was not set up\n");
     }
     ns_write_reg(uart, UART_LCR, lcr);
@@ -297,11 +303,11 @@ static void ns16550_setup_preirq(struct ns16550 *uart)
                  UART_FCR_ENABLE | UART_FCR_CLRX | UART_FCR_CLTX | UART_FCR_TRG14);
 }
 
-static void __init ns16550_init_preirq(struct serial_port *port)
+static void __bootfunc ns16550_init_preirq(struct serial_port *port)
 {
     struct ns16550 *uart = port->uart;
 
-#ifdef CFG_HAS_IOPORTS
+#if IS_ENABLED(CFG_HAS_IOPORTS)
     /* I/O ports are distinguished by their size (16 bits). */
     if (uart->io_base >= 0x10000)
 #endif
@@ -316,9 +322,9 @@ static void __init ns16550_init_preirq(struct serial_port *port)
         uart->fifo_size = 16;
 }
 
-static void __init ns16550_init_irq(struct serial_port *port)
+static void __bootfunc ns16550_init_irq(struct serial_port *port)
 {
-#ifdef NS16550_PCI
+#if IS_SUPPORTED(SUP__NS16550_PCI)
     struct ns16550 *uart = port->uart;
 
     if (uart->msi)
@@ -328,8 +334,7 @@ static void __init ns16550_init_irq(struct serial_port *port)
 
 static void ns16550_setup_postirq(struct ns16550 *uart)
 {
-    if ( uart->irq > 0 )
-    {
+    if (uart->irq > 0) {
         /* Master interrupt enable; also keep DTR/RTS asserted. */
         ns_write_reg(uart,
                      UART_MCR, UART_MCR_OUT2 | UART_MCR_DTR | UART_MCR_RTS);
@@ -338,16 +343,16 @@ static void ns16550_setup_postirq(struct ns16550 *uart)
         ns_write_reg(uart, UART_IER, UART_IER_ERDAI);
     }
 
-    if ( uart->irq >= 0 )
+    if (uart->irq >= 0)
         set_timer(&uart->timer, NOW() + MILLISECS(uart->timeout_ms));
 }
 
-static void __init ns16550_init_postirq(struct serial_port *port)
+static void __bootfunc ns16550_init_postirq(struct serial_port *port)
 {
     struct ns16550 *uart = port->uart;
     int rc, bits;
 
-    if ( uart->irq < 0 )
+    if (uart->irq < 0)
         return;
 
     serial_async_transmit(port);
@@ -360,16 +365,16 @@ static void __init ns16550_init_postirq(struct serial_port *port)
     uart->timeout_ms = max_t(
         unsigned int, 1, (bits * uart->fifo_size * 1000) / uart->baud);
 
-#ifdef NS16550_PCI
+#if IS_SUPPORTED(SUP__NS16550_PCI)
     if (uart->bar || uart->ps_bdf_enable) {
         if (uart->param && uart->param->mmio &&
             rangeset_add_range(mmio_ro_ranges, PFN_DOWN(uart->io_base),
                                 PFN_UP(uart->io_base + uart->io_size) - 1))
-            printk("Error while adding MMIO range of device to mmio_ro_ranges\n");
+            MSGH("Error while adding MMIO range of device to mmio_ro_ranges\n");
 
         if (pci_ro_device(0, uart->ps_bdf[0],
                            PCI_DEVFN(uart->ps_bdf[1], uart->ps_bdf[2])))
-            printk("Could not mark config space of %02x:%02x.%u read-only.\n",
+            MSGH("Could not mark config space of %02x:%02x.%u read-only.\n",
                    uart->ps_bdf[0], uart->ps_bdf[1],
                    uart->ps_bdf[2]);
 
@@ -414,10 +419,9 @@ static void __init ns16550_init_postirq(struct serial_port *port)
                 }
             }
 
-            if ( rc )
-                printk(XENLOG_WARNING
-                       "MSI setup failed (%d) for %02x:%02x.%o\n",
-                       rc, uart->ps_bdf[0], uart->ps_bdf[1], uart->ps_bdf[2]);
+            if (rc)
+                MSGH("MSI setup failed (%d) for %02x:%02x.%o\n",
+                     rc, uart->ps_bdf[0], uart->ps_bdf[1], uart->ps_bdf[2]);
         }
     }
 #endif
@@ -425,9 +429,9 @@ static void __init ns16550_init_postirq(struct serial_port *port)
     if (uart->irq > 0) {
         uart->irqaction.handler = ns16550_interrupt;
         uart->irqaction.name    = "ns16550";
-        uart->irqaction.dev_id  = port;
-        if ( (rc = setup_irq(uart->irq, 0, &uart->irqaction)) != 0 )
-            printk("ERROR: Failed to allocate ns16550 IRQ %d\n", uart->irq);
+        uart->irqaction.devid   = port;
+        if ((rc = setup_irq(uart->irq, 0, &uart->irqaction)) != 0)
+            MSGH("ERROR: Failed to allocate ns16550 IRQ %d\n", uart->irq);
     }
 
     ns16550_setup_postirq(uart);
@@ -439,7 +443,7 @@ static void ns16550_suspend(struct serial_port *port)
 
     stop_timer(&uart->timer);
 
-#ifdef NS16550_PCI
+#if IS_SUPPORTED(SUP__NS16550_PCI)
     if ( uart->bar )
        uart->cr = pci_conf_read16(PCI_SBDF(0, uart->ps_bdf[0], uart->ps_bdf[1],
                                   uart->ps_bdf[2]), PCI_COMMAND);
@@ -448,7 +452,7 @@ static void ns16550_suspend(struct serial_port *port)
 
 static void _ns16550_resume(struct serial_port *port)
 {
-#ifdef NS16550_PCI
+#if IS_SUPPORTED(SUP__NS16550_PCI)
     struct ns16550 *uart = port->uart;
 
     if (uart->bar) {
@@ -495,9 +499,9 @@ static void ns16550_resume(struct serial_port *port)
         _ns16550_resume(port);
 }
 
-static void __init cf_check ns16550_endboot(struct serial_port *port)
+static void __bootfunc ns16550_endboot(struct serial_port *port)
 {
-#ifdef CFG_HAS_IOPORTS
+#if IS_ENABLED(CFG_HAS_IOPORTS)
     struct ns16550 *uart = port->uart;
     int rv;
 
@@ -511,13 +515,13 @@ static void __init cf_check ns16550_endboot(struct serial_port *port)
 #endif
 }
 
-static int __init cf_check ns16550_irq(struct serial_port *port)
+static int __bootfunc ns16550_irq(struct serial_port *port)
 {
     struct ns16550 *uart = port->uart;
     return ((uart->irq > 0) ? uart->irq : -1);
 }
 
-static void cf_check ns16550_start_tx(struct serial_port *port)
+static void ns16550_start_tx(struct serial_port *port)
 {
     struct ns16550 *uart = port->uart;
     u8 ier = ns_read_reg(uart, UART_IER);
@@ -527,7 +531,7 @@ static void cf_check ns16550_start_tx(struct serial_port *port)
         ns_write_reg(uart, UART_IER, ier | UART_IER_ETHREI);
 }
 
-static void cf_check ns16550_stop_tx(struct serial_port *port)
+static void ns16550_stop_tx(struct serial_port *port)
 {
     struct ns16550 *uart = port->uart;
     u8 ier = ns_read_reg(uart, UART_IER);
@@ -571,8 +575,8 @@ static void ns16550_init_common(struct ns16550 *uart)
     uart->lsr_mask  = UART_LSR_THRE;
 }
 
-#if defined(CFG_ACPI) && defined(CFG_ARM)
-static int __init ns16550_acpi_uart_init(const void *data)
+#if IS_ENABLED(CFG_ACPI) && IS_ENABLED(CFG_ARM)
+static int __bootfunc ns16550_acpi_uart_init(const void *data)
 {
     struct acpi_table_header *table;
     struct acpi_table_spcr *spcr;
@@ -585,7 +589,7 @@ static int __init ns16550_acpi_uart_init(const void *data)
 
     status = acpi_get_table(ACPI_SIG_SPCR, 0, &table);
     if (ACPI_FAILURE(status)) {
-        printk("ns16550: Failed to get SPCR table\n");
+        MSGH("ns16550: Failed to get SPCR table\n");
         return -EINVAL;
     }
 
@@ -593,7 +597,7 @@ static int __init ns16550_acpi_uart_init(const void *data)
 
     if (unlikely(spcr->serial_port.space_id
 		!= ACPI_ADR_SPACE_SYSTEM_MEMORY)) {
-        printk("ns16550: Address space type is not mmio\n");
+        MSGH("ns16550: Address space type is not mmio\n");
         return -EINVAL;
     }
 
@@ -602,7 +606,7 @@ static int __init ns16550_acpi_uart_init(const void *data)
      * if the console redirection is disabled.
      */
     if (unlikely(!spcr->serial_port.address)) {
-        printk("ns16550: Console redirection is disabled\n");
+        MSGH("ns16550: Console redirection is disabled\n");
         return -EINVAL;
     }
 
