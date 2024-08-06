@@ -1,9 +1,0 @@
------------------------------------------------------------------
-If the condition is true, Conditional Select writes the value
-of the first source register to the destination register. If
-the condition is false, it writes the value of the second
-source register to the destination register.
-
-csel <Xd>, <Xn>, <Xm>, <cond>
-
------------------------------------------------------------------

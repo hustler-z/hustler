@@ -8,40 +8,7 @@
 Hustler's Projects          2024/04/23 TUE
 ------------------------------------------
 
-# Respect to all open-source developers
-
-I'm far from being an OS expert, it took
-me two years to make the decision.
-
-With lots to learn, I stuck and struggled
-a lot. The thing that drive me forward is
-determination.
-
-I wanna be a OS expert, dive deep, and
-more.
-
-Hierarchy Overview
-------------------------------------------
-.
-├── core
-│   ├── arm
-│   ├── busybox
-│   ├── loader
-│   ├── optee
-│   └── tools
-├── hypos
-│   ├── bsp
-│   ├── cfg
-│   ├── cook.sh
-│   ├── doc
-│   ├── Makefile
-│   └── README
-├── linux
-│   ├── docs
-│   ├── syspeek
-│   ├── v5.10.y          - GPL-2.0 license
-│   └── v6.1.y           - GPL-2.0 license
-└── README
+ - A way to be a better OS developer!!! -
 
 ------------------------------------------
 Note: education purpose only
