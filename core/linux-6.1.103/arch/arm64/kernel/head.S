@@ -180,6 +180,25 @@ SYM_FUNC_END(clear_page_tables)
  *
  * Preserves:	vstart, vend
  * Returns:	istart, iend, count
+ * --------------------------------------------------------------
+ * Hustler 2024/08/07
+ *
+ * UBFX - Unsigned Bitfield Extract: an alias of UBFM
+ *        ubfx <wd>, <wn>, #<lsb>, #<width>
+ *
+ * Unsigned Bitfield Extract copies a bitfield of <width> bits
+ * starting from bit position <lsb> in the source register to
+ * the least significant bits of the destination register, and
+ * sets destination bits above the bitfield to zero.
+ *
+ *   |<-- width -->|
+ * ~ |lsb| ... |   |
+ *
+ *      \        \ (copy)
+ *
+ * ~ ~ |   | ... | 0 | <-
+ *     |<-- width -->|
+ * --------------------------------------------------------------
  */
 	.macro compute_indices, vstart, vend, shift, order, istart, iend, count
 	ubfx	\istart, \vstart, \shift, \order
@@ -258,6 +277,17 @@ SYM_FUNC_END(clear_page_tables)
  * x4: start PA associated with the region to update
  * x5: attributes to set on the updated region
  * x6: order of the last level mappings
+ * --------------------------------------------------------------
+ * Hustler 2024/08/07
+ *
+ * BFI - Bitfield Insert
+ *       bfi <wd>, <wn>, #<lsb>, #<width>
+ *
+ * Bitfield Insert copies a bitfield of <width> bits from the
+ * least significant bits of the source register to bit position
+ * <lsb> of the destination register, leaving the other
+ * destination bits unchanged.
+ * --------------------------------------------------------------
  */
 SYM_FUNC_START_LOCAL(remap_region)
 	sub	x3, x3, #1		// make end inclusive

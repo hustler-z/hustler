@@ -9734,6 +9734,15 @@ void __init sched_init(void)
 		rq->nr_running = 0;
 		rq->calc_load_active = 0;
 		rq->calc_load_update = jiffies + LOAD_FREQ;
+		/**
+		 * Hustler 2024/08/07
+		 * ------------------------------------------------------
+		 * Initialize runqueues of different schedule class
+		 * (a) CFS (Completely Fair Scheduler)
+		 * (b) RT  (Realtime)
+		 * (c) DL  (Deadline)
+		 * ------------------------------------------------------
+		 */
 		init_cfs_rq(&rq->cfs);
 		init_rt_rq(&rq->rt);
 		init_dl_rq(&rq->dl);
