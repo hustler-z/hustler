@@ -9049,6 +9049,7 @@ void __init init_idle(struct task_struct *idle, int cpu)
 	__set_task_cpu(idle, cpu);
 	rcu_read_unlock();
 
+	/* 空闲调度类 */
 	rq->idle = idle;
 	rcu_assign_pointer(rq->curr, idle);
 	idle->on_rq = TASK_ON_RQ_QUEUED;
@@ -9735,12 +9736,41 @@ void __init sched_init(void)
 		rq->calc_load_active = 0;
 		rq->calc_load_update = jiffies + LOAD_FREQ;
 		/**
-		 * Hustler 2024/08/07
+		 * Hustler 2024/08/08
 		 * ------------------------------------------------------
-		 * Initialize runqueues of different schedule class
-		 * (a) CFS (Completely Fair Scheduler)
-		 * (b) RT  (Realtime)
-		 * (c) DL  (Deadline)
+		 * 衡量调度性能的指标
+		 *
+		 * (1) CPU利用率
+		 * (2) 吞吐量   => 单位时间内系统能完成的任务数
+		 * (3) 周转时间 = 实际执行时间 + 等待系统资源时间
+		 * (4) 响应时间 => 提交请求到首次响应的时间
+		 * ------------------------------------------------------
+		 * 多核调度需要解决的问题
+		 *
+		 * (1) 缓存一致性
+		 * (2) 缓存亲和度
+		 * (3) 核间数据共享
+		 * (4) 负载均衡 (Load Balance)
+		 * ------------------------------------------------------
+		 * Initialize Runqueues of different Scheduling Classes
+		 *
+		 * (a) Stop Task Scheduling Class
+		 *     停机调度类 - (migration/<cpu id> 迁移线程)
+		 *
+		 * (b) Deadline Scheduling Class       - SCHED_DEALINE
+		 *     限时调度类
+		 *
+		 * (c) RT (Real Time Scheduling Class)
+		 *     实时调度类
+		 *     a) SCHED_RR   (Round Robin)
+		 *        轮转调度算法
+		 *     b) SCHED_FIFO (FCFS - First Come First Served)
+		 *
+		 * (d) CFS (Completely Fair Scheduler) - SCHED_NORMAL
+		 *     公平调度类 (标准轮流分时调度策略 fair time slices)
+		 *
+		 * (e) Idle Scheduling Class
+		 *     空闲调度类
 		 * ------------------------------------------------------
 		 */
 		init_cfs_rq(&rq->cfs);
@@ -9775,7 +9805,7 @@ void __init sched_init(void)
 #ifdef CONFIG_RT_GROUP_SCHED
 		init_tg_rt_entry(&root_task_group, &rq->rt, NULL, i, NULL);
 #endif
-#ifdef CONFIG_SMP
+#ifdef CONFIG_SMP /* Symmetric Multi-Processor */
 		rq->sd = NULL;
 		rq->rd = NULL;
 		rq->cpu_capacity = rq->cpu_capacity_orig = SCHED_CAPACITY_SCALE;

@@ -1006,7 +1006,9 @@ struct rq {
 	unsigned int		nr_uninterruptible;
 
 	struct task_struct __rcu	*curr;
+	/* 空闲调度类 */
 	struct task_struct	*idle;
+	/* 停机调度类 */
 	struct task_struct	*stop;
 	unsigned long		next_balance;
 	struct mm_struct	*prev_mm;

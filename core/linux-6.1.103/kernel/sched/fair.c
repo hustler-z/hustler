@@ -706,6 +706,16 @@ static inline u64 calc_delta_fair(u64 delta, struct sched_entity *se)
  * this period because otherwise the slices get too small.
  *
  * p = (nr <= nl) ? l : l*nr/nl
+ *
+ * --------------------------------------------------------------
+ * Hustler 2024/08/08
+ *
+ * sysctl_sched_min_granularity 最小粒度时间，默认0.75ms
+ *
+ * sysctl_sched_latency         调度延迟，默认6ms
+ * (调度延迟 => 进程两次被调度的时间间隔)
+ *
+ * --------------------------------------------------------------
  */
 static u64 __sched_period(unsigned long nr_running)
 {
@@ -722,6 +732,12 @@ static bool sched_idle_cfs_rq(struct cfs_rq *cfs_rq);
  * proportional to the weight.
  *
  * s = p*P[w/rw]
+ *
+ * --------------------------------------------------------------
+ * Hustler 2024/08/08
+ *
+ * 分配的实际运行时间 w = sched_period * (W / sum(W))
+ * --------------------------------------------------------------
  */
 static u64 sched_slice(struct cfs_rq *cfs_rq, struct sched_entity *se)
 {

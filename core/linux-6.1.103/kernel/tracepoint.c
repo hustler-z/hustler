@@ -515,6 +515,12 @@ int tracepoint_probe_register_prio(struct tracepoint *tp, void *probe,
 EXPORT_SYMBOL_GPL(tracepoint_probe_register_prio);
 
 /**
+ * Hustler 2024/08/08
+ * --------------------------------------------------------------
+ * 注册对应tracepoint的钩子函数(hook function => probe), 顾名思义，
+ * 当trace点执行时，就会执行对应的钩子函数。
+ * --------------------------------------------------------------
+ *
  * tracepoint_probe_register -  Connect a probe to a tracepoint
  * @tp: tracepoint
  * @probe: probe handler

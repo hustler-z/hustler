@@ -310,6 +310,10 @@ static inline int cpuhp_setup_state_cpuslocked(enum cpuhp_state state,
 }
 
 /**
+ * Hustler 2024/08/08
+ * --------------------------------------------------------------
+ * 注册CPU热拔插状态回调函数
+ * --------------------------------------------------------------
  * cpuhp_setup_state_nocalls - Setup hotplug state callbacks without calling the
  *			       @startup callback
  * @state:	The state for which the calls are installed
