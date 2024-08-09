@@ -3,11 +3,39 @@ ARM Trace Notes
 -----------------------------------------------------------------
 
 (*) Ftrace (插桩)
+check arch/arm64/kernel/entry-ftrace.S
 check kernel/trace/ftrace.c
 
-
-
-
+-----------------------------------------------------------------
+# 启用Ftrace
+CONFIG_FTRACE=y
+# 启用函数级别的追踪器
+CONFIG_FUNCTION_TRACER=y
+# 表示内核支持图形显示
+CONFIG_HAVE_FUNCTION_GRAPH_TRACER=y
+# 以图形的方式显示函数追踪过程
+CONFIG_FUNCTION_GRAPH_TRACER=y
+# 启用堆栈追踪器，用于跟踪内核函数调用的堆栈信息
+CONFIG_STACK_TRACER=y
+# 启用动态Ftrace，允许在运行时启用和禁用Ftrace功能
+CONFIG_DYNAMIC_FTRACE=y
+# 表示内核支持非屏蔽中断（NMI）时进入Ftrace的功能
+CONFIG_HAVE_FTRACE_NMI_ENTER=y
+# 表示内核支持通过 mcount记录函数调用关系
+CONFIG_HAVE_FTRACE_MCOUNT_RECORD=y
+# 表示内核支持通过mcount记录函数调用关系
+CONFIG_FTRACE_NMI_ENTER=y
+# 系统调用的追踪
+CONFIG_FTRACE_SYSCALLS=y
+# 启用mcount记录函数调用关系
+CONFIG_FTRACE_MCOUNT_RECORD=y
+# 支持调度追踪
+CONFIG_SCHED_TRACER=y
+# 启用函数分析器，主要用于记录函数的执行时间和调用次数
+CONFIG_FUNCTION_PROFILER=y
+# 启用Debug文件系统支持
+CONFIG_DEBUG_FS=y
+-----------------------------------------------------------------
 
 
 

@@ -72,6 +72,19 @@
 	 * Either we've just detected an overflow, or we've taken an exception
 	 * while on the overflow stack. Either way, we won't return to
 	 * userspace, and can clobber EL0 registers to free up GPRs.
+	 * ----------------------------------------------------------
+	 * Hustler 2024/08/09
+	 *
+	 * TPIDR_EL0   - EL0 Read/Write Software Thread ID Register
+	 *
+	 * TPIDRRO_EL0 - EL0 Read-Only Software Thread ID Register
+	 *
+	 *               Provides a location where software executing
+	 *               at EL1 or higher can store thread identifying
+	 *               information that is visible to software
+	 *               executing at EL0, for OS management purposes.
+	 *               The PE makes no use of this register.
+	 * ----------------------------------------------------------
 	 */
 
 	/* Stash the original SP (minus PT_REGS_SIZE) in tpidr_el0. */
@@ -726,6 +739,14 @@ alternative_else_nop_endif
 .org 1b + 128	// Did we overflow the ventry slot?
 	.endm
 
+	/* ----------------------------------------------------------
+	 * FAR_EL1 - Fault Address Register (EL1)
+	 *           Holds the faulting Virtual Address for all
+	 *           synchronous Instruction or Data Abort, PC
+	 *           alignment fault and Watchpoint exceptions
+	 *           that are taken to EL1.
+	 * ----------------------------------------------------------
+	 */
 	.macro tramp_exit, regsize = 64
 	tramp_data_read_var	x30, this_cpu_vector
 	get_this_cpu_offset x29

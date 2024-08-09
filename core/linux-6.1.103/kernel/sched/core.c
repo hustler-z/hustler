@@ -9736,7 +9736,7 @@ void __init sched_init(void)
 		rq->calc_load_active = 0;
 		rq->calc_load_update = jiffies + LOAD_FREQ;
 		/**
-		 * Hustler 2024/08/08
+		 * Hustler 2024/08/09
 		 * ------------------------------------------------------
 		 * 衡量调度性能的指标
 		 *
@@ -9757,8 +9757,9 @@ void __init sched_init(void)
 		 * (a) Stop Task Scheduling Class
 		 *     停机调度类 - (migration/<cpu id> 迁移线程)
 		 *
-		 * (b) Deadline Scheduling Class       - SCHED_DEALINE
+		 * (b) Deadline Scheduling Class
 		 *     限时调度类
+		 *     a) SCHED_DEADLINE
 		 *
 		 * (c) RT (Real Time Scheduling Class)
 		 *     实时调度类
@@ -9766,11 +9767,14 @@ void __init sched_init(void)
 		 *        轮转调度算法
 		 *     b) SCHED_FIFO (FCFS - First Come First Served)
 		 *
-		 * (d) CFS (Completely Fair Scheduler) - SCHED_NORMAL
+		 * (d) CFS (Completely Fair Scheduler)
 		 *     公平调度类 (标准轮流分时调度策略 fair time slices)
+		 *     a) SCHED_NORMAL
+		 *     b) SCHED_BATCH
 		 *
 		 * (e) Idle Scheduling Class
 		 *     空闲调度类
+		 *     a) SCHED_IDLE
 		 * ------------------------------------------------------
 		 */
 		init_cfs_rq(&rq->cfs);
@@ -9856,6 +9860,7 @@ void __init sched_init(void)
 	 * The boot idle thread does lazy MMU switching as well:
 	 */
 	mmgrab(&init_mm);
+	/* Note: arch/arm64/include/asm/mmu_context.h */
 	enter_lazy_tlb(&init_mm, current);
 
 	/*

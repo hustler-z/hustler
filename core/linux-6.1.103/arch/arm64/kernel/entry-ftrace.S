@@ -123,7 +123,10 @@ SYM_CODE_END(ftrace_common)
 
 #else /* CONFIG_DYNAMIC_FTRACE_WITH_REGS */
 
-/*
+/* Hustler 2024/08/09
+ * --------------------------------------------------------------
+ * Ftrace的原理
+ * --------------------------------------------------------------
  * Gcc with -pg will put the following code in the beginning of each function:
  *      mov x0, x30
  *      bl _mcount

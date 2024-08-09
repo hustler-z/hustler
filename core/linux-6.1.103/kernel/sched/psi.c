@@ -135,6 +135,20 @@
  * This gives us an approximation of pressure that is practical
  * cost-wise, yet way more sensitive and accurate than periodic
  * sampling of the aggregate task states would be.
+ *
+ * --------------------------------------------------------------
+ * Hustler 2024/08/09
+ *
+ * PSI (Pressure Stall Information 压力阻塞信息)
+ *     评估系统资源压力的方法，实现硬件资源利用率最大化
+ *
+ *                       |-- FULL ->|
+ * Task A |--------------|xxxxxxxxxx|-------------|
+ *
+ *        |-------- SOME ------->|
+ * Task B |xxxxxxxxxxxxxxxxxxxxxx|----------------|
+ *
+ * --------------------------------------------------------------
  */
 
 static int psi_bug __read_mostly;
